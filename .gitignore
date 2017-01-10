@@ -1,3 +1,5 @@
+/.vscode/
+/ext/
 /a.out
 /*.exe
 /*.o

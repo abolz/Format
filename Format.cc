@@ -1,4 +1,4 @@
-// Distributed under the MIT license. See the end of the file for deteils.
+// Distributed under the MIT license. See the end of the file for details.
 
 #include "Format.h"
 

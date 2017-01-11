@@ -28,11 +28,6 @@ static bool expect_equal(char const* expected, std__string_view format, Args con
     auto err = fmtxx::Format(buf, format, args...);
     std::string str = buf.str();
 
-    //char buf[300];
-    //base::ArrayStream stream(buf, 300);
-    //auto err = fmtxx::Format(stream, format, args...);
-    //std::string str = { stream.pdata(), stream.psize() };
-
     if (err != 0)
     {
         fprintf(stderr, "FAIL: invalid format string\n");
@@ -267,6 +262,11 @@ static void test_ints()
     EXPECT_EQUAL("-000074565",  "{:010}",    -V);
     EXPECT_EQUAL("0745650000",  "{:0< 10}",    V);
     EXPECT_EQUAL("-745650000",  "{:0< 10}",   -V);
+
+    EXPECT_EQUAL("2147483647", "{}", INT_MAX);
+    EXPECT_EQUAL("-2147483648", "{}", INT_MIN);
+    EXPECT_EQUAL("9223372036854775807", "{}", INT64_MAX);
+    EXPECT_EQUAL("-9223372036854775808", "{}", INT64_MIN);
 
     EXPECT_EQUAL("1",     "{:x}",   (signed char) 1);
 #if LIB_BASE_FORMAT_PROMOTE_TO_INT

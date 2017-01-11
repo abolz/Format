@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <ostream>
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -27,8 +28,8 @@ static bool Put(std::ostream& os, char c)
 
 static bool Write(std::ostream& os, char const* str, size_t len)
 {
-//  assert(len <= std::numeric_limits<std::streamsize>::max());
-//  assert(len > 0);
+    if (len > static_cast<size_t>(std::numeric_limits<std::streamsize>::max()))
+        return false;
 
     const auto n = static_cast<std::streamsize>(len);
 
@@ -51,8 +52,8 @@ static bool Write(std::ostream& os, char const* str, size_t len)
 
 static bool Pad(std::ostream& os, char c, size_t count)
 {
-//  assert(count <= std::numeric_limits<std::streamsize>::max());
-//  assert(count > 0);
+    if (count > static_cast<size_t>(std::numeric_limits<std::streamsize>::max()))
+        return false;
 
     auto n = static_cast<std::streamsize>(count);
 
@@ -1431,6 +1432,30 @@ int fmtxx::impl::DoFormat(std::ostream& out, std__string_view format, Types type
 
     return -1;
 }
+
+#if 0
+#ifdef _MSC_VER // cpplib
+
+#include <fstream>
+int fmtxx::impl::DoFormat(std::FILE* buf, std__string_view format, Types types, Arg const* args)
+{
+    std::ofstream out { buf };
+    return DoFormat(out, format, types, args);
+}
+
+#else // libstdc++
+
+#include <ext/stdio_filebuf.h>
+int fmtxx::impl::DoFormat(std::FILE* buf, std__string_view format, Types types, Arg const* args)
+{
+    __gnu_cxx::stdio_filebuf<char> fbuf { buf, std::ios::out };
+
+    std::ostream out { &fbuf };
+    return DoFormat(out, format, types, args);
+}
+
+#endif
+#endif
 
 //------------------------------------------------------------------------------
 // Copyright 2016 Alexander Bolz

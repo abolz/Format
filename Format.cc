@@ -1095,7 +1095,11 @@ static int WriteDouble(std::ostream& out, FormatSpec const& spec, double x)
     default:
         // I'm sorry Dave, I'm afraid I can't do that.
     case '\0':
-        conv = 'g';
+        conv = 's';
+    case 's':
+    case 'S':
+        tostr = true;
+        break;
     case 'g':
     case 'G':
     case 'e':
@@ -1106,10 +1110,6 @@ static int WriteDouble(std::ostream& out, FormatSpec const& spec, double x)
     case 'f':
     case 'F':
         conv = 'f';
-        break;
-    case 's':
-    case 'S':
-        tostr = true;
         break;
     case 'x':
     case 'X':

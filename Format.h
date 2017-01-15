@@ -11,6 +11,10 @@ using std__string_view = std::experimental::string_view;
 #endif
 #include <iosfwd>
 
+#ifdef __GNUC__
+#  define FMTXX_VISIBILITY_DEFAULT __attribute__((visibility("default")))
+#endif
+
 #ifdef FMTXX_SHARED
 #  ifdef _MSC_VER
 #    ifdef FMTXX_EXPORT
@@ -20,7 +24,7 @@ using std__string_view = std::experimental::string_view;
 #    endif
 #  else
 #    ifdef FMTXX_EXPORT
-#      define FMTXX_API __attribute__((visibility("default")))
+#      define FMTXX_API FMTXX_VISIBILITY_DEFAULT
 #    else
 #      define FMTXX_API
 #    endif
@@ -35,7 +39,7 @@ using std__string_view = std::experimental::string_view;
 
 namespace fmtxx {
 
-struct FormatSpec
+struct FMTXX_VISIBILITY_DEFAULT FormatSpec
 {
     std__string_view style;
     int  width = 0;

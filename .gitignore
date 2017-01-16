@@ -2,10 +2,3 @@
 /backups/
 /build/
 /ext/
-/a.out
-/*.exe
-/*.o
-/*.obj
-/*.so
-/Test
-/TestPerf

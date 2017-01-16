@@ -360,7 +360,7 @@ static int CountLeadingZeros64(uint64_t n)
 
 #elif defined(__GNUC__)
 
-    return __builtin_clzll((unsigned long long)n);
+    return __builtin_clzll(static_cast<unsigned long long>(n));
 
 #else
 
@@ -883,10 +883,10 @@ static char* NumberToString(double x, char* buf, bool trailing_dot_zero = false)
 
     if (k <= n && n <= 21)
     {
-        std::memcpy(buf, s, (size_t)k);
+        std::memcpy(buf, s, static_cast<size_t>(k));
         buf += k;
         if (k != n) {
-            std::memset(buf, '0', (size_t)(n - k));
+            std::memset(buf, '0', static_cast<size_t>(n - k));
             buf += n - k;
         }
         if (trailing_dot_zero) {
@@ -896,9 +896,9 @@ static char* NumberToString(double x, char* buf, bool trailing_dot_zero = false)
     }
     else if (0 < n && n <= 21)
     {
-        std::memcpy(buf, s, (size_t)n);
+        std::memcpy(buf, s, static_cast<size_t>(n));
         buf[n] = '.';
-        std::memcpy(buf + (n + 1), s + n, (size_t)(k - n));
+        std::memcpy(buf + (n + 1), s + n, static_cast<size_t>(k - n));
         buf += k + 1;
     }
     else if (-6 < n && n <= 0)
@@ -906,10 +906,10 @@ static char* NumberToString(double x, char* buf, bool trailing_dot_zero = false)
         *buf++ = '0';
         *buf++ = '.';
         if (n != 0) {
-            std::memset(buf, '0', (size_t)(-n));
+            std::memset(buf, '0', static_cast<size_t>(-n));
             buf += -n;
         }
-        std::memcpy(buf , s, (size_t)k);
+        std::memcpy(buf , s, static_cast<size_t>(k));
         buf += k;
     }
     else if (k == 1)
@@ -928,7 +928,7 @@ static char* NumberToString(double x, char* buf, bool trailing_dot_zero = false)
     {
         *buf++ = s[0];
         *buf++ = '.';
-        std::memcpy(buf, s + 1, (size_t)(k - 1));
+        std::memcpy(buf, s + 1, static_cast<size_t>(k - 1));
         buf += k - 1;
         *buf++ = 'e';
         buf += WriteExponent(n - 1, buf);
@@ -1037,7 +1037,7 @@ static char* NumberToHexString(double x, char* buf, bool trailing_dot_zero = fal
     if (k > 1)
     {
         *buf++ = '.';
-        std::memcpy(buf, s + 1, (size_t)(k - 1));
+        std::memcpy(buf, s + 1, static_cast<size_t>(k - 1));
         buf += k - 1;
     }
     else

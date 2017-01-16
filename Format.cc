@@ -378,10 +378,10 @@ namespace {
 
 struct Double
 {
-    static const uint64_t kSignMask     = 0x8000000000000000;
-    static const uint64_t kExponentMask = 0x7FF0000000000000;
-    static const uint64_t kMantissaMask = 0x000FFFFFFFFFFFFF;
-    static const uint64_t kHiddenBit    = 0x0010000000000000;
+    static const uint64_t kSignMask        = 0x8000000000000000;
+    static const uint64_t kExponentMask    = 0x7FF0000000000000;
+    static const uint64_t kSignificandMask = 0x000FFFFFFFFFFFFF;
+    static const uint64_t kHiddenBit       = 0x0010000000000000;
 
     static const int kExponentBias = 0x3FF;
 
@@ -393,12 +393,12 @@ struct Double
     explicit Double(double d) : d(d) {}
     explicit Double(uint64_t bits) : bits(bits) {}
 
-    uint64_t Sign()     const { return (bits & kSignMask    ) >> 63; }
-    uint64_t Exponent() const { return (bits & kExponentMask) >> 52; }
-    uint64_t Mantissa() const { return (bits & kMantissaMask)      ; }
+    uint64_t Sign()        const { return (bits & kSignMask      ) >> 63; }
+    uint64_t Exponent()    const { return (bits & kExponentMask  ) >> 52; }
+    uint64_t Significand() const { return (bits & kSignificandMask)      ; }
 
     int UnbiasedExponent() const {
-        return (int)Exponent() - kExponentBias;
+        return static_cast<int>(Exponent()) - kExponentBias;
     }
 
     bool IsZero() const {
@@ -414,11 +414,11 @@ struct Double
     }
 
     bool IsInf() const {
-        return IsSpecial() && (bits & kMantissaMask) == 0;
+        return IsSpecial() && (bits & kSignificandMask) == 0;
     }
 
     bool IsNaN() const {
-        return IsSpecial() && (bits & kMantissaMask) != 0;
+        return IsSpecial() && (bits & kSignificandMask) != 0;
     }
 
     double Abs() const {
@@ -429,13 +429,13 @@ struct Double
     bool IsIntegral() const
     {
         const int e = UnbiasedExponent();
-        return e >= 52 || (e >= 0 && (Mantissa() & (kMantissaMask >> e)) == 0);
+        return e >= 52 || (e >= 0 && (Significand() & (kSignificandMask >> e)) == 0);
     }
 
     //bool IsSafeInt() const
     //{
     //    const int e = UnbiasedExponent();
-    //    return (e >= 0 && e <= 52 && (Mantissa() & (kMantissaMask >> e)) == 0)
+    //    return (e >= 0 && e <= 52 && (Significand() & (kSignificandMask >> e)) == 0)
     //        || (e >= 52 && e <= 63 - 1/*hidden bit*/);
     //}
 #endif
@@ -443,7 +443,7 @@ struct Double
 
 struct Fp // f * 2^e
 {
-    // The integer mantissa
+    // The integer significand
     uint64_t f;
     // The exponent in base 2
     int e;
@@ -461,7 +461,7 @@ struct Fp // f * 2^e
     // Returns X * Y. The result is rounded.
     static Fp Mul(Fp x, Fp y);
 
-    // Normalize X such that the mantissa is at least 2^63.
+    // Normalize X such that the significand is at least 2^63.
     static Fp Normalize(Fp x);
 
     // Normalize X such that the result has the exponent E.
@@ -473,7 +473,7 @@ inline Fp Fp::FromDouble(double d)
     const Double u { d };
 
     uint64_t e = u.Exponent();
-    uint64_t f = u.Mantissa();
+    uint64_t f = u.Significand();
     if (e == 0) // denormal?
         e++;
     else
@@ -693,7 +693,7 @@ static void NormalizedBoundaries(double x, Fp& m_minus, Fp& m_plus)
 
     const Fp plus = Fp::Normalize(Fp { (v.f << 1) + 1, v.e - 1 });
 
-    const bool closer = (v.f == Double::kHiddenBit); // ie, exp != 0 && man == 0
+    const bool closer = (v.f == Double::kHiddenBit); // ie, exp != 0 && sig == 0
     const Fp minus = closer
         ? Fp { (v.f << 2) - 1, v.e - 2 }
         : Fp { (v.f << 1) - 1, v.e - 1 };
@@ -950,27 +950,27 @@ static void GenHexDigits(double x, int prec, bool normalize, bool capitals, char
     assert(!d.IsSpecial());
 
     uint64_t exp = d.Exponent();
-    uint64_t man = d.Mantissa();
+    uint64_t sig = d.Significand();
 
     e = static_cast<int>(exp) - Double::kExponentBias;
     if (normalize)
     {
         if (exp == 0)
         {
-            assert(man != 0);
+            assert(sig != 0);
 
             e++; // denormal exponent = 1 - bias
 
             // Shift the highest bit into the hidden-bit position and adjust the
             // exponent.
-            int s = CountLeadingZeros64(man);
-            man <<= s - 12 + 1;
+            int s = CountLeadingZeros64(sig);
+            sig <<= s - 12 + 1;
             e    -= s - 12 + 1;
 
             // Clear out the hidden-bit.
             // This is not used any more and must be cleared to detect overflow
             // when rounding below.
-            man &= Double::kMantissaMask;
+            sig &= Double::kSignificandMask;
         }
     }
     else
@@ -978,45 +978,44 @@ static void GenHexDigits(double x, int prec, bool normalize, bool capitals, char
         if (exp == 0)
             e++; // denormal exponent = 1 - bias
         else
-            man |= Double::kHiddenBit;
+            sig |= Double::kHiddenBit;
     }
 
     // Round?
     if (prec >= 0 && prec < 52/4)
     {
-        const uint64_t digit = man         >> (52 - 4*prec - 4);
+        const uint64_t digit = sig         >> (52 - 4*prec - 4);
         const uint64_t r     = uint64_t{1} << (52 - 4*prec    );
 
-        assert(!normalize || (man & Double::kHiddenBit) == 0);
+        assert(!normalize || (sig & Double::kHiddenBit) == 0);
 
 //      if ((digit & 0xF) >= 8)
         if (digit & 0x8)    // Digit >= 8
         {
-            man += r;       // Round...
+            sig += r;       // Round...
             if (normalize)
             {
-                assert((man >> 52) <= 1);
-                if (man & Double::kHiddenBit) // 0ff... was rounded to 100...
+                assert((sig >> 52) <= 1);
+                if (sig & Double::kHiddenBit) // 0ff... was rounded to 100...
                     e++;
             }
         }
 
         // Zero out unused bits so that the loop below does not produce more
         // digits than neccessary.
-//      man &= r | -r;
-        man &= r | (~r + 1); // fix MSVC warning...
+        sig &= r | (0 - r);
     }
 
-    buf[len++] = xdigits[normalize ? 1 : (man >> 52)];
+    buf[len++] = xdigits[normalize ? 1 : (sig >> 52)];
 
     // Ignore everything but the significand.
     // Shift everything to the left; makes the loop below slightly simpler.
-    man <<= 64 - 52;
+    sig <<= 64 - 52;
 
-    while (man != 0)
+    while (sig != 0)
     {
-        buf[len++] = xdigits[man >> (64 - 4)];
-        man <<= 4;
+        buf[len++] = xdigits[sig >> (64 - 4)];
+        sig <<= 4;
     }
 }
 
@@ -1126,7 +1125,7 @@ static int WriteDouble(std::ostream& out, FormatSpec const& spec, double x)
 
     if (d.IsSpecial())
     {
-        const bool inf = (d.Mantissa() == 0);
+        const bool inf = (d.Significand() == 0);
         const char* s =
             inf ? (neg ? (upper ? "-INF" : "-inf")
                        : (upper ?  "INF" :  "inf"))

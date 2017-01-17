@@ -588,6 +588,103 @@ static void test_char()
     //EXPECT_EQUAL("41", "{:x}", 'A');
 }
 
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+#include <iostream>
+#include <sstream>
+#include <tuple>
+#include <type_traits>
+
+namespace impl {
+
+#if 1
+  #if 1
+    template <typename T> struct RemoveRValueRef      { using type = T; };
+    template <typename T> struct RemoveRValueRef<T&&> { using type = T; };
+    template <typename T>
+        using StoredType_t = typename RemoveRValueRef<T>::type;
+
+    static_assert( std::is_same< int,        StoredType_t<int&&>      >::value, "" );
+    static_assert( std::is_same< int const&, StoredType_t<int const&> >::value, "" );
+    static_assert( std::is_same< int&      , StoredType_t<int&      > >::value, "" );
+    static_assert( std::is_same< int       , StoredType_t<int       > >::value, "" );
+  #else
+    template <typename T>
+        using StoredType_t = std::decay_t<T>;
+  #endif
+#else
+  template <typename T>
+      using StoredType_t = T;
+#endif
+
+template <typename Str, typename ...Args>
+struct FormatArgs
+{
+    const StoredType_t<Str&&> format_;
+    const std::tuple<StoredType_t<Args&&>...> args_;
+
+    FormatArgs(Str&& format, Args&&... args)
+        : format_(std::forward<Str>(format))
+        , args_(std::forward<Args>(args)...)
+    {
+    }
+
+    template <size_t... I>
+    void operator_insert(std::ostream& stream, std::index_sequence<I...>) const
+    {
+      #if 0
+        std::ostringstream ss;
+        fmtxx::Format(ss, format_, std::get<I>(args_)...);
+        stream << ss.str();
+      #else
+        fmtxx::Format(stream, format_, std::get<I>(args_)...);
+      #endif
+    }
+};
+
+template <typename Str, typename ...Args>
+std::ostream& operator <<(std::ostream& stream, FormatArgs<Str, Args...> const& args)
+{
+    args.operator_insert(stream, std::make_index_sequence<sizeof...(Args)>{});
+    return stream;
+}
+
+} // namespace impl
+
+template <typename Str, typename ...Args>
+struct impl::FormatArgs<Str&&, Args&&...> Formatted(Str&& format, Args&&... args)
+{
+    return impl::FormatArgs<Str&&, Args&&...>(std::forward<Str>(format), std::forward<Args>(args)...);
+}
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+static std::string say_hello() {
+    return "hello hello hello hello hello hello hello hello hello hello";
+}
+
+static void test_tuple()
+{
+    const auto formatted = Formatted("{} world {} {}", say_hello(), 1, 2.345);
+
+    std::ostringstream stream;
+    // Should probably be more like "stream << to_string(Format(...))",
+    // but it isn't
+    stream << formatted;
+
+    std::cout << stream.str() << "\n";
+
+    assert(stream.str() == "hello hello hello hello hello hello hello hello hello hello world 1 2.345");
+}
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
 int main()
 {
     test_format_specs();
@@ -599,6 +696,7 @@ int main()
     test_dynamic();
     test_custom();
     test_char();
+    test_tuple();
 
     return n_errors == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

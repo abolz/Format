@@ -13,6 +13,8 @@ using std__string_view = std::experimental::string_view;
 
 #ifdef __GNUC__
 #  define FMTXX_VISIBILITY_DEFAULT __attribute__((visibility("default")))
+#else
+#  define FMTXX_VISIBILITY_DEFAULT
 #endif
 
 #ifdef FMTXX_SHARED

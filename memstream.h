@@ -9,6 +9,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <cassert>
+#include <cstring>
 #include <istream>
 #include <ostream>
 #include <string>

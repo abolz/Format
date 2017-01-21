@@ -43,7 +43,7 @@ solution "Libs"
 --            "-ftime-report",
         }
 
-    configuration { "gmake", "Debug" }
+    configuration { "gmake", "Debug", "not Windows" }
         buildoptions {
             "-fsanitize=undefined",
         }
@@ -53,6 +53,7 @@ solution "Libs"
 
     configuration { "vs*" }
         buildoptions {
+            "/std:c++latest",
 --            "/arch:AVX2",
 --            "/GR-",
         }
@@ -85,6 +86,7 @@ project "fmtxx"
         buildoptions {
             "-Wsign-compare",
             "-Wsign-conversion",
+            "-Wold-style-cast",
             "-pedantic",
         }
 

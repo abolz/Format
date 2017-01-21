@@ -123,7 +123,7 @@ static void ComputePadding(size_t len, char align, int width, size_t& lpad, size
     }
 }
 
-static int WriteRawString(std::ostream& out, FormatSpec const& spec, char const* str, size_t len)
+static int WriteRawString(std::ostream& os, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t lpad = 0;
     size_t spad = 0;
@@ -131,17 +131,17 @@ static int WriteRawString(std::ostream& out, FormatSpec const& spec, char const*
 
     ComputePadding(len, spec.align, spec.width, lpad, spad, rpad);
 
-    if (lpad > 0 && !Pad(out, spec.fill, lpad))
+    if (lpad > 0 && !Pad(os, spec.fill, lpad))
         return -1;
-    if (len > 0  && !Write(out, str, len))
+    if (len > 0  && !Write(os, str, len))
         return -1;
-    if (rpad > 0 && !Pad(out, spec.fill, rpad))
+    if (rpad > 0 && !Pad(os, spec.fill, rpad))
         return -1;
 
     return 0;
 }
 
-static int WriteString(std::ostream& out, FormatSpec const& spec, char const* str, size_t len)
+static int WriteString(std::ostream& os, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t n = len;
     if (spec.prec >= 0)
@@ -150,13 +150,13 @@ static int WriteString(std::ostream& out, FormatSpec const& spec, char const* st
             n = static_cast<size_t>(spec.prec);
     }
 
-    return WriteRawString(out, spec, str, n);
+    return WriteRawString(os, spec, str, n);
 }
 
-static int WriteString(std::ostream& out, FormatSpec const& spec, char const* str)
+static int WriteString(std::ostream& os, FormatSpec const& spec, char const* str)
 {
     if (str == nullptr)
-        return WriteRawString(out, spec, "(null)", 6);
+        return WriteRawString(os, spec, "(null)", 6);
 
     // Use strnlen if a precision was specified.
     // The string may not be null-terminated!
@@ -166,7 +166,7 @@ static int WriteString(std::ostream& out, FormatSpec const& spec, char const* st
     else
         len = ::strlen(str);
 
-    return WriteRawString(out, spec, str, len);
+    return WriteRawString(os, spec, str, len);
 }
 
 static char* IntToDecAsciiBackwards(char* last/*[-20]*/, uint64_t n)
@@ -232,7 +232,7 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
     return last;
 }
 
-static int WriteNumber(std::ostream& out, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
+static int WriteNumber(std::ostream& os, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
 {
     const size_t len = (sign ? 1u : 0u) + nprefix + ndigits;
 
@@ -242,23 +242,23 @@ static int WriteNumber(std::ostream& out, FormatSpec const& spec, char sign, cha
 
     ComputePadding(len, spec.zero ? '=' : spec.align, spec.width, lpad, spad, rpad);
 
-    if (lpad > 0     && !Pad(out, spec.fill, lpad))
+    if (lpad > 0     && !Pad(os, spec.fill, lpad))
         return -1;
-    if (sign != '\0' && !Put(out, sign))
+    if (sign != '\0' && !Put(os, sign))
         return -1;
-    if (nprefix > 0  && !Write(out, prefix, nprefix))
+    if (nprefix > 0  && !Write(os, prefix, nprefix))
         return -1;
-    if (spad > 0     && !Pad(out, spec.zero ? '0' : spec.fill, spad))
+    if (spad > 0     && !Pad(os, spec.zero ? '0' : spec.fill, spad))
         return -1;
-    if (ndigits > 0  && !Write(out, digits, ndigits))
+    if (ndigits > 0  && !Write(os, digits, ndigits))
         return -1;
-    if (rpad > 0     && !Pad(out, spec.fill, rpad))
+    if (rpad > 0     && !Pad(os, spec.fill, rpad))
         return -1;
 
     return 0;
 }
 
-static int WriteInt(std::ostream& out, FormatSpec const& spec, int64_t sext, uint64_t zext)
+static int WriteInt(std::ostream& os, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
     uint64_t number  = zext;
     int      base    = 10;
@@ -307,29 +307,29 @@ static int WriteInt(std::ostream& out, FormatSpec const& spec, int64_t sext, uin
 
     const char prefix[] = { '0', conv };
 
-    return WriteNumber(out, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
+    return WriteNumber(os, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
 }
 
-static int WriteBool(std::ostream& out, FormatSpec const& spec, bool val)
+static int WriteBool(std::ostream& os, FormatSpec const& spec, bool val)
 {
-    return WriteRawString(out, spec, val ? "true" : "false", val ? 4u : 5u);
+    return WriteRawString(os, spec, val ? "true" : "false", val ? 4u : 5u);
 }
 
-static int WriteChar(std::ostream& out, FormatSpec const& spec, char ch)
+static int WriteChar(std::ostream& os, FormatSpec const& spec, char ch)
 {
-    return WriteString(out, spec, &ch, 1u);
+    return WriteString(os, spec, &ch, 1u);
 }
 
-static int WritePointer(std::ostream& out, FormatSpec const& spec, void const* pointer)
+static int WritePointer(std::ostream& os, FormatSpec const& spec, void const* pointer)
 {
     if (pointer == nullptr)
-        return WriteRawString(out, spec, "(nil)", 5);
+        return WriteRawString(os, spec, "(nil)", 5);
 
     FormatSpec f = spec;
     f.hash = '#';
     f.conv = 'x';
 
-    return WriteInt(out, f, 0, reinterpret_cast<uintptr_t>(pointer));
+    return WriteInt(os, f, 0, reinterpret_cast<uintptr_t>(pointer));
 }
 
 static int CountDecimalDigits32(uint32_t x)
@@ -1055,7 +1055,7 @@ static char* NumberToHexString(double x, char* buf, bool trailing_dot_zero = fal
     return buf;
 }
 
-static int DoubleToAscii(std::ostream& out, FormatSpec const& spec, char sign, char type, int prec, double abs_x)
+static int DoubleToAscii(std::ostream& os, FormatSpec const& spec, char sign, char type, int prec, double abs_x)
 {
     static const size_t kBufSize = 1000; // >= 9 !!!
     char buf[kBufSize];
@@ -1080,10 +1080,10 @@ static int DoubleToAscii(std::ostream& out, FormatSpec const& spec, char sign, c
         len = kBufSize;
     }
 
-    return WriteNumber(out, spec, sign, nullptr, 0, buf, len);
+    return WriteNumber(os, spec, sign, nullptr, 0, buf, len);
 }
 
-static int WriteDouble(std::ostream& out, FormatSpec const& spec, double x)
+static int WriteDouble(std::ostream& os, FormatSpec const& spec, double x)
 {
     char conv = spec.conv;
     bool tostr = false;
@@ -1131,7 +1131,7 @@ static int WriteDouble(std::ostream& out, FormatSpec const& spec, double x)
                        : (upper ?  "INF" :  "inf"))
                 : (upper ? "NAN" : "nan");
 
-        return WriteRawString(out, spec, s, ::strlen(s));
+        return WriteRawString(os, spec, s, ::strlen(s));
     }
 
     const double abs_x = d.Abs();
@@ -1148,10 +1148,10 @@ static int WriteDouble(std::ostream& out, FormatSpec const& spec, double x)
         const size_t nrepr = static_cast<size_t>(l - f);
         assert(nrepr <= 32);
 
-        return WriteNumber(out, spec, sign, "0x", (tohex && spec.hash) ? 2u : 0u, repr, nrepr);
+        return WriteNumber(os, spec, sign, "0x", (tohex && spec.hash) ? 2u : 0u, repr, nrepr);
     }
 
-    return DoubleToAscii(out, spec, sign, conv, spec.prec, abs_x);
+    return DoubleToAscii(os, spec, sign, conv, spec.prec, abs_x);
 }
 
 //
@@ -1310,7 +1310,7 @@ static int ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, in
     return 0;
 }
 
-static int CallFormatFunc(std::ostream& out, FormatSpec const& spec, int index, Types types, Arg const* args)
+static int CallFormatFunc(std::ostream& os, FormatSpec const& spec, int index, Types types, Arg const* args)
 {
     const unsigned type = types[index];
 
@@ -1322,29 +1322,29 @@ static int CallFormatFunc(std::ostream& out, FormatSpec const& spec, int index, 
     switch (type)
     {
     case Types::T_OTHER:
-        return arg.other.func(out, spec, arg.other.value);
+        return arg.other.func(os, spec, arg.other.value);
     case Types::T_STRING:
-        return WriteString(out, spec, arg.string.str, arg.string.len);
+        return WriteString(os, spec, arg.string.str, arg.string.len);
     case Types::T_PVOID:
-        return WritePointer(out, spec, arg.pvoid);
+        return WritePointer(os, spec, arg.pvoid);
     case Types::T_PCHAR:
-        return WriteString(out, spec, arg.pchar);
+        return WriteString(os, spec, arg.pchar);
     case Types::T_CHAR:
-        return WriteChar(out, spec, arg.char_);
+        return WriteChar(os, spec, arg.char_);
     case Types::T_BOOL:
-        return WriteBool(out, spec, arg.bool_);
+        return WriteBool(os, spec, arg.bool_);
     case Types::T_SCHAR:
-        return WriteInt(out, spec, arg.schar, static_cast<unsigned char>(arg.schar));
+        return WriteInt(os, spec, arg.schar, static_cast<unsigned char>(arg.schar));
     case Types::T_SSHORT:
-        return WriteInt(out, spec, arg.sshort, static_cast<unsigned short>(arg.sshort));
+        return WriteInt(os, spec, arg.sshort, static_cast<unsigned short>(arg.sshort));
     case Types::T_SINT:
-        return WriteInt(out, spec, arg.sint, static_cast<unsigned int>(arg.sint));
+        return WriteInt(os, spec, arg.sint, static_cast<unsigned int>(arg.sint));
     case Types::T_SLONGLONG:
-        return WriteInt(out, spec, arg.slonglong, static_cast<unsigned long long>(arg.slonglong));
+        return WriteInt(os, spec, arg.slonglong, static_cast<unsigned long long>(arg.slonglong));
     case Types::T_ULONGLONG:
-        return WriteInt(out, spec, 0, arg.ulonglong);
+        return WriteInt(os, spec, 0, arg.ulonglong);
     case Types::T_DOUBLE:
-        return WriteDouble(out, spec, arg.double_);
+        return WriteDouble(os, spec, arg.double_);
     case Types::T_FORMATSPEC:
         return -1;
     }
@@ -1353,7 +1353,7 @@ static int CallFormatFunc(std::ostream& out, FormatSpec const& spec, int index, 
     return -1;
 }
 
-static int DoFormatImpl(std::ostream& out, std__string_view format, Types types, Arg const* args)
+static int DoFormatImpl(std::ostream& os, std__string_view format, Types types, Arg const* args)
 {
     assert(args != nullptr);
 
@@ -1370,7 +1370,7 @@ static int DoFormatImpl(std::ostream& out, std__string_view format, Types types,
         while (f != end && *f != '{' && *f != '}')
             ++f;
 
-        if (f != s && !Write(out, s, static_cast<size_t>(f - s)))
+        if (f != s && !Write(os, s, static_cast<size_t>(f - s)))
             return -1;
 
         if (f == end) // done.
@@ -1410,7 +1410,7 @@ static int DoFormatImpl(std::ostream& out, std__string_view format, Types types,
         if (index < 0)
             index = nextarg++;
 
-        const int err = CallFormatFunc(out, spec, index, types, args);
+        const int err = CallFormatFunc(os, spec, index, types, args);
         if (err != 0)
             return err;
 
@@ -1423,11 +1423,11 @@ static int DoFormatImpl(std::ostream& out, std__string_view format, Types types,
     return 0;
 }
 
-int fmtxx::impl::DoFormat(std::ostream& out, std__string_view format, Types types, Arg const* args)
+int fmtxx::impl::DoFormat(std::ostream& os, std__string_view format, Types types, Arg const* args)
 {
-    const std::ostream::sentry ok(out);
-    if (ok)
-        return DoFormatImpl(out, format, types, args);
+    const std::ostream::sentry se(os);
+    if (se)
+        return DoFormatImpl(os, format, types, args);
 
     return -1;
 }

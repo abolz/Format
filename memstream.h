@@ -1,4 +1,6 @@
-// -*- C++ -*-
+// Derived from the libc++ strstream implementation.
+// Original license follows:
+//
 //===--------------------------- strstream --------------------------------===//
 //
 //                     The LLVM Compiler Infrastructure

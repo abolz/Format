@@ -1353,7 +1353,7 @@ static int CallFormatFunc(std::ostream& os, FormatSpec const& spec, int index, T
     return -1;
 }
 
-static int DoFormatImpl(std::ostream& os, std__string_view format, Types types, Arg const* args)
+static int DoFormatImpl(std::ostream& os, std::string_view format, Types types, Arg const* args)
 {
     assert(args != nullptr);
 
@@ -1423,7 +1423,7 @@ static int DoFormatImpl(std::ostream& os, std__string_view format, Types types, 
     return 0;
 }
 
-int fmtxx::impl::DoFormat(std::ostream& os, std__string_view format, Types types, Arg const* args)
+int fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args)
 {
     const std::ostream::sentry se(os);
     if (se)
@@ -1436,7 +1436,7 @@ int fmtxx::impl::DoFormat(std::ostream& os, std__string_view format, Types types
 #ifdef _MSC_VER // cpplib
 
 #include <fstream>
-int fmtxx::impl::DoFormat(std::FILE* buf, std__string_view format, Types types, Arg const* args)
+int fmtxx::impl::DoFormat(std::FILE* buf, std::string_view format, Types types, Arg const* args)
 {
     std::ofstream out { buf };
     return DoFormat(out, format, types, args);
@@ -1445,7 +1445,7 @@ int fmtxx::impl::DoFormat(std::FILE* buf, std__string_view format, Types types, 
 #else // libstdc++
 
 #include <ext/stdio_filebuf.h>
-int fmtxx::impl::DoFormat(std::FILE* buf, std__string_view format, Types types, Arg const* args)
+int fmtxx::impl::DoFormat(std::FILE* buf, std::string_view format, Types types, Arg const* args)
 {
     __gnu_cxx::stdio_filebuf<char> fbuf { buf, std::ios::out };
 

@@ -2,14 +2,23 @@
 
 #pragma once
 
-#if _MSC_VER
-#include <string_view>
-using std__string_view = std::string_view;
-#else
-#include <experimental/string_view>
-using std__string_view = std::experimental::string_view;
-#endif
 #include <iosfwd>
+#if _MSC_VER
+#  include <string_view>
+#else
+#  if __has_include(<string_view>)
+#    include <string_view>
+#  else
+#    include <experimental/string_view>
+     namespace std {
+       using std::experimental::basic_string_view;
+       using std::experimental::string_view;
+       using std::experimental::wstring_view;
+       using std::experimental::u16string_view;
+       using std::experimental::u32string_view;
+     }
+#  endif
+#endif
 
 #ifdef __GNUC__
 #  define FMTXX_VISIBILITY_DEFAULT __attribute__((visibility("default")))
@@ -43,7 +52,7 @@ namespace fmtxx {
 
 struct FMTXX_VISIBILITY_DEFAULT FormatSpec
 {
-    std__string_view style;
+    std::string_view style;
     int  width = 0;
     int  prec  = -1;
     char fill  = ' ';
@@ -90,7 +99,7 @@ int fmtxx__FormatValue(std::ostream& out, FormatSpec const& spec, T const& value
 // The formatting function which does all the work
 //
 template <typename ...Args>
-int Format(std::ostream& out, std__string_view format, Args const&... args);
+int Format(std::ostream& os, std::string_view format, Args const&... args);
 
 } // namespace fmtxx
 
@@ -150,7 +159,7 @@ private:
     template <typename T>
     unsigned GetId(T                  const&) { return IsString<T>::value ? T_STRING : T_OTHER; }
     unsigned GetId(bool               const&) { return T_BOOL; }
-    unsigned GetId(std__string_view   const&) { return T_STRING; }
+    unsigned GetId(std::string_view   const&) { return T_STRING; }
     unsigned GetId(std::string        const&) { return T_STRING; }
     unsigned GetId(std::nullptr_t     const&) { return T_PVOID; }
     unsigned GetId(void const*        const&) { return T_PVOID; }
@@ -235,7 +244,7 @@ public:
     template <typename T>
     Arg(T                  const& v) : Arg(v, BoolConst<IsString<T>::value>{}) {}
     Arg(bool               const& v) : bool_(v) {}
-    Arg(std__string_view   const& v) : string { v.data(), v.size() } {}
+    Arg(std::string_view   const& v) : string { v.data(), v.size() } {}
     Arg(std::string        const& v) : string { v.data(), v.size() } {}
     Arg(std::nullptr_t     const& v) : pvoid(v) {}
     Arg(void const*        const& v) : pvoid(v) {}
@@ -262,18 +271,18 @@ public:
     Arg(FormatSpec         const& v) : pvoid(&v) {}
 };
 
-FMTXX_API int DoFormat(std::ostream& buf, std__string_view format, Types types, Arg const* args);
+FMTXX_API int DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
 
 } // namespace impl
 } // namespace fmtxx
 
 template <typename ...Args>
-int fmtxx::Format(std::ostream& buf, std__string_view format, Args const&... args)
+int fmtxx::Format(std::ostream& os, std::string_view format, Args const&... args)
 {
     constexpr size_t N = sizeof...(Args);
     const impl::Arg arr[N ? N : 1] = { args... };
 
-    return impl::DoFormat(buf, format, impl::Types(args...), arr);
+    return impl::DoFormat(os, format, impl::Types(args...), arr);
 }
 
 //------------------------------------------------------------------------------

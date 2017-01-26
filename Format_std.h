@@ -3,7 +3,6 @@
 #pragma once
 
 #include "Format.h"
-//#include "memstream.h"
 
 #include <sstream>
 #include <tuple>
@@ -12,10 +11,8 @@
 namespace fmtxx {
 
 template <typename ...Args>
-std::string Format(std__string_view format, Args const&... args)
+std::string Format(std::string_view format, Args const&... args)
 {
-//    char stackbuf[500];
-//    omemstream os(stackbuf);
     std::ostringstream os;
     fmtxx::Format(os, format, args...);
     return os.str();
@@ -48,7 +45,7 @@ namespace impl
     template <typename S, typename ...Args>
     std::ostream& operator <<(std::ostream& os, FormatArgs<S, Args...> const& args)
     {
-        args.insert_impl(os, std::make_index_sequence<sizeof...(Args)>{});
+        args.insert(os);
         return os;
     }
 }

@@ -1,4 +1,4 @@
-#if 0
+﻿#if 0
 cl /EHsc Test.cc Format.cc /std:c++latest /Fe: Test.exe
 g++ Test.cc Format.cc
 #endif
@@ -23,7 +23,7 @@ static int n_errors = 0;
 //}
 
 template <typename ...Args>
-static bool expect_equal(char const* expected, std__string_view format, Args const&... args)
+static bool expect_equal(char const* expected, std::string_view format, Args const&... args)
 {
     //std::ostringstream buf;
     //auto err = fmtxx::Format(buf, format, args...);
@@ -62,7 +62,7 @@ static bool expect_equal(char const* expected, std__string_view format, Args con
     /**/
 
 template <typename ...Args>
-static bool expect_error(int expected_err, std__string_view format, Args const&... args)
+static bool expect_error(int expected_err, std::string_view format, Args const&... args)
 {
     std::ostringstream buf;
     auto err = fmtxx::Format(buf, format, args...);
@@ -86,15 +86,15 @@ static bool expect_error(int expected_err, std__string_view format, Args const&.
 static void test_format_specs()
 {
     EXPECT_ERROR(-1/*invalid*/, "{", 0);
-    EXPECT_ERROR(-1/*invalid*/, std__string_view("{*}", 1), 0, 0);
-    EXPECT_ERROR(-1/*invalid*/, std__string_view("{*}", 2), 0, 0);
+    EXPECT_ERROR(-1/*invalid*/, std::string_view("{*}", 1), 0, 0);
+    EXPECT_ERROR(-1/*invalid*/, std::string_view("{*}", 2), 0, 0);
     EXPECT_ERROR(0, "{*}", fmtxx::FormatSpec{}, 0);
     EXPECT_EQUAL("0", "{*}", fmtxx::FormatSpec{}, 0);
     EXPECT_ERROR(-1/*invalid*/, "{*", fmtxx::FormatSpec{}, 0);
     EXPECT_ERROR(-1/*invalid*/, "{*}}", fmtxx::FormatSpec{}, 0);
     EXPECT_ERROR(0, "{*}}}", fmtxx::FormatSpec{}, 0);
-    EXPECT_ERROR(-1/*invalid*/, std__string_view("{}", 1), 0);
-    EXPECT_ERROR(-1/*invalid*/, std__string_view("{1}", 2), 0);
+    EXPECT_ERROR(-1/*invalid*/, std::string_view("{}", 1), 0);
+    EXPECT_ERROR(-1/*invalid*/, std::string_view("{1}", 2), 0);
     EXPECT_ERROR(-1/*invalid*/, "{1", 0);
     EXPECT_ERROR(-1/*invalid*/, "{1:", 0);
     EXPECT_ERROR(-1/*invalid*/, "{1:1", 0);
@@ -591,6 +591,19 @@ static void test_char()
     //EXPECT_EQUAL("41", "{:x}", 'A');
 }
 
+static void test_wide_strings()
+{
+    #if 0
+#if !FMTXX_NO_CODECVT
+    EXPECT_EQUAL(u8"z\u00df\u6c34", "{}",  L"z\u00df\u6c34");
+#ifndef _MSC_VER
+    EXPECT_EQUAL(u8"z\u00df\u6c34\U0001f34c", "{}",  u"z\u00df\u6c34\U0001f34c");
+    EXPECT_EQUAL(u8"z\u00df\u6c34\U0001f34c", "{}",  U"z\u00df\u6c34\U0001f34c");
+#endif
+#endif
+    #endif
+}
+
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
@@ -628,6 +641,7 @@ int main()
     test_dynamic();
     test_custom();
     test_char();
+    test_wide_strings();
     test_tuple();
 
     return n_errors == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

@@ -1,5 +1,6 @@
 #define FMTXX_SHARED 1
 #include "Format.h"
+#include "Format_std.h"
 
 #define FMT_SHARED 1
 #include "fmt/format.h"
@@ -145,14 +146,15 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 //  times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { fprintf(stdout, format_printf, i); });
 //  times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf_buffered(format_printf, i); });
 
-////    times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
+//  times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
     times.t_tiny    = 1.0;
 
     times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
 //  times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
 //  times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 #endif
-    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(std::cout, format_fmtxx, i); });
+//  times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(std::cout, format_fmtxx, i); });
+    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { std::cout << fmtxx::Formatted(format_fmtxx, i); });
 
 #if 0
     fprintf(stderr,

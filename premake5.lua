@@ -30,7 +30,7 @@ solution "Libs"
 
     configuration { "gmake" }
         buildoptions {
---            "-march=haswell",
+            "-march=native",
             "-std=c++14",
             "-Wformat",
             "-Wsign-compare",
@@ -38,7 +38,7 @@ solution "Libs"
 --            "-pedantic",
             "-fvisibility=hidden",
             "-fno-exceptions",
-            "-fno-rtti",
+--            "-fno-rtti",
 --            "-fno-omit-frame-pointer",
 --            "-ftime-report",
         }
@@ -91,6 +91,20 @@ project "fmtxx"
             "-pedantic",
         }
 
+project "fmt"
+    language "C++"
+    kind "SharedLib"
+    files {
+        "test/ext/fmt/**",
+    }
+    defines {
+        "FMT_SHARED",
+        "FMT_EXPORT",
+    }
+    includedirs {
+        "test/ext/fmt/",
+    }
+
 --------------------------------------------------------------------------------
 group "Tests"
 
@@ -108,4 +122,23 @@ project "Test"
     }
     links {
         "fmtxx",
+    }
+
+project "TestPerf"
+    language "C++"
+    kind "ConsoleApp"
+    files {
+        "test/TestPerf.cc",
+    }
+    defines {
+        "FMTXX_SHARED",
+        "FMT_SHARED"
+    }
+    includedirs {
+        "src/",
+        "test/ext/",
+    }
+    links {
+        "fmtxx",
+        "fmt",
     }

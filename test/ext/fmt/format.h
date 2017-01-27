@@ -67,11 +67,19 @@ typedef __int64          intmax_t;
 #include <stdint.h>
 #endif
 
-#if !defined(FMT_HEADER_ONLY) && defined(_WIN32)
+#if !defined(FMT_HEADER_ONLY)
 # ifdef FMT_EXPORT
-#  define FMT_API __declspec(dllexport)
+#  ifdef _MSC_VER
+#    define FMT_API __declspec(dllexport)
+#  else
+#    define FMT_API __attribute__((visibility("default")))
+#  endif
 # elif defined(FMT_SHARED)
-#  define FMT_API __declspec(dllimport)
+#  ifdef _MSC_VER
+#    define FMT_API __declspec(dllimport)
+#  else
+#    define FMT_API /**/
+#  endif
 # endif
 #endif
 #ifndef FMT_API

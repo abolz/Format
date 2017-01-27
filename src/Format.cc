@@ -14,6 +14,9 @@
 using namespace fmtxx;
 using namespace fmtxx::impl;
 
+template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
+template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
+
 static bool Put(std::ostream& os, char c)
 {
     using traits_type = std::ostream::traits_type;
@@ -28,23 +31,29 @@ static bool Put(std::ostream& os, char c)
 
 static bool Write(std::ostream& os, char const* str, size_t len)
 {
-    if (len > static_cast<size_t>(std::numeric_limits<std::streamsize>::max()))
-        return false;
+    switch (len) {
+    case 0: return true;
+    case 1: return Put(os, str[0]);
+    case 2: return Put(os, str[0]) && Put(os, str[1]);
+    case 3: return Put(os, str[0]) && Put(os, str[1]) && Put(os, str[2]);
+    case 4: return Put(os, str[0]) && Put(os, str[1]) && Put(os, str[2]) && Put(os, str[3]);
+    }
 
-    const auto n = static_cast<std::streamsize>(len);
+    const auto kBlockSize = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
+    for (;;)
+    {
+        const auto k = Min(len, kBlockSize);
+        const auto n = static_cast<std::streamsize>(k);
 
-    if (n == 1)
-        return Put(os, str[0]);
-    if (n == 2)
-        return Put(os, str[0]) && Put(os, str[1]);
-    if (n == 3)
-        return Put(os, str[0]) && Put(os, str[1]) && Put(os, str[2]);
-    if (n == 4)
-        return Put(os, str[0]) && Put(os, str[1]) && Put(os, str[2]) && Put(os, str[3]);
+        if (n != os.rdbuf()->sputn(str, n)) {
+            os.setstate(std::ios_base::badbit);
+            return false;
+        }
 
-    if (n != os.rdbuf()->sputn(str, n)) {
-        os.setstate(std::ios_base::badbit);
-        return false;
+        if (k == len)
+            break;
+        str += k;
+        len -= k;
     }
 
     return true;
@@ -52,32 +61,20 @@ static bool Write(std::ostream& os, char const* str, size_t len)
 
 static bool Pad(std::ostream& os, char c, size_t count)
 {
-    if (count > static_cast<size_t>(std::numeric_limits<std::streamsize>::max()))
-        return false;
+    static const size_t kBlockSize = 64;
 
-    auto n = static_cast<std::streamsize>(count);
+    char block[kBlockSize];
+    std::memset(block, static_cast<unsigned char>(c), Min(count, kBlockSize));
 
-    if (n == 1)
-        return Put(os, c);
-    if (n == 2)
-        return Put(os, c) && Put(os, c);
-    if (n == 3)
-        return Put(os, c) && Put(os, c) && Put(os, c);
-    if (n == 4)
-        return Put(os, c) && Put(os, c) && Put(os, c) && Put(os, c);
-
-    const std::streamsize kBlockSize = 16;
-    const char block[] = {c, c, c, c, c, c, c, c, c, c, c, c, c, c, c, c};
-
-    for ( ; n >= kBlockSize; n -= kBlockSize)
+    while (count > 0)
     {
-        if (kBlockSize != os.rdbuf()->sputn(block, kBlockSize)) {
-            os.setstate(std::ios_base::badbit);
+        const auto k = Min(count, kBlockSize);
+        if (!Write(os, block, k))
             return false;
-        }
+        count -= k;
     }
 
-    return n > 0 ? Write(os, block, static_cast<size_t>(n)) : true;
+    return true;
 }
 
 static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
@@ -1428,7 +1425,6 @@ int fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types
     const std::ostream::sentry se(os);
     if (se)
         return DoFormatImpl(os, format, types, args);
-
     return -1;
 }
 

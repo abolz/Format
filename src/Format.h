@@ -10,13 +10,7 @@
 #    include <string_view>
 #  else
 #    include <experimental/string_view>
-     namespace std {
-       using std::experimental::basic_string_view;
-       using std::experimental::string_view;
-       using std::experimental::wstring_view;
-       using std::experimental::u16string_view;
-       using std::experimental::u32string_view;
-     }
+     namespace std { using std::experimental::string_view; }
 #  endif
 #endif
 
@@ -80,26 +74,37 @@ struct IsString {
 //
 template <typename T>
 int fmtxx__FormatValue(std::ostream& out, FormatSpec const& spec, T const& value)
-#if 1
     = delete;
-#else
-{
-    //
-    // XXX:
-    //
-    // Set the stream flags depending on the format first... and reset after
-    // streaming the value...
-    //
-    out << value;
-    return out.good() ? 0 : -1;
-}
-#endif
 
 //
 // The formatting function which does all the work
 //
 template <typename ...Args>
 int Format(std::ostream& os, std::string_view format, Args const&... args);
+
+//
+// Returns a std::string with the formatted arguments.
+//
+template <typename ...Args>
+std::string Format(std::string_view format, Args const&... args);
+
+//
+// Captures the format string and the arguments for later use.
+//
+template <typename S, typename ...Args>
+struct FormatArgs;
+
+//
+// Captures the format string and the arguments for later use.
+//
+template <typename S, typename ...Args>
+FormatArgs<S, Args...> Formatted(S&& format, Args&&... args);
+
+//
+// Writes the formatted arguments to the given stream.
+//
+template <typename S, typename ...Args>
+std::ostream& operator <<(std::ostream& os, FormatArgs<S, Args...> const& args);
 
 } // namespace fmtxx
 
@@ -110,6 +115,8 @@ int Format(std::ostream& os, std::string_view format, Args const&... args);
 #include <cassert>
 #include <climits>
 #include <cstddef>
+#include <sstream>
+#include <tuple>
 
 namespace fmtxx {
 namespace impl {
@@ -279,10 +286,52 @@ FMTXX_API int DoFormat(std::ostream& os, std::string_view format, Types types, A
 template <typename ...Args>
 int fmtxx::Format(std::ostream& os, std::string_view format, Args const&... args)
 {
-    constexpr size_t N = sizeof...(Args);
-    const impl::Arg arr[N ? N : 1] = { args... };
+    const size_t N = sizeof...(Args);
+    const fmtxx::impl::Arg arr[N ? N : 1] = { args... };
 
-    return impl::DoFormat(os, format, impl::Types(args...), arr);
+    return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
+}
+
+template <typename ...Args>
+std::string fmtxx::Format(std::string_view format, Args const&... args)
+{
+    std::ostringstream os;
+    fmtxx::Format(os, format, args...);
+    return os.str();
+}
+
+template <typename S, typename ...Args>
+struct fmtxx::FormatArgs
+{
+    const S format_;
+    const std::tuple<Args...> args_;
+
+    explicit FormatArgs(S&& format, Args&&... args)
+        : format_(std::forward<S>(format))
+        , args_(std::forward<Args>(args)...)
+    {
+    }
+
+    template <size_t... I>
+    void insert_impl(std::ostream& os, std::index_sequence<I...>) const {
+        fmtxx::Format(os, format_, std::get<I>(args_)...);
+    }
+
+    void insert(std::ostream& os) const {
+        return insert_impl(os, std::make_index_sequence<sizeof...(Args)>{});
+    }
+};
+
+template <typename S, typename ...Args>
+fmtxx::FormatArgs<S, Args...> fmtxx::Formatted(S&& format, Args&&... args) {
+    return fmtxx::FormatArgs<S, Args...>(std::forward<S>(format), std::forward<Args>(args)... );
+}
+
+template <typename S, typename ...Args>
+std::ostream& fmtxx::operator <<(std::ostream& os, fmtxx::FormatArgs<S, Args...> const& args)
+{
+    args.insert(os);
+    return os;
 }
 
 //------------------------------------------------------------------------------

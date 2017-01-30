@@ -1,6 +1,5 @@
 #define FMTXX_SHARED 1
 #include "Format.h"
-#include "Format_std.h"
 
 #define FMT_SHARED 1
 #include "fmt/format.h"
@@ -46,10 +45,9 @@ static void PrintAvgTimes()
     }
 
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
-    fprintf(stderr, "printf:  ~%.2f sec\n", avg.t_printf);
-    fprintf(stderr, "tiny:    ~%.2f sec (x%.2f)\n", avg.t_tiny,  avg.t_printf / avg.t_tiny);
-    fprintf(stderr, "fmt:     ~%.2f sec (x%.2f)\n", avg.t_fmt,   avg.t_printf / avg.t_fmt);
-    fprintf(stderr, "fmtxx:   ~%.2f sec (x%.2f)\n", avg.t_fmtxx, avg.t_printf / avg.t_fmtxx);
+    fprintf(stderr, "tiny:    x%.2f\n", avg.t_printf / avg.t_tiny);
+    fprintf(stderr, "fmt:     x%.2f\n", avg.t_printf / avg.t_fmt);
+    fprintf(stderr, "fmtxx:   x%.2f\n", avg.t_printf / avg.t_fmtxx);
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
 }
 
@@ -146,17 +144,16 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 //  times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { fprintf(stdout, format_printf, i); });
 //  times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf_buffered(format_printf, i); });
 
-//  times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
-    times.t_tiny    = 1.0;
+    times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
+//  times.t_tiny    = 1.0;
 
     times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
 //  times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
 //  times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 #endif
-//  times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(std::cout, format_fmtxx, i); });
-    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { std::cout << fmtxx::Formatted(format_fmtxx, i); });
+    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(std::cout, format_fmtxx, i); });
 
-#if 0
+#if 1
     fprintf(stderr,
         "   printf:  %.2f sec\n"
         "   tiny:    %.2f sec (x%.2f)\n"
@@ -207,6 +204,7 @@ int main()
     setvbuf(stdout, kIOBuf, _IOFBF, kIOBufSize);
 #endif
 
+#if 1
     TestInts<int32_t>("%d",     "{}");
     TestInts<int32_t>("%8d",    "{:8d}");
     TestInts<int32_t>("%24d",   "{:24d}");
@@ -242,7 +240,9 @@ int main()
 
     PrintAvgTimes();
     timing_results.clear();
+#endif
 
+#if 1
     TestFloats<float>("%f",     "{:f}");
     TestFloats<float>("%e",     "{:e}");
     TestFloats<float>("%g",     "{:g}");
@@ -252,9 +252,15 @@ int main()
     TestFloats<float>("%.17g",  "{:.17g}");
     TestFloats<float>("%.17a",  "{:.17a}");
 
-    //TestFloats<float>("%.12a", "{:x}", "{:.12a}");
-    //TestFloats<float>("%.17g", "{:s}", "{:.17g}");
+    PrintAvgTimes();
+    timing_results.clear();
+#endif
+
+#if 0
+    TestFloats<float>("%.12a", "{:x}", "{:.12a}");
+    TestFloats<float>("%.17g", "{:s}", "{:.17g}");
 
     PrintAvgTimes();
     timing_results.clear();
+#endif
 }

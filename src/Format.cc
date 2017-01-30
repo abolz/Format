@@ -31,29 +31,19 @@ static bool Put(std::ostream& os, char c)
 
 static bool Write(std::ostream& os, char const* str, size_t len)
 {
-    switch (len) {
-    case 0: return true;
-    case 1: return Put(os, str[0]);
-    case 2: return Put(os, str[0]) && Put(os, str[1]);
-    case 3: return Put(os, str[0]) && Put(os, str[1]) && Put(os, str[2]);
-    case 4: return Put(os, str[0]) && Put(os, str[1]) && Put(os, str[2]) && Put(os, str[3]);
-    }
+    const auto kMaxLen = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
 
-    const auto kBlockSize = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
-    for (;;)
+    while (len > 0)
     {
-        const auto k = Min(len, kBlockSize);
-        const auto n = static_cast<std::streamsize>(k);
+        const auto n = Min(len, kMaxLen);
 
-        if (n != os.rdbuf()->sputn(str, n)) {
+        if (static_cast<std::streamsize>(n) != os.rdbuf()->sputn(str, static_cast<std::streamsize>(n))) {
             os.setstate(std::ios_base::badbit);
             return false;
         }
 
-        if (k == len)
-            break;
-        str += k;
-        len -= k;
+        str += n;
+        len -= n;
     }
 
     return true;
@@ -61,17 +51,21 @@ static bool Write(std::ostream& os, char const* str, size_t len)
 
 static bool Pad(std::ostream& os, char c, size_t count)
 {
-    static const size_t kBlockSize = 64;
+    const size_t kBlockSize = 32;
 
     char block[kBlockSize];
-    std::memset(block, static_cast<unsigned char>(c), Min(count, kBlockSize));
+    std::memset(block, static_cast<unsigned char>(c), kBlockSize);
 
     while (count > 0)
     {
-        const auto k = Min(count, kBlockSize);
-        if (!Write(os, block, k))
+        const auto n = Min(count, kBlockSize);
+
+        if (static_cast<std::streamsize>(n) != os.rdbuf()->sputn(block, static_cast<std::streamsize>(n))) {
+            os.setstate(std::ios_base::badbit);
             return false;
-        count -= k;
+        }
+
+        count -= n;
     }
 
     return true;

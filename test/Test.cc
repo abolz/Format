@@ -4,7 +4,6 @@ g++ Test.cc Format.cc
 #endif
 
 #include "Format.h"
-#include "Format_std.h"
 
 #include <limits>
 #include <sstream>

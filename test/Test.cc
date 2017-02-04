@@ -26,7 +26,7 @@ template <typename ...Args>
 static bool expect_equal(char const* expected, std::string_view format, Args const&... args)
 {
     //std::ostringstream buf;
-    //auto err = fmtxx::Format(buf, format, args...);
+    //const auto err = fmtxx::Format(buf, format, args...);
     //std::string str = buf.str();
 
     std::string str;
@@ -37,7 +37,7 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
     //const auto err = res.ec;
     //const auto str = std::string { buf, res.next };
 
-    if (err != 0)
+    if (err != fmtxx::errc::success)
     {
         fprintf(stderr, "FAIL: invalid format string\n");
         return false;
@@ -68,7 +68,7 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
     /**/
 
 template <typename ...Args>
-static bool expect_error(int expected_err, std::string_view format, Args const&... args)
+static bool expect_errc(fmtxx::errc expected_err, std::string_view format, Args const&... args)
 {
     std::ostringstream str;
     const auto err = fmtxx::Format(str, format, args...);
@@ -83,64 +83,65 @@ static bool expect_error(int expected_err, std::string_view format, Args const&.
     return true;
 }
 
-#define EXPECT_ERROR(EXPECTED_ERR, FORMAT, ...)             \
-    if (!expect_error(EXPECTED_ERR, FORMAT, __VA_ARGS__)) { \
+#define EXPECT_ERRC(EXPECTED_ERR, FORMAT, ...)             \
+    if (!expect_errc(EXPECTED_ERR, FORMAT, __VA_ARGS__)) { \
         fprintf(stderr, "    line %d\n", __LINE__);                  \
     }                                                       \
     /**/
 
 static void test_format_specs()
 {
-    EXPECT_ERROR(-1/*invalid*/, "{", 0);
-    EXPECT_ERROR(-1/*invalid*/, std::string_view("{*}", 1), 0, 0);
-    EXPECT_ERROR(-1/*invalid*/, std::string_view("{*}", 2), 0, 0);
-    EXPECT_ERROR(0, "{*}", fmtxx::FormatSpec{}, 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, std::string_view("{*}", 1), 0, 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, std::string_view("{*}", 2), 0, 0);
+    EXPECT_ERRC(fmtxx::errc::success, "{*}", fmtxx::FormatSpec{}, 0);
     EXPECT_EQUAL("0", "{*}", fmtxx::FormatSpec{}, 0);
-    EXPECT_ERROR(-1/*invalid*/, "{*", fmtxx::FormatSpec{}, 0);
-    EXPECT_ERROR(-1/*invalid*/, "{*}}", fmtxx::FormatSpec{}, 0);
-    EXPECT_ERROR(0, "{*}}}", fmtxx::FormatSpec{}, 0);
-    EXPECT_ERROR(-1/*invalid*/, std::string_view("{}", 1), 0);
-    EXPECT_ERROR(-1/*invalid*/, std::string_view("{1}", 2), 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1:", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1:1", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1:1.", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1:1.1", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1:1.1f", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{ ", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1 ", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1: ", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1:1 ", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1:1. ", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1:1.1 ", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{1:1.1f ", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{-1: >10.2f}", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{:*10}", 0);
-    EXPECT_ERROR(-1/*invalid*/, "{-10}", 0);
-    EXPECT_ERROR(0, "{:-10}", 0); // sign + width!
-    EXPECT_ERROR(-1/*invalid*/, "{{}", 1); // stray '}'
-    EXPECT_ERROR(-1/*invalid*/, "{}}", 1); // stray '}'
-    EXPECT_ERROR(-1/*invalid*/, "}", 1, 1, 1, 1, 1);
-//  EXPECT_ERROR(fmtxx::errc::switching_indexing, "{0} {}", 1, 1);
-//  EXPECT_ERROR(fmtxx::errc::switching_indexing, "{} {0}", 1, 1);
-//  EXPECT_ERROR(fmtxx::errc::switching_indexing, "{0} {0} {}", 1, 1, 1);
-//  EXPECT_ERROR(fmtxx::errc::switching_indexing, "{} {} {0}", 1, 1, 1);
-    EXPECT_ERROR(-1/*invalid*/, "{1}", 1);
-    EXPECT_ERROR(-1/*invalid*/, "{1}{2}", 1, 2);
-    EXPECT_ERROR(-1/*invalid*/, "{0}{2}", 1, 2);
-    EXPECT_ERROR(-1/*invalid*/, "{10}", 1);
-    EXPECT_ERROR(-1/*invalid*/, "{2147483647}", 1);
-    EXPECT_ERROR(-1/*overflow*/, "{2147483648}", 0);
-    EXPECT_ERROR(-1/*overflow*/, "{99999999999}", 1);
-    EXPECT_ERROR(-1/*overflow*/, "{:99999999999.0}", 1);
-    EXPECT_ERROR(-1/*invalid*/, "{:.", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_argument, "{*}", 1);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{*", fmtxx::FormatSpec{}, 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{*}}", fmtxx::FormatSpec{}, 0);
+    EXPECT_ERRC(fmtxx::errc::success, "{*}}}", fmtxx::FormatSpec{}, 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, std::string_view("{}", 1), 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, std::string_view("{1}", 2), 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1:", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1:1", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1:1.", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1:1.1", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1:1.1f", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{ ", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1 ", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1: ", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1:1 ", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1:1. ", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1:1.1 ", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{1:1.1f ", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{-1: >10.2f}", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{:*10}", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{-10}", 0);
+    EXPECT_ERRC(fmtxx::errc::success, "{:-10}", 0); // sign + width!
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{{}", 1); // stray '}'
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{}}", 1); // stray '}'
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "}", 1, 1, 1, 1, 1);
+//  EXPECT_ERRC(fmtxx::errc::switching_indexing, "{0} {}", 1, 1);
+//  EXPECT_ERRC(fmtxx::errc::switching_indexing, "{} {0}", 1, 1);
+//  EXPECT_ERRC(fmtxx::errc::switching_indexing, "{0} {0} {}", 1, 1, 1);
+//  EXPECT_ERRC(fmtxx::errc::switching_indexing, "{} {} {0}", 1, 1, 1);
+    EXPECT_ERRC(fmtxx::errc::index_out_of_range, "{1}", 1);
+    EXPECT_ERRC(fmtxx::errc::index_out_of_range, "{1}{2}", 1, 2);
+    EXPECT_ERRC(fmtxx::errc::index_out_of_range, "{0}{2}", 1, 2);
+    EXPECT_ERRC(fmtxx::errc::index_out_of_range, "{10}", 1);
+    EXPECT_ERRC(fmtxx::errc::index_out_of_range, "{2147483647}", 1);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string/*overflow*/, "{2147483648}", 0);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string/*overflow*/, "{99999999999}", 1);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string/*overflow*/, "{:99999999999.0}", 1);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{:.", 0);
 
-    EXPECT_ERROR(-1/*invalid*/, "{:$.$f}", 5, 2, 3.1415);
-    EXPECT_ERROR(-1/*invalid*/, "{:5.$f}", 2, 3.1415);
-    EXPECT_ERROR(-1/*invalid*/, "{:$.2f}", 5, 3.1415);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{:$.$f}", 5, 2, 3.1415);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{:5.$f}", 2, 3.1415);
+    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{:$.2f}", 5, 3.1415);
 
 //// $ parsed as the type...
-////    EXPECT_ERROR(-1/*invalid*/, "{:$}", 5, 'x');
+////    EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{:$}", 5, 'x');
 }
 
 template <typename T> struct incomplete;
@@ -583,7 +584,7 @@ struct Foo {
 };
 
 template <typename OS>
-inline int fmtxx__FormatValue(OS& os, fmtxx::FormatSpec const& spec, Foo const& value)
+inline fmtxx::errc fmtxx__FormatValue(OS& os, fmtxx::FormatSpec const& spec, Foo const& value)
 {
     return fmtxx::Format(os, "{*}", spec, value.value);
 }

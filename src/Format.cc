@@ -1099,7 +1099,7 @@ fmtxx::impl::DoubleToAsciiResult fmtxx::impl::DoubleToAscii(char* first, char* l
 //
 //------------------------------------------------------------------------------
 
-int/*std::error_code*/ fmtxx::impl::ParseFormatSpec_part2(FormatSpec& spec, const char*& f, const char* end)
+fmtxx::errc fmtxx::impl::ParseFormatSpec_part2(FormatSpec& spec, const char*& f, const char* end)
 {
     assert(f != end);
 
@@ -1107,50 +1107,50 @@ int/*std::error_code*/ fmtxx::impl::ParseFormatSpec_part2(FormatSpec& spec, cons
     {
         ++f;
         if (f == end)
-            return -1; // missing '}'
+            return errc::invalid_format_string; // missing '}'
 
         if (f + 1 != end && IsAlign(*(f + 1)))
         {
             spec.fill = *f++;
             spec.align = *f++;
             if (f == end)
-                return -1; // missing '}'
+                return errc::invalid_format_string; // missing '}'
         }
         else if (IsAlign(*f))
         {
             spec.align = *f++;
             if (f == end)
-                return -1; // missing '}'
+                return errc::invalid_format_string; // missing '}'
         }
 
         if (IsSign(*f))
         {
             spec.sign = *f++;
             if (f == end)
-                return -1; // missing '}'
+                return errc::invalid_format_string; // missing '}'
         }
 
         if (*f == '#')
         {
             spec.hash = *f++;
             if (f == end)
-                return -1; // missing '}'
+                return errc::invalid_format_string; // missing '}'
         }
 
         if (*f == '0')
         {
             spec.zero = *f++;
             if (f == end)
-                return -1; // missing '}'
+                return errc::invalid_format_string; // missing '}'
         }
 
         if (IsDigit(*f))
         {
             const int i = ParseInt(f, end);
             if (i < 0)
-                return -1; // overflow
+                return errc::invalid_format_string; // overflow
             if (f == end)
-                return -1; // missing '}'
+                return errc::invalid_format_string; // missing '}'
             spec.width = i;
         }
 
@@ -1158,12 +1158,12 @@ int/*std::error_code*/ fmtxx::impl::ParseFormatSpec_part2(FormatSpec& spec, cons
         {
             ++f;
             if (f == end || !IsDigit(*f))
-                return -1; // missing '}' or digit expected
+                return errc::invalid_format_string; // missing '}' or digit expected
             const int i = ParseInt(f, end);
             if (i < 0)
-                return -1; // overflow
+                return errc::invalid_format_string; // overflow
             if (f == end)
-                return -1; // missing '}'
+                return errc::invalid_format_string; // missing '}'
             spec.prec = i;
         }
 
@@ -1171,7 +1171,7 @@ int/*std::error_code*/ fmtxx::impl::ParseFormatSpec_part2(FormatSpec& spec, cons
         {
             spec.conv = *f++;
             if (f == end)
-                return -1; // missing '}'
+                return errc::invalid_format_string; // missing '}'
         }
     }
 
@@ -1186,28 +1186,28 @@ int/*std::error_code*/ fmtxx::impl::ParseFormatSpec_part2(FormatSpec& spec, cons
     }
 
     if (f == end || *f != '}')
-        return -1; // missing '}'
+        return errc::invalid_format_string; // missing '}'
 
-    return 0;
+    return errc::success;
 }
 
-int/*std::error_code*/ fmtxx::impl::DoFormat(std::string& os, std::string_view format, Types types, Arg<std::string> const* args) {
+fmtxx::errc fmtxx::impl::DoFormat(std::string& os, std::string_view format, Types types, Arg<std::string> const* args) {
     return DoFormatImpl(os, format, types, args);
 }
 
-int/*std::error_code*/ fmtxx::impl::DoFormat(std::FILE*& os, std::string_view format, Types types, Arg<std::FILE*> const* args) {
+fmtxx::errc fmtxx::impl::DoFormat(std::FILE*& os, std::string_view format, Types types, Arg<std::FILE*> const* args) {
     return DoFormatImpl(os, format, types, args);
 }
 
-int/*std::error_code*/ fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg<std::ostream> const* args)
+fmtxx::errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg<std::ostream> const* args)
 {
     const std::ostream::sentry se(os);
     if (se)
         return DoFormatImpl(os, format, types, args);
-    return -1;
+    return errc::io_error;
 }
 
-int/*std::error_code*/ fmtxx::impl::DoFormat(CharArray& os, std::string_view format, Types types, Arg<CharArray> const* args) {
+fmtxx::errc fmtxx::impl::DoFormat(CharArray& os, std::string_view format, Types types, Arg<CharArray> const* args) {
     return DoFormatImpl(os, format, types, args);
 }
 

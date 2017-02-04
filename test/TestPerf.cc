@@ -145,17 +145,17 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 	//times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
 //  times.t_tiny    = 1.0;
 
-//  times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
+    times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
 //  times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
-    times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
+//  times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 #endif
 #if 0
     times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(stdout, format_fmtxx, i); });
 #endif
-#if 1
+#if 0
     times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(std::cout, format_fmtxx, i); });
 #endif
-#if 0
+#if 1
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         const auto res = fmtxx::Format(buf, buf + 500, format_fmtxx, i);

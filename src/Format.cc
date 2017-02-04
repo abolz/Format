@@ -2,22 +2,62 @@
 
 #include "Format.h"
 
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <limits>
 #include <ostream>
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
 
-using namespace fmtxx;
-using namespace fmtxx::impl;
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
 
-template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
-template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
+bool fmtxx::impl::Put(std::string& os, char c)
+{
+    os.push_back(c);
+    return true;
+}
 
-static bool Put(std::ostream& os, char c)
+bool fmtxx::impl::Write(std::string& os, char const* str, size_t len)
+{
+    os.append(str, len);
+    return true;
+}
+
+bool fmtxx::impl::Pad(std::string& os, char c, size_t count)
+{
+    os.append(count, c);
+    return true;
+}
+
+bool fmtxx::impl::Put(std::FILE*& os, char c)
+{
+    return EOF != std::fputc(c, os);
+}
+
+bool fmtxx::impl::Write(std::FILE*& os, char const* str, size_t len)
+{
+    return len == std::fwrite(str, 1, len, os);
+}
+
+bool fmtxx::impl::Pad(std::FILE*& os, char c, size_t count)
+{
+    const size_t kBlockSize = 32;
+
+    char block[kBlockSize];
+    std::memset(block, static_cast<unsigned char>(c), kBlockSize);
+
+    while (count > 0)
+    {
+        const auto n = Min(count, kBlockSize);
+        if (count != std::fwrite(block, 1, count, os))
+            return false;
+        count -= n;
+    }
+
+    return true;
+}
+
+bool fmtxx::impl::Put(std::ostream& os, char c)
 {
     using traits_type = std::ostream::traits_type;
 
@@ -29,7 +69,7 @@ static bool Put(std::ostream& os, char c)
     return true;
 }
 
-static bool Write(std::ostream& os, char const* str, size_t len)
+bool fmtxx::impl::Write(std::ostream& os, char const* str, size_t len)
 {
     const auto kMaxLen = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
 
@@ -49,7 +89,7 @@ static bool Write(std::ostream& os, char const* str, size_t len)
     return true;
 }
 
-static bool Pad(std::ostream& os, char c, size_t count)
+bool fmtxx::impl::Pad(std::ostream& os, char c, size_t count)
 {
     const size_t kBlockSize = 32;
 
@@ -71,9 +111,34 @@ static bool Pad(std::ostream& os, char c, size_t count)
     return true;
 }
 
-static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
-static bool IsAlign(char ch) { return ch == '<' || ch == '>' || ch == '^' || ch == '='; }
-static bool IsSign (char ch) { return ch == ' ' || ch == '-' || ch == '+'; }
+bool fmtxx::impl::Put(CharArray& os, char c)
+{
+    if (os.next >= os.last)
+        return false;
+
+    *os.next++ = c;
+    return true;
+}
+
+bool fmtxx::impl::Write(CharArray& os, char const* str, size_t len)
+{
+    if (static_cast<size_t>(os.last - os.next) < len)
+        return false;
+
+    std::memcpy(os.next, str, len);
+    os.next += len;
+    return true;
+}
+
+bool fmtxx::impl::Pad(CharArray& os, char c, size_t count)
+{
+    if (static_cast<size_t>(os.last - os.next) < count)
+        return false;
+
+    std::memset(os.next, static_cast<unsigned char>(c), count);
+    os.next += count;
+    return true;
+}
 
 static char ComputeSignChar(bool neg, char sign, char fill)
 {
@@ -87,77 +152,46 @@ static char ComputeSignChar(bool neg, char sign, char fill)
     return '\0';
 }
 
-static void ComputePadding(size_t len, char align, int width, size_t& lpad, size_t& spad, size_t& rpad)
+static int CountDecimalDigits32(uint32_t x)
 {
-    assert(width >= 0 && "internal error");
+    if (x < 10) return 1;
+    if (x < 100) return 2;
+    if (x < 1000) return 3;
+    if (x < 10000) return 4;
+    if (x < 100000) return 5;
+    if (x < 1000000) return 6;
+    if (x < 10000000) return 7;
+    if (x < 100000000) return 8;
+    if (x < 1000000000) return 9;
+    return 10;
+}
 
-    const size_t w = static_cast<size_t>(width);
-    if (w <= len)
-        return;
+static int CountLeadingZeros64(uint64_t n)
+{
+    assert(n != 0);
 
-    const size_t d = w - len;
-    switch (align)
+#if defined(_MSC_VER) && (defined(_M_X64) /* || defined(_M_ARM64) */)
+
+    unsigned long high = 0; // index of most significant 1-bit
+    if (0 == _BitScanReverse64(&high, n))
     {
-    case '>':
-        lpad = d;
-        break;
-    case '<':
-        rpad = d;
-        break;
-    case '^':
-        lpad = d/2;
-        rpad = d - d/2;
-        break;
-    case '=':
-        spad = d;
-        break;
     }
-}
+    return 63 - static_cast<int>(high);
 
-static int WriteRawString(std::ostream& os, FormatSpec const& spec, char const* str, size_t len)
-{
-    size_t lpad = 0;
-    size_t spad = 0;
-    size_t rpad = 0;
+#elif defined(__GNUC__)
 
-    ComputePadding(len, spec.align, spec.width, lpad, spad, rpad);
+    return __builtin_clzll(static_cast<unsigned long long>(n));
 
-    if (lpad > 0 && !Pad(os, spec.fill, lpad))
-        return -1;
-    if (len > 0  && !Write(os, str, len))
-        return -1;
-    if (rpad > 0 && !Pad(os, spec.fill, rpad))
-        return -1;
+#else
 
-    return 0;
-}
-
-static int WriteString(std::ostream& os, FormatSpec const& spec, char const* str, size_t len)
-{
-    size_t n = len;
-    if (spec.prec >= 0)
-    {
-        if (n > static_cast<size_t>(spec.prec))
-            n = static_cast<size_t>(spec.prec);
+    int z = 0;
+    while ((n & 0x8000000000000000) == 0) {
+        z++;
+        n <<= 1;
     }
+    return z;
 
-    return WriteRawString(os, spec, str, n);
-}
-
-static int WriteString(std::ostream& os, FormatSpec const& spec, char const* str)
-{
-    if (str == nullptr)
-        return WriteRawString(os, spec, "(null)", 6);
-
-    // Use strnlen if a precision was specified.
-    // The string may not be null-terminated!
-    size_t len;
-    if (spec.prec >= 0)
-        len = ::strnlen(str, static_cast<size_t>(spec.prec));
-    else
-        len = ::strlen(str);
-
-    return WriteRawString(os, spec, str, len);
+#endif
 }
 
 static char* IntToDecAsciiBackwards(char* last/*[-20]*/, uint64_t n)
@@ -223,149 +257,61 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
     return last;
 }
 
-static int WriteNumber(std::ostream& os, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
+// XXX: public...
+fmtxx::impl::IntToAsciiResult fmtxx::impl::IntToAscii(char* first, char* last, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
-    const size_t len = (sign ? 1u : 0u) + nprefix + ndigits;
+    assert(last - first >= 64);
+    static_cast<void>(first);
 
-    size_t lpad = 0;
-    size_t spad = 0;
-    size_t rpad = 0;
+    IntToAsciiResult res;
 
-    ComputePadding(len, spec.zero ? '=' : spec.align, spec.width, lpad, spad, rpad);
+    res.first   = last;
+    res.last    = last;
+    res.nprefix = 0;
+    res.base    = 10;
+    res.conv    = spec.conv;
+    res.sign    = '\0';
 
-    if (lpad > 0     && !Pad(os, spec.fill, lpad))
-        return -1;
-    if (sign != '\0' && !Put(os, sign))
-        return -1;
-    if (nprefix > 0  && !Write(os, prefix, nprefix))
-        return -1;
-    if (spad > 0     && !Pad(os, spec.zero ? '0' : spec.fill, spad))
-        return -1;
-    if (ndigits > 0  && !Write(os, digits, ndigits))
-        return -1;
-    if (rpad > 0     && !Pad(os, spec.fill, rpad))
-        return -1;
-
-    return 0;
-}
-
-static int WriteInt(std::ostream& os, FormatSpec const& spec, int64_t sext, uint64_t zext)
-{
-    uint64_t number  = zext;
-    int      base    = 10;
-    char     conv    = spec.conv;
-    char     sign    = '\0';
-    size_t   nprefix = 0;
-
-    switch (conv)
+    uint64_t number = zext;
+    switch (res.conv)
     {
     default:
         // I'm sorry Dave, I'm afraid I can't do that.
     case '\0':
     case 'd':
     case 'i':
-        sign = ComputeSignChar(sext < 0, spec.sign, spec.fill);
+        res.sign = ComputeSignChar(sext < 0, spec.sign, spec.fill);
         if (sext < 0)
             number = 0 - static_cast<uint64_t>(sext);
         // [[fall_through]]
     case 'u':
-        base = 10;
+        res.base = 10;
         break;
     case 'x':
     case 'X':
-        base = 16;
-        if (spec.hash)
-            nprefix = 2;
+        res.base = 16;
+        if (spec.hash != '\0')
+            res.nprefix = 2;
         break;
     case 'b':
     case 'B':
-        base = 2;
-        if (spec.hash)
-            nprefix = 2;
+        res.base = 2;
+        if (spec.hash != '\0')
+            res.nprefix = 2;
         break;
     case 'o':
-        base = 8;
-        if (spec.hash && number != 0)
-            nprefix = 1;
+        res.base = 8;
+        if (spec.hash != '\0' && number != 0)
+            res.nprefix = 1;
         break;
     }
 
-    const bool upper = ('A' <= conv && conv <= 'Z');
+    const bool upper = ('A' <= res.conv && res.conv <= 'Z');
 
-    char buf[64];
-    const auto l = buf + 64;
-    const auto f = IntToAsciiBackwards(l, number, base, upper);
+    res.first = IntToAsciiBackwards(last, number, res.base, upper);
 
-    const char prefix[] = { '0', conv };
-
-    return WriteNumber(os, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
+    return res;
 }
-
-static int WriteBool(std::ostream& os, FormatSpec const& spec, bool val)
-{
-    return WriteRawString(os, spec, val ? "true" : "false", val ? 4u : 5u);
-}
-
-static int WriteChar(std::ostream& os, FormatSpec const& spec, char ch)
-{
-    return WriteString(os, spec, &ch, 1u);
-}
-
-static int WritePointer(std::ostream& os, FormatSpec const& spec, void const* pointer)
-{
-    if (pointer == nullptr)
-        return WriteRawString(os, spec, "(nil)", 5);
-
-    FormatSpec f = spec;
-    f.hash = '#';
-    f.conv = 'x';
-
-    return WriteInt(os, f, 0, reinterpret_cast<uintptr_t>(pointer));
-}
-
-static int CountDecimalDigits32(uint32_t x)
-{
-    if (x < 10) return 1;
-    if (x < 100) return 2;
-    if (x < 1000) return 3;
-    if (x < 10000) return 4;
-    if (x < 100000) return 5;
-    if (x < 1000000) return 6;
-    if (x < 10000000) return 7;
-    if (x < 100000000) return 8;
-    if (x < 1000000000) return 9;
-    return 10;
-}
-
-static int CountLeadingZeros64(uint64_t n)
-{
-    assert(n != 0);
-
-#if defined(_MSC_VER) && (defined(_M_X64) /* || defined(_M_ARM64) */)
-
-    unsigned long high = 0; // index of most significant 1-bit
-    if (0 == _BitScanReverse64(&high, n))
-    {
-    }
-    return 63 - static_cast<int>(high);
-
-#elif defined(__GNUC__)
-
-    return __builtin_clzll(static_cast<unsigned long long>(n));
-
-#else
-
-    int z = 0;
-    while ((n & 0x8000000000000000) == 0) {
-        z++;
-        n <<= 1;
-    }
-    return z;
-
-#endif
-}
-
-namespace {
 
 struct Double
 {
@@ -415,21 +361,6 @@ struct Double
     double Abs() const {
         return Double { bits & ~kSignMask }.d;
     }
-
-#if 0
-    bool IsIntegral() const
-    {
-        const int e = UnbiasedExponent();
-        return e >= 52 || (e >= 0 && (Significand() & (kSignificandMask >> e)) == 0);
-    }
-
-    //bool IsSafeInt() const
-    //{
-    //    const int e = UnbiasedExponent();
-    //    return (e >= 0 && e <= 52 && (Significand() & (kSignificandMask >> e)) == 0)
-    //        || (e >= 52 && e <= 63 - 1/*hidden bit*/);
-    //}
-#endif
 };
 
 struct Fp // f * 2^e
@@ -650,8 +581,6 @@ static const CachedPower kCachedPowers[kCachedPowersSize] = {
     { 0xAF87023B9BF0EE6B,  1066 }, //  340
 };
 
-} // namespace
-
 static Fp GetCachedPower(int e_min, int e_max, int& k)
 {
     const int p = kCachedPowersSize - 1;
@@ -794,14 +723,15 @@ static void Grisu2(double x, char* buf, int& len, int& K)
 
 static int WriteExponent(int e, char* buf)
 {
+	assert(e > -10000);
+	assert(e <  10000);
+
     int len = 0;
 
     if (e < 0)
         buf[len++] = '-', e = -e;
     else
         buf[len++] = '+';
-
-    assert(e < 10000);
 
     const int k = e;
     if (k >= 1000) { buf[len++] = static_cast<char>('0' + e / 1000); e %= 1000; }
@@ -1046,73 +976,59 @@ static char* NumberToHexString(double x, char* buf, bool trailing_dot_zero = fal
     return buf;
 }
 
-static int DoubleToAscii(std::ostream& os, FormatSpec const& spec, char sign, char type, int prec, double abs_x)
+// XXX: public...
+fmtxx::impl::DoubleToAsciiResult fmtxx::impl::DoubleToAscii(char* first, char* last, FormatSpec const& spec, double x)
 {
-    static const size_t kBufSize = 1000; // >= 9 !!!
-    char buf[kBufSize];
+    assert(last - first >= 32);
 
-    int n;
-    if (prec >= 0)
-    {
-        const char format[] = {'%', '.', '*', type, '\0'};
-        n = std::snprintf(buf, kBufSize, format, prec, abs_x);
-    }
-    else
-    {
-        const char format[] = {'%', type, '\0'};
-        n = std::snprintf(buf, kBufSize, format, abs_x);
-    }
-    assert(n >= 0); // invalid format spec
+    DoubleToAsciiResult res;
 
-    size_t len = static_cast<size_t>(n);
-    if (len >= kBufSize)
-    {
-        std::memcpy(buf + (kBufSize - 9), "[[NOBUF]]", 9);
-        len = kBufSize;
-    }
+    res.first     = first;
+    res.last      = last;
+    res.conv      = spec.conv;
+    res.sign      = '\0';
+    res.isnum     = false;
+    res.hexprefix = false;
 
-    return WriteNumber(os, spec, sign, nullptr, 0, buf, len);
-}
-
-static int WriteDouble(std::ostream& os, FormatSpec const& spec, double x)
-{
-    char conv = spec.conv;
+    bool upper = false;
     bool tostr = false;
     bool tohex = false;
-
-    switch (conv)
+    switch (res.conv)
     {
     default:
         // I'm sorry Dave, I'm afraid I can't do that.
     case '\0':
-        conv = 's';
-    case 's':
-    case 'S':
+        res.conv = 's';
         tostr = true;
         break;
-    case 'g':
-    case 'G':
-    case 'e':
-    case 'E':
-    case 'a':
-    case 'A':
+    case 'S':
+        upper = true;
+        tostr = true;
         break;
     case 'f':
-    case 'F':
-        conv = 'f';
+    case 'e':
+    case 'g':
+    case 'a':
         break;
-    case 'x':
+	case 'F':
+    case 'E':
+    case 'G':
+    case 'A':
+        upper = true;
+        break;
     case 'X':
+        upper = true;
+    case 'x':
         tohex = true;
         break;
     }
 
-    const bool upper = ('A' <= conv && conv <= 'Z');
-
     const Double d { x };
 
     const bool neg = (d.Sign() != 0);
-    const char sign = ComputeSignChar(neg, spec.sign, spec.fill);
+    const double abs_x = d.Abs();
+
+    res.sign = ComputeSignChar(neg, spec.sign, spec.fill);
 
     if (d.IsSpecial())
     {
@@ -1122,96 +1038,70 @@ static int WriteDouble(std::ostream& os, FormatSpec const& spec, double x)
                        : (upper ?  "INF" :  "inf"))
                 : (upper ? "NAN" : "nan");
 
-        return WriteRawString(os, spec, s, ::strlen(s));
+        const auto len = ::strlen(s);
+
+        std::memcpy(res.first, s, len);
+
+        res.isnum = false;
+        res.last = res.first + len;
     }
-
-    const double abs_x = d.Abs();
-
-    if (tostr || tohex)
+    else if (tostr)
     {
-        const bool trailing_dot_zero = (spec.hash != '\0');
+        const bool alt = (spec.hash != '\0');
 
-        char repr[32];
-        const auto f = repr;
-        const auto l = tostr ? NumberToString(abs_x, f, trailing_dot_zero)
-                             : NumberToHexString(abs_x, f, trailing_dot_zero);
-
-        const size_t nrepr = static_cast<size_t>(l - f);
-        assert(nrepr <= 32);
-
-        return WriteNumber(os, spec, sign, "0x", (tohex && spec.hash) ? 2u : 0u, repr, nrepr);
+        res.isnum = true;
+        res.last = NumberToString(abs_x, res.first, /*trailing_dot_zero*/alt);
     }
-
-    return DoubleToAscii(os, spec, sign, conv, spec.prec, abs_x);
-}
-
-//
-// Parse a non-negative integer in the range [0, INT_MAX].
-// Returns -1 on overflow.
-//
-// PRE: IsDigit(*s) == true.
-//
-static int ParseInt(const char*& s, const char* end)
-{
-    int x = *s - '0';
-
-    while (++s != end && IsDigit(*s))
+    else if (tohex)
     {
-        if (x > INT_MAX / 10 || *s - '0' > INT_MAX - 10*x)
-            return -1;
-        x = 10*x + (*s - '0');
+        const bool alt = (spec.hash != '\0');
+
+        res.isnum = true;
+        res.hexprefix = alt;
+        res.last = NumberToHexString(abs_x, res.first, /*trailing_dot_zero*/alt);
     }
-
-    return x;
-}
-
-static void FixFormatSpec(FormatSpec& spec)
-{
-    if (spec.align && !IsAlign(spec.align))
-        spec.align = '>';
-
-    if (spec.sign && !IsSign(spec.sign))
-        spec.sign = '-';
-
-    if (spec.width < 0)
+    else
     {
-        if (spec.width < -INT_MAX)
-            spec.width = -INT_MAX;
-        spec.align = '<';
-        spec.width = -spec.width;
-    }
-}
+        const auto bufsize = static_cast<size_t>(last - first);
 
-static int ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, int& nextarg, Types types, Arg const* args)
-{
-    assert(f != end);
-
-    if (*f == '*')
-    {
-        ++f;
-        if (f == end)
-            return -1; // missing '}'
-
-        int spec_index = -1;
-        if (IsDigit(*f))
+        int n;
+        if (spec.prec >= 0)
         {
-            spec_index = ParseInt(f, end);
-            if (spec_index < 0)
-                return -1; // overflow
-            if (f == end)
-                return -1; // missing '}'
+            const char format[] = {'%', '.', '*', res.conv, '\0'};
+            n = std::snprintf(res.first, bufsize, format, spec.prec, abs_x);
         }
         else
         {
-            spec_index = nextarg++;
+            const char format[] = {'%', res.conv, '\0'};
+            n = std::snprintf(res.first, bufsize, format, abs_x);
         }
+        assert(n >= 0);
 
-        if (types[spec_index] != Types::T_FORMATSPEC)
-            return -1; // invalid argument
+        size_t len = static_cast<size_t>(n);
+        if (len >= bufsize)
+        {
+            std::memcpy(res.first, "[[error]]", 9);
 
-        spec = *static_cast<FormatSpec const*>(args[spec_index].pvoid);
-        FixFormatSpec(spec);
+            res.isnum = false;
+            res.last = res.first + 9;
+        }
+        else
+        {
+            res.isnum = true;
+            res.last = res.first + len;
+        }
     }
+
+    return res;
+}
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+int/*std::error_code*/ fmtxx::impl::ParseFormatSpec_part2(FormatSpec& spec, const char*& f, const char* end)
+{
+    assert(f != end);
 
     if (*f == ':')
     {
@@ -1301,120 +1191,15 @@ static int ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, in
     return 0;
 }
 
-static int CallFormatFunc(std::ostream& os, FormatSpec const& spec, int index, Types types, Arg const* args)
-{
-    const unsigned type = types[index];
-
-    if (type == 0)
-        return -1; // index out of range
-
-    const auto& arg = args[index];
-
-    switch (type)
-    {
-    case Types::T_OTHER:
-        return arg.other.func(os, spec, arg.other.value);
-    case Types::T_STRING:
-        return WriteString(os, spec, arg.string.str, arg.string.len);
-    case Types::T_PVOID:
-        return WritePointer(os, spec, arg.pvoid);
-    case Types::T_PCHAR:
-        return WriteString(os, spec, arg.pchar);
-    case Types::T_CHAR:
-        return WriteChar(os, spec, arg.char_);
-    case Types::T_BOOL:
-        return WriteBool(os, spec, arg.bool_);
-    case Types::T_SCHAR:
-        return WriteInt(os, spec, arg.schar, static_cast<unsigned char>(arg.schar));
-    case Types::T_SSHORT:
-        return WriteInt(os, spec, arg.sshort, static_cast<unsigned short>(arg.sshort));
-    case Types::T_SINT:
-        return WriteInt(os, spec, arg.sint, static_cast<unsigned int>(arg.sint));
-    case Types::T_SLONGLONG:
-        return WriteInt(os, spec, arg.slonglong, static_cast<unsigned long long>(arg.slonglong));
-    case Types::T_ULONGLONG:
-        return WriteInt(os, spec, 0, arg.ulonglong);
-    case Types::T_DOUBLE:
-        return WriteDouble(os, spec, arg.double_);
-    case Types::T_FORMATSPEC:
-        return -1;
-    }
-
-    assert(!"unreachable");
-    return -1;
+int/*std::error_code*/ fmtxx::impl::DoFormat(std::string& os, std::string_view format, Types types, Arg<std::string> const* args) {
+    return DoFormatImpl(os, format, types, args);
 }
 
-static int DoFormatImpl(std::ostream& os, std::string_view format, Types types, Arg const* args)
-{
-    assert(args != nullptr);
-
-    if (format.empty())
-        return 0;
-
-    int nextarg = 0;
-
-    const char*       f   = format.data();
-    const char* const end = f + format.size();
-    const char*       s   = f;
-    for (;;)
-    {
-        while (f != end && *f != '{' && *f != '}')
-            ++f;
-
-        if (f != s && !Write(os, s, static_cast<size_t>(f - s)))
-            return -1;
-
-        if (f == end) // done.
-            break;
-
-        const char c = *f++; // skip '{' or '}'
-
-        if (*f == c) // '{{' or '}}'
-        {
-            s = f++;
-            continue;
-        }
-
-        if (c == '}')
-            return -1; // stray '}'
-        if (f == end)
-            return -1; // missing '}'
-
-        int index = -1;
-        if (IsDigit(*f))
-        {
-            index = ParseInt(f, end);
-            if (index < 0)
-                return -1; // overflow
-            if (f == end)
-                return -1; // missing '}'
-        }
-
-        FormatSpec spec;
-        if (*f != '}')
-        {
-            const int err = ParseFormatSpec(spec, f, end, nextarg, types, args);
-            if (err != 0)
-                return err;
-        }
-
-        if (index < 0)
-            index = nextarg++;
-
-        const int err = CallFormatFunc(os, spec, index, types, args);
-        if (err != 0)
-            return err;
-
-        if (f == end) // done.
-            break;
-
-        s = ++f; // skip '}'
-    }
-
-    return 0;
+int/*std::error_code*/ fmtxx::impl::DoFormat(std::FILE*& os, std::string_view format, Types types, Arg<std::FILE*> const* args) {
+    return DoFormatImpl(os, format, types, args);
 }
 
-int fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args)
+int/*std::error_code*/ fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg<std::ostream> const* args)
 {
     const std::ostream::sentry se(os);
     if (se)
@@ -1422,32 +1207,12 @@ int fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types
     return -1;
 }
 
-#if 0
-#ifdef _MSC_VER // cpplib
-
-#include <fstream>
-int fmtxx::impl::DoFormat(std::FILE* buf, std::string_view format, Types types, Arg const* args)
-{
-    std::ofstream out { buf };
-    return DoFormat(out, format, types, args);
+int/*std::error_code*/ fmtxx::impl::DoFormat(CharArray& os, std::string_view format, Types types, Arg<CharArray> const* args) {
+    return DoFormatImpl(os, format, types, args);
 }
-
-#else // libstdc++
-
-#include <ext/stdio_filebuf.h>
-int fmtxx::impl::DoFormat(std::FILE* buf, std::string_view format, Types types, Arg const* args)
-{
-    __gnu_cxx::stdio_filebuf<char> fbuf { buf, std::ios::out };
-
-    std::ostream out { &fbuf };
-    return DoFormat(out, format, types, args);
-}
-
-#endif
-#endif
 
 //------------------------------------------------------------------------------
-// Copyright 2016 Alexander Bolz
+// Copyright 2016 A. Bolz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

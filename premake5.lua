@@ -73,7 +73,6 @@ project "fmtxx"
     kind "SharedLib"
     files {
         "src/Format.h",
-        "src/Format_std.h",
         "src/Format.cc",
     }
     defines {

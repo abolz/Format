@@ -1,8 +1,9 @@
-﻿#if 0
+#if 0
 cl /EHsc Test.cc Format.cc /std:c++latest /Fe: Test.exe
 g++ Test.cc Format.cc
 #endif
 
+#define FMTXX_SHARED 1
 #include "Format.h"
 
 #include <limits>
@@ -27,8 +28,14 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
     //std::ostringstream buf;
     //auto err = fmtxx::Format(buf, format, args...);
     //std::string str = buf.str();
-    std::string str = fmtxx::Format(format, args...);
-    const int err = 0;
+
+    std::string str;
+    const auto err = fmtxx::Format(str, format, args...);
+
+    //char buf[500];
+    //const auto res = fmtxx::Format(buf, buf + 500, format, args...);
+    //const auto err = res.ec;
+    //const auto str = std::string { buf, res.next };
 
     if (err != 0)
     {
@@ -63,8 +70,8 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
 template <typename ...Args>
 static bool expect_error(int expected_err, std::string_view format, Args const&... args)
 {
-    std::ostringstream buf;
-    auto err = fmtxx::Format(buf, format, args...);
+    std::ostringstream str;
+    const auto err = fmtxx::Format(str, format, args...);
 
     if (err != expected_err)
     {
@@ -357,6 +364,7 @@ static void test_ints()
 
 static void test_floats()
 {
+#if 1
 #if !NO_FLOATS
     static const double PI  = 3.1415926535897932384626433832795;
 
@@ -520,6 +528,7 @@ static void test_floats()
     EXPECT_EQUAL("NAN", "{:S}", -NanVal);
     EXPECT_EQUAL("nan", "{:x}", -NanVal);
     EXPECT_EQUAL("NAN", "{:X}", -NanVal);
+#endif
 }
 
 static void test_pointer()
@@ -573,8 +582,10 @@ struct Foo {
     int value;
 };
 
-inline int fmtxx__FormatValue(std::ostream& out, fmtxx::FormatSpec const& spec, Foo const& value) {
-    return fmtxx::Format(out, "{*}", spec, value.value);
+template <typename OS>
+inline int fmtxx__FormatValue(OS& os, fmtxx::FormatSpec const& spec, Foo const& value)
+{
+    return fmtxx::Format(os, "{*}", spec, value.value);
 }
 
 static void test_custom()
@@ -607,28 +618,6 @@ static void test_wide_strings()
 //
 //------------------------------------------------------------------------------
 
-static std::string say_hello() {
-    return "hello hello hello hello hello hello hello hello hello hello";
-}
-
-static void test_tuple()
-{
-    const auto formatted = fmtxx::Formatted("{} world {} {}", say_hello(), 1, 2.345);
-
-    std::ostringstream stream;
-    // Should probably be more like "stream << to_string(Format(...))",
-    // but it isn't
-    stream << formatted;
-
-    //std::cout << stream.str() << "\n";
-
-    assert(stream.str() == "hello hello hello hello hello hello hello hello hello hello world 1 2.345");
-}
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
 int main()
 {
     test_format_specs();
@@ -641,7 +630,6 @@ int main()
     test_custom();
     test_char();
     test_wide_strings();
-    test_tuple();
 
     return n_errors == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

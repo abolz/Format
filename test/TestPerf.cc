@@ -5,8 +5,6 @@
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 
-#include "tinyformat/tinyformat.h"
-
 #include <cstdarg>
 #include <cstdio>
 #include <climits>
@@ -24,7 +22,7 @@ using Clock = std::chrono::steady_clock;
 
 struct Times {
     double t_printf = 0.0;
-    double t_tiny   = 0.0;
+    //double t_tiny   = 0.0;
     double t_fmt    = 0.0;
     double t_fmtxx  = 0.0;
 };
@@ -35,17 +33,16 @@ static void PrintAvgTimes()
 {
     Times avg;
 
-    const double scale = 1.0 / timing_results.size();
     for (auto t : timing_results)
     {
-        avg.t_printf += scale * t.t_printf;
-        avg.t_tiny   += scale * t.t_tiny;
-        avg.t_fmt    += scale * t.t_fmt;
-        avg.t_fmtxx  += scale * t.t_fmtxx;
+        avg.t_printf += t.t_printf;
+        //avg.t_tiny   += t.t_tiny;
+        avg.t_fmt    += t.t_fmt;
+        avg.t_fmtxx  += t.t_fmtxx;
     }
 
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
-    fprintf(stderr, "tiny:    x%.2f\n", avg.t_printf / avg.t_tiny);
+    //fprintf(stderr, "tiny:    x%.2f\n", avg.t_printf / avg.t_tiny);
     fprintf(stderr, "fmt:     x%.2f\n", avg.t_printf / avg.t_fmt);
     fprintf(stderr, "fmtxx:   x%.2f\n", avg.t_printf / avg.t_fmtxx);
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
@@ -137,30 +134,51 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 
 #if NO_COMP
     times.t_printf  = 1.0;
-    times.t_tiny    = 1.0;
+    //times.t_tiny    = 1.0;
     times.t_fmt     = 1.0;
 #else
-    times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf(format_printf, i); });
-//  times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { fprintf(stdout, format_printf, i); });
+  times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf(format_printf, i); });
+    //times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { fprintf(stdout, format_printf, i); });
 //  times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf_buffered(format_printf, i); });
+	//times.t_printf = 1.0;
 
-    times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
+	//times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
 //  times.t_tiny    = 1.0;
 
-    times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
+//  times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
 //  times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
-//  times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
+    times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 #endif
+#if 0
+    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(stdout, format_fmtxx, i); });
+#endif
+#if 1
     times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(std::cout, format_fmtxx, i); });
+#endif
+#if 0
+    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+        char buf[500];
+        const auto res = fmtxx::Format(buf, buf + 500, format_fmtxx, i);
+        std::fwrite(buf, 1, static_cast<size_t>(res.next - buf), stdout);
+    });
+#endif
+#if 0
+    std::string buf;
+    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+        buf.clear();
+        fmtxx::Format(buf, format_fmtxx, i);
+        std::fwrite(buf.data(), 1, buf.size(), stdout);
+    });
+#endif
 
 #if 1
     fprintf(stderr,
         "   printf:  %.2f sec\n"
-        "   tiny:    %.2f sec (x%.2f)\n"
+        //"   tiny:    %.2f sec (x%.2f)\n"
         "   fmt:     %.2f sec (x%.2f)\n"
         "   fmtxx:   %.2f sec (x%.2f)\n",
         times.t_printf,
-        times.t_tiny,  times.t_printf / times.t_tiny,
+        //times.t_tiny,  times.t_printf / times.t_tiny,
         times.t_fmt,   times.t_printf / times.t_fmt,
         times.t_fmtxx, times.t_printf / times.t_fmtxx);
 #endif
@@ -242,7 +260,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestFloats<float>("%f",     "{:f}");
     TestFloats<float>("%e",     "{:e}");
     TestFloats<float>("%g",     "{:g}");

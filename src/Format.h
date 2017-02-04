@@ -2,7 +2,13 @@
 
 #pragma once
 
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+#include <cstdio>
 #include <iosfwd>
+#include <string>
 #if _MSC_VER
 #  include <string_view>
 #else
@@ -13,6 +19,7 @@
      namespace std { using std::experimental::string_view; }
 #  endif
 #endif
+#include <system_error>
 
 #ifdef __GNUC__
 #  define FMTXX_VISIBILITY_DEFAULT __attribute__((visibility("default")))
@@ -38,10 +45,6 @@
 #  define FMTXX_API
 #endif
 
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
 namespace fmtxx {
 
 struct FMTXX_VISIBILITY_DEFAULT FormatSpec
@@ -63,48 +66,77 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
 // T must have member functions data() and size() and their return values must
 // be convertible to char const* and size_t resp.
 //
+
 template <typename T>
 struct IsString {
     static constexpr bool value = false;
 };
 
 //
-// Implement this to printf your own data-type.
-//  (NOTE: In the data-type's namespace!)
+// Formatting function for user-defined types.
+// Implement this in the data-type's namespace!
 //
-template <typename T>
-int fmtxx__FormatValue(std::ostream& out, FormatSpec const& spec, T const& value)
+
+template <typename OS, typename T>
+int/*std::error_code*/ fmtxx__FormatValue(OS& os, FormatSpec const& spec, T const& value)
     = delete;
 
 //
-// The formatting function which does all the work
+// Appends the formatted arguments to the given string.
 //
+
 template <typename ...Args>
-int Format(std::ostream& os, std::string_view format, Args const&... args);
+int/*std::error_code*/ Format(std::string& os, std::string_view format, Args const&... args);
 
 //
-// Returns a std::string with the formatted arguments.
+// Returns a std::string containing the formatted arguments.
 //
+
 template <typename ...Args>
-std::string Format(std::string_view format, Args const&... args);
+std::string StringFormat(std::string_view format, Args const&... args);
 
 //
-// Captures the format string and the arguments for later use.
+// Appends the formatted arguments to the given stream.
 //
-template <typename S, typename ...Args>
-struct FormatArgs;
+
+template <typename ...Args>
+int/*std::error_code*/ Format(std::FILE* os, std::string_view format, Args const&... args);
 
 //
-// Captures the format string and the arguments for later use.
+// Appends the formatted arguments to the given stream.
 //
-template <typename S, typename ...Args>
-FormatArgs<S, Args...> Formatted(S&& format, Args&&... args);
+
+template <typename ...Args>
+int/*std::error_code*/ Format(std::ostream& os, std::string_view format, Args const&... args);
 
 //
-// Writes the formatted arguments to the given stream.
+// Appends the formatted arguments to the given array.
 //
-template <typename S, typename ...Args>
-std::ostream& operator <<(std::ostream& os, FormatArgs<S, Args...> const& args);
+
+// Wraps the input range for the Format() function below.
+// If a custom formatting function writes into the buffer, it needs to update the next pointer.
+//
+// assert: next <= last
+struct FMTXX_VISIBILITY_DEFAULT CharArray {
+    char* next = nullptr;
+    char* last = nullptr;
+};
+
+template <typename ...Args>
+int/*std::error_code*/ Format(CharArray& os, std::string_view format, Args const&... args);
+
+//
+// Appends the formatted arguments to the given array.
+//  (API as std::to_chars)
+//
+
+struct FMTXX_VISIBILITY_DEFAULT FormatToCharArrayResult {
+    char* next;
+    int/*std::error_code*/ ec;
+};
+
+template <typename ...Args>
+FormatToCharArrayResult Format(char* first, char* last, std::string_view format, Args const&... args);
 
 } // namespace fmtxx
 
@@ -114,12 +146,19 @@ std::ostream& operator <<(std::ostream& os, FormatArgs<S, Args...> const& args);
 
 #include <cassert>
 #include <climits>
-#include <cstddef>
-#include <sstream>
-#include <tuple>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
 
 namespace fmtxx {
 namespace impl {
+
+template <typename T>
+struct EnableADL // re-associate T to namespace fmtxx::impl
+{
+    T& value;
+    explicit EnableADL(T& v) : value(v) {}
+};
 
 class Types
 {
@@ -202,18 +241,21 @@ private:
     }
 };
 
+// It's a class template because the output-stream needs to be known here...
+// Is there a way to avoid this??
+template <typename OS>
 class Arg
 {
 public:
     template <bool>
     struct BoolConst {};
 
-    using Func = int (*)(std::ostream& buf, FormatSpec const& spec, void const* value);
+    using Func = int/*std::error_code*/ (*)(OS& os, FormatSpec const& spec, void const* value);
 
     template <typename T>
-    static int FormatValue_template(std::ostream& buf, FormatSpec const& spec, void const* value)
+    static int/*std::error_code*/ FormatValue_template(OS& os, FormatSpec const& spec, void const* value)
     {
-        return fmtxx__FormatValue(buf, spec, *static_cast<T const*>(value));
+        return fmtxx__FormatValue(os, spec, *static_cast<T const*>(value));
     }
 
     struct Other { void const* value; Func func; };
@@ -278,64 +320,485 @@ public:
     Arg(FormatSpec         const& v) : pvoid(&v) {}
 };
 
-FMTXX_API int DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
+template <typename T> inline constexpr T Min(T x, T y) { return y < x ? y : x; }
+template <typename T> inline constexpr T Max(T x, T y) { return y < x ? x : y; }
+
+// XXX: fmtxx__Put
+// XXX: fmtxx__Write
+// XXX: fmtxx__Pad
+FMTXX_API bool Put   (std::string  & os, char c);
+FMTXX_API bool Write (std::string  & os, char const* str, size_t len);
+FMTXX_API bool Pad   (std::string  & os, char c, size_t count);
+FMTXX_API bool Put   (std::FILE*   & os, char c);
+FMTXX_API bool Write (std::FILE*   & os, char const* str, size_t len);
+FMTXX_API bool Pad   (std::FILE*   & os, char c, size_t count);
+FMTXX_API bool Put   (std::ostream & os, char c);
+FMTXX_API bool Write (std::ostream & os, char const* str, size_t len);
+FMTXX_API bool Pad   (std::ostream & os, char c, size_t count);
+FMTXX_API bool Put   (CharArray    & os, char c);
+FMTXX_API bool Write (CharArray    & os, char const* str, size_t len);
+FMTXX_API bool Pad   (CharArray    & os, char c, size_t count);
+
+inline bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
+inline bool IsAlign(char ch) { return ch == '<' || ch == '>' || ch == '^' || ch == '='; }
+inline bool IsSign (char ch) { return ch == ' ' || ch == '-' || ch == '+'; }
+
+inline void ComputePadding(size_t min_len, char align, int width, size_t& lpad, size_t& spad, size_t& rpad)
+{
+    assert(width >= 0 && "internal error");
+
+    const size_t w = static_cast<size_t>(width);
+    if (w <= min_len)
+        return;
+
+    const size_t d = w - min_len;
+    switch (align)
+    {
+    case '>':
+        lpad = d;
+        break;
+    case '<':
+        rpad = d;
+        break;
+    case '^':
+        lpad = d/2;
+        rpad = d - d/2;
+        break;
+    case '=':
+        spad = d;
+        break;
+    }
+}
+
+// XXX: public...
+template <typename OS>
+inline int/*std::error_code*/ WriteRawString(OS& os, FormatSpec const& spec, char const* str, size_t len)
+{
+    size_t lpad = 0;
+    size_t spad = 0;
+    size_t rpad = 0;
+
+    ComputePadding(len, spec.align, spec.width, lpad, spad, rpad);
+
+    if (lpad > 0 && !Pad(os, spec.fill, lpad))
+        return -1;
+    if (len > 0  && !Write(os, str, len))
+        return -1;
+    if (rpad > 0 && !Pad(os, spec.fill, rpad))
+        return -1;
+
+    return 0;
+}
+
+// XXX: public...
+template <typename OS>
+inline int/*std::error_code*/ WriteString(OS& os, FormatSpec const& spec, char const* str, size_t len)
+{
+    size_t n = len;
+    if (spec.prec >= 0)
+    {
+        if (n > static_cast<size_t>(spec.prec))
+            n = static_cast<size_t>(spec.prec);
+    }
+
+    return WriteRawString(os, spec, str, n);
+}
+
+// XXX: public...
+template <typename OS>
+inline int/*std::error_code*/ WriteString(OS& os, FormatSpec const& spec, char const* str)
+{
+    if (str == nullptr)
+        return WriteRawString(os, spec, "(null)", 6);
+
+    // Use strnlen if a precision was specified.
+    // The string may not be null-terminated!
+    size_t len;
+    if (spec.prec >= 0)
+        len = ::strnlen(str, static_cast<size_t>(spec.prec));
+    else
+        len = ::strlen(str);
+
+    return WriteRawString(os, spec, str, len);
+}
+
+// XXX: public...
+template <typename OS>
+inline int/*std::error_code*/ WriteNumber(OS& os, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
+{
+    const size_t min_len = (sign ? 1u : 0u) + nprefix + ndigits;
+
+    size_t lpad = 0;
+    size_t spad = 0;
+    size_t rpad = 0;
+
+    ComputePadding(min_len, spec.zero ? '=' : spec.align, spec.width, lpad, spad, rpad);
+
+    //const size_t out_len = lpad + spad + min_len + rpad;
+
+    if (lpad > 0     && !Pad(os, spec.fill, lpad))
+        return -1;
+    if (sign != '\0' && !Put(os, sign))
+        return -1;
+    if (nprefix > 0  && !Write(os, prefix, nprefix))
+        return -1;
+    if (spad > 0     && !Pad(os, spec.zero ? '0' : spec.fill, spad))
+        return -1;
+    if (ndigits > 0  && !Write(os, digits, ndigits))
+        return -1;
+    if (rpad > 0     && !Pad(os, spec.fill, rpad))
+        return -1;
+
+    return 0;
+}
+
+struct IntToAsciiResult {
+    char*  first;
+    char*  last;
+    size_t nprefix;
+    int    base;
+    char   conv;
+    char   sign;
+};
+
+// XXX: public...
+FMTXX_API IntToAsciiResult IntToAscii(char* first, char* last, FormatSpec const& spec, int64_t sext, uint64_t zext);
+
+// XXX: public...
+template <typename OS>
+inline int/*std::error_code*/ WriteInt(OS& os, FormatSpec const& spec, int64_t sext, uint64_t zext)
+{
+    char buf[64];
+
+    const auto res = IntToAscii(buf, buf + 64, spec, sext, zext);
+    const auto len = static_cast<size_t>(res.last - res.first);
+
+    const char prefix[] = { '0', res.conv };
+
+    return WriteNumber(os, spec, res.sign, prefix, res.nprefix, res.first, len);
+}
+
+// XXX: public...
+template <typename OS>
+inline int/*std::error_code*/ WriteBool(OS& os, FormatSpec const& spec, bool val)
+{
+    return WriteRawString(os, spec, val ? "true" : "false", val ? 4u : 5u);
+}
+
+// XXX: public...
+template <typename OS>
+inline int/*std::error_code*/ WriteChar(OS& os, FormatSpec const& spec, char ch)
+{
+    return WriteString(os, spec, &ch, 1u);
+}
+
+// XXX: public...
+template <typename OS>
+inline int/*std::error_code*/ WritePointer(OS& os, FormatSpec const& spec, void const* pointer)
+{
+    if (pointer == nullptr)
+        return WriteRawString(os, spec, "(nil)", 5);
+
+    FormatSpec f = spec;
+    f.hash = '#';
+    f.conv = 'x';
+
+    return WriteInt(os, f, 0, reinterpret_cast<uintptr_t>(pointer));
+}
+
+struct DoubleToAsciiResult {
+    char* first;
+    char* last;
+    char  conv;
+    char  sign;
+    bool  isnum;
+    bool  hexprefix;
+};
+
+// XXX: public...
+FMTXX_API DoubleToAsciiResult DoubleToAscii(char* first, char* last, FormatSpec const& spec, double x);
+
+// XXX: public...
+template <typename OS>
+inline int/*std::error_code*/ WriteDouble(OS& os, FormatSpec const& spec, double x)
+{
+    static const size_t kBufSize = 1000; // >= 32
+    char buf[kBufSize];
+
+    const auto res = DoubleToAscii(buf, buf + kBufSize, spec, x);
+    const auto len = static_cast<size_t>(res.last - res.first);
+
+    if (res.isnum)
+        return WriteNumber(os, spec, res.sign, "0x", res.hexprefix ? 2u : 0u, res.first, len);
+
+    return WriteRawString(os, spec, res.first, len);
+}
+
+//
+// Parse a non-negative integer in the range [0, INT_MAX].
+// Returns -1 on overflow.
+//
+// PRE: IsDigit(*s) == true.
+//
+inline int/*std::error_code*/ ParseInt(const char*& s, const char* end)
+{
+    int x = *s - '0';
+
+    while (++s != end && IsDigit(*s))
+    {
+        if (x > INT_MAX / 10 || *s - '0' > INT_MAX - 10*x)
+            return -1;
+        x = 10*x + (*s - '0');
+    }
+
+    return x;
+}
+
+inline void FixFormatSpec(FormatSpec& spec)
+{
+    if (spec.align && !IsAlign(spec.align))
+        spec.align = '>';
+
+    if (spec.sign && !IsSign(spec.sign))
+        spec.sign = '-';
+
+    if (spec.width < 0)
+    {
+        if (spec.width < -INT_MAX)
+            spec.width = -INT_MAX;
+        spec.align = '<';
+        spec.width = -spec.width;
+    }
+}
+
+template <typename OS>
+inline int/*std::error_code*/ ParseFormatSpec_part1(FormatSpec& spec, const char*& f, const char* end, int& nextarg, Types types, Arg<OS> const* args)
+{
+    assert(f != end);
+
+    if (*f == '*')
+    {
+        ++f;
+        if (f == end)
+            return -1; // missing '}'
+
+        int spec_index = -1;
+        if (IsDigit(*f))
+        {
+            spec_index = ParseInt(f, end);
+            if (spec_index < 0)
+                return -1; // overflow
+            if (f == end)
+                return -1; // missing '}'
+        }
+        else
+        {
+            spec_index = nextarg++;
+        }
+
+        if (types[spec_index] != Types::T_FORMATSPEC)
+            return -1; // invalid argument
+
+        spec = *static_cast<FormatSpec const*>(args[spec_index].pvoid);
+        FixFormatSpec(spec);
+    }
+
+    return 0;
+}
+
+FMTXX_API int/*std::error_code*/ ParseFormatSpec_part2(FormatSpec& spec, const char*& f, const char* end);
+
+template <typename OS>
+inline int/*std::error_code*/ CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types types, Arg<OS> const* args)
+{
+    const unsigned type = types[index];
+
+    if (type == 0)
+        return -1; // index out of range
+
+    const auto& arg = args[index];
+
+    switch (type)
+    {
+    case Types::T_OTHER:
+        return arg.other.func(os, spec, arg.other.value);
+    case Types::T_STRING:
+        return WriteString(os, spec, arg.string.str, arg.string.len);
+    case Types::T_PVOID:
+        return WritePointer(os, spec, arg.pvoid);
+    case Types::T_PCHAR:
+        return WriteString(os, spec, arg.pchar);
+    case Types::T_CHAR:
+        return WriteChar(os, spec, arg.char_);
+    case Types::T_BOOL:
+        return WriteBool(os, spec, arg.bool_);
+    case Types::T_SCHAR:
+        return WriteInt(os, spec, arg.schar, static_cast<unsigned char>(arg.schar));
+    case Types::T_SSHORT:
+        return WriteInt(os, spec, arg.sshort, static_cast<unsigned short>(arg.sshort));
+    case Types::T_SINT:
+        return WriteInt(os, spec, arg.sint, static_cast<unsigned int>(arg.sint));
+    case Types::T_SLONGLONG:
+        return WriteInt(os, spec, arg.slonglong, static_cast<unsigned long long>(arg.slonglong));
+    case Types::T_ULONGLONG:
+        return WriteInt(os, spec, 0, arg.ulonglong);
+    case Types::T_DOUBLE:
+        return WriteDouble(os, spec, arg.double_);
+    case Types::T_FORMATSPEC:
+        return WriteRawString(os, spec, "[[error]]", 9);
+    }
+
+    assert(!"unreachable");
+    return -1;
+}
+
+template <typename OS>
+int/*std::error_code*/ DoFormatImpl(OS& os, std::string_view format, Types types, Arg<OS> const* args)
+{
+    assert(args != nullptr);
+
+    if (format.empty())
+        return 0;
+
+    int nextarg = 0;
+
+    const char*       f   = format.data();
+    const char* const end = f + format.size();
+    const char*       s   = f;
+    for (;;)
+    {
+        while (f != end && *f != '{' && *f != '}')
+            ++f;
+
+        if (f != s && !Write(os, s, static_cast<size_t>(f - s)))
+            return -1;
+
+        if (f == end) // done.
+            break;
+
+        const char c = *f++; // skip '{' or '}'
+
+        if (*f == c) // '{{' or '}}'
+        {
+            s = f++;
+            continue;
+        }
+
+        if (c == '}')
+            return -1; // stray '}'
+        if (f == end)
+            return -1; // missing '}'
+
+        int index = -1;
+        if (IsDigit(*f))
+        {
+            index = ParseInt(f, end);
+            if (index < 0)
+                return -1; // overflow
+            if (f == end)
+                return -1; // missing '}'
+        }
+
+        FormatSpec spec;
+        if (*f != '}')
+        {
+            if (const int err = ParseFormatSpec_part1(spec, f, end, nextarg, types, args))
+                return err;
+            if (const int err = ParseFormatSpec_part2(spec, f, end))
+                return err;
+        }
+
+        if (index < 0)
+            index = nextarg++;
+
+        const int err = CallFormatFunc(os, spec, index, types, args);
+        if (err != 0)
+            return err;
+
+        if (f == end) // done.
+            break;
+
+        s = ++f; // skip '}'
+    }
+
+    return 0;
+}
+
+#if 0
+template <typename OS>
+inline int/*std::error_code*/ DoFormat(OS& os, std::string_view format, Types types, Arg<OS> const* args)
+{
+    return DoFormatImpl(os, format, types, args);
+}
+#endif
+
+FMTXX_API int/*std::error_code*/ DoFormat(std::string  & os, std::string_view format, Types types, Arg<std::string > const* args);
+FMTXX_API int/*std::error_code*/ DoFormat(std::FILE*   & os, std::string_view format, Types types, Arg<std::FILE*  > const* args);
+FMTXX_API int/*std::error_code*/ DoFormat(std::ostream & os, std::string_view format, Types types, Arg<std::ostream> const* args);
+FMTXX_API int/*std::error_code*/ DoFormat(CharArray    & os, std::string_view format, Types types, Arg<CharArray > const* args);
 
 } // namespace impl
 } // namespace fmtxx
 
 template <typename ...Args>
-int fmtxx::Format(std::ostream& os, std::string_view format, Args const&... args)
+inline int/*std::error_code*/ fmtxx::Format(std::string& os, std::string_view format, Args const&... args)
 {
     const size_t N = sizeof...(Args);
-    const fmtxx::impl::Arg arr[N ? N : 1] = { args... };
+    const fmtxx::impl::Arg<std::string> arr[N ? N : 1] = { args... };
 
     return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
 }
 
 template <typename ...Args>
-std::string fmtxx::Format(std::string_view format, Args const&... args)
+inline std::string fmtxx::StringFormat(std::string_view format, Args const&... args)
 {
-    std::ostringstream os;
+    std::string os;
     fmtxx::Format(os, format, args...);
-    return os.str();
-}
-
-template <typename S, typename ...Args>
-struct fmtxx::FormatArgs
-{
-    const S format_;
-    const std::tuple<Args...> args_;
-
-    explicit FormatArgs(S&& format, Args&&... args)
-        : format_(std::forward<S>(format))
-        , args_(std::forward<Args>(args)...)
-    {
-    }
-
-    template <size_t... I>
-    void insert_impl(std::ostream& os, std::index_sequence<I...>) const {
-        fmtxx::Format(os, format_, std::get<I>(args_)...);
-    }
-
-    void insert(std::ostream& os) const {
-        return insert_impl(os, std::make_index_sequence<sizeof...(Args)>{});
-    }
-};
-
-template <typename S, typename ...Args>
-fmtxx::FormatArgs<S, Args...> fmtxx::Formatted(S&& format, Args&&... args) {
-    return fmtxx::FormatArgs<S, Args...>(std::forward<S>(format), std::forward<Args>(args)... );
-}
-
-template <typename S, typename ...Args>
-std::ostream& fmtxx::operator <<(std::ostream& os, fmtxx::FormatArgs<S, Args...> const& args)
-{
-    args.insert(os);
     return os;
 }
 
+template <typename ...Args>
+inline int/*std::error_code*/ fmtxx::Format(std::FILE* os, std::string_view format, Args const&... args)
+{
+    const size_t N = sizeof...(Args);
+    const fmtxx::impl::Arg<std::FILE*> arr[N ? N : 1] = { args... };
+
+    return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
+}
+
+template <typename ...Args>
+inline int/*std::error_code*/ fmtxx::Format(std::ostream& os, std::string_view format, Args const&... args)
+{
+    const size_t N = sizeof...(Args);
+    const fmtxx::impl::Arg<std::ostream> arr[N ? N : 1] = { args... };
+
+    return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
+}
+
+template <typename ...Args>
+inline int/*std::error_code*/ fmtxx::Format(CharArray& os, std::string_view format, Args const&... args)
+{
+    const size_t N = sizeof...(Args);
+    const fmtxx::impl::Arg<CharArray> arr[N ? N : 1] = { args... };
+
+    return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
+}
+
+template <typename ...Args>
+inline fmtxx::FormatToCharArrayResult fmtxx::Format(char* first, char* last, std::string_view format, Args const&... args)
+{
+    CharArray os { first, last };
+
+    FormatToCharArrayResult res;
+
+    res.ec = Format(os, format, args...);
+    res.next = os.next;
+
+    return res;
+}
+
 //------------------------------------------------------------------------------
-// Copyright 2016 Alexander Bolz
+// Copyright 2016 A. Bolz
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

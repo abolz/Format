@@ -19,7 +19,6 @@
      namespace std { using std::experimental::string_view; }
 #  endif
 #endif
-#include <system_error>
 
 #ifdef __GNUC__
 #  define FMTXX_VISIBILITY_DEFAULT __attribute__((visibility("default")))

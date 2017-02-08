@@ -86,7 +86,14 @@ struct IsString {
 
 template <typename OS, typename T>
 errc fmtxx__FormatValue(OS& os, FormatSpec const& spec, T const& value)
+#if 1
     = delete;
+#else
+{
+    os << value;
+    return os.good() ? errc::success : errc::io_error;
+}
+#endif
 
 //
 // Appends the formatted arguments to the given string.
@@ -138,8 +145,8 @@ errc Format(CharArray& os, std::string_view format, Args const&... args);
 //
 
 struct FMTXX_VISIBILITY_DEFAULT FormatToCharArrayResult {
-    char* next;
-    errc ec;
+    char* next = nullptr;
+    errc  ec   = errc::success;
 };
 
 template <typename ...Args>
@@ -197,50 +204,50 @@ public:
     {
     }
 
-    unsigned operator [](int index) const
+    EType operator [](int index) const
     {
         assert(index >= 0);
         if (index >= 16)
-            return 0;
-        return static_cast<unsigned>((types >> (4 * index)) & 0xF);
+            return T_NONE;
+        return static_cast<EType>((types >> (4 * index)) & 0xF);
     }
 
 private:
     // XXX:
     // Keep in sync with Arg::Arg() below!!!
     template <typename T>
-    unsigned GetId(T                  const&) { return IsString<T>::value ? T_STRING : T_OTHER; }
-    unsigned GetId(bool               const&) { return T_BOOL; }
-    unsigned GetId(std::string_view   const&) { return T_STRING; }
-    unsigned GetId(std::string        const&) { return T_STRING; }
-    unsigned GetId(std::nullptr_t     const&) { return T_PVOID; }
-    unsigned GetId(void const*        const&) { return T_PVOID; }
-    unsigned GetId(void*              const&) { return T_PVOID; }
-    unsigned GetId(char const*        const&) { return T_PCHAR; }
-    unsigned GetId(char*              const&) { return T_PCHAR; }
-    unsigned GetId(char               const&) { return T_CHAR; }
-    unsigned GetId(signed char        const&) { return T_SCHAR; }
-    unsigned GetId(signed short       const&) { return T_SSHORT; }
-    unsigned GetId(signed int         const&) { return T_SINT; }
+    static unsigned GetId(T                  const&) { return IsString<T>::value ? T_STRING : T_OTHER; }
+    static unsigned GetId(bool               const&) { return T_BOOL; }
+    static unsigned GetId(std::string_view   const&) { return T_STRING; }
+    static unsigned GetId(std::string        const&) { return T_STRING; }
+    static unsigned GetId(std::nullptr_t     const&) { return T_PVOID; }
+    static unsigned GetId(void const*        const&) { return T_PVOID; }
+    static unsigned GetId(void*              const&) { return T_PVOID; }
+    static unsigned GetId(char const*        const&) { return T_PCHAR; }
+    static unsigned GetId(char*              const&) { return T_PCHAR; }
+    static unsigned GetId(char               const&) { return T_CHAR; }
+    static unsigned GetId(signed char        const&) { return T_SCHAR; }
+    static unsigned GetId(signed short       const&) { return T_SSHORT; }
+    static unsigned GetId(signed int         const&) { return T_SINT; }
 #if LONG_MAX == INT_MAX
-    unsigned GetId(signed long        const&) { return T_SINT; }
+    static unsigned GetId(signed long        const&) { return T_SINT; }
 #else
-    unsigned GetId(signed long        const&) { return T_SLONGLONG; }
+    static unsigned GetId(signed long        const&) { return T_SLONGLONG; }
 #endif
-    unsigned GetId(signed long long   const&) { return T_SLONGLONG; }
-    unsigned GetId(unsigned char      const&) { return T_ULONGLONG; }
-    unsigned GetId(unsigned short     const&) { return T_ULONGLONG; }
-    unsigned GetId(unsigned int       const&) { return T_ULONGLONG; }
-    unsigned GetId(unsigned long      const&) { return T_ULONGLONG; }
-    unsigned GetId(unsigned long long const&) { return T_ULONGLONG; }
-    unsigned GetId(double             const&) { return T_DOUBLE; }
-    unsigned GetId(float              const&) { return T_DOUBLE; }
-    unsigned GetId(FormatSpec         const&) { return T_FORMATSPEC; }
+    static unsigned GetId(signed long long   const&) { return T_SLONGLONG; }
+    static unsigned GetId(unsigned char      const&) { return T_ULONGLONG; }
+    static unsigned GetId(unsigned short     const&) { return T_ULONGLONG; }
+    static unsigned GetId(unsigned int       const&) { return T_ULONGLONG; }
+    static unsigned GetId(unsigned long      const&) { return T_ULONGLONG; }
+    static unsigned GetId(unsigned long long const&) { return T_ULONGLONG; }
+    static unsigned GetId(double             const&) { return T_DOUBLE; }
+    static unsigned GetId(float              const&) { return T_DOUBLE; }
+    static unsigned GetId(FormatSpec         const&) { return T_FORMATSPEC; }
 
-    value_type Make() { return 0; }
+    static value_type Make() { return 0; }
 
     template <typename A1, typename ...An>
-    value_type Make(A1 const& a1, An const&... an)
+    static value_type Make(A1 const& a1, An const&... an)
     {
         static_assert(1 + sizeof...(An) <= 16, "too many arguments");
         return (Make(an...) << 4) | GetId(a1);
@@ -440,8 +447,6 @@ inline errc WriteNumber(OS& os, FormatSpec const& spec, char sign, char const* p
 
     ComputePadding(min_len, spec.zero ? '=' : spec.align, spec.width, lpad, spad, rpad);
 
-    //const size_t out_len = lpad + spad + min_len + rpad;
-
     if (lpad > 0     && !Pad(os, spec.fill, lpad))
         return errc::io_error;
     if (sign != '\0' && !Put(os, sign))
@@ -562,10 +567,10 @@ inline int ParseInt(const char*& s, const char* end)
 
 inline void FixFormatSpec(FormatSpec& spec)
 {
-    if (spec.align && !IsAlign(spec.align))
+    if (spec.align != '\0' && !IsAlign(spec.align))
         spec.align = '>';
 
-    if (spec.sign && !IsSign(spec.sign))
+    if (spec.sign != '\0' && !IsSign(spec.sign))
         spec.sign = '-';
 
     if (spec.width < 0)
@@ -617,15 +622,17 @@ FMTXX_API errc ParseFormatSpec_part2(FormatSpec& spec, const char*& f, const cha
 template <typename OS>
 inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types types, Arg<OS> const* args)
 {
-    const unsigned type = types[index];
+    const auto type = types[index];
 
-    if (type == 0)
+    if (type == Types::T_NONE)
         return errc::index_out_of_range;
 
     const auto& arg = args[index];
 
     switch (type)
     {
+    case Types::T_NONE:
+        break; // unreachable -- fix warning
     case Types::T_OTHER:
         return arg.other.func(os, spec, arg.other.value);
     case Types::T_STRING:
@@ -654,8 +661,7 @@ inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types type
         return WriteRawString(os, spec, "[[error]]", 9);
     }
 
-    assert(!"unreachable");
-    return errc::success;
+    return errc::success; // unreachable -- fix warning
 }
 
 template <typename OS>

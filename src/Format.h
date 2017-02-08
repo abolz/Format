@@ -254,21 +254,18 @@ private:
     }
 };
 
-// It's a class template because the output-stream needs to be known here...
-// Is there a way to avoid this??
-template <typename OS>
 class Arg
 {
 public:
     template <bool>
     struct BoolConst {};
 
-    using Func = errc (*)(OS& os, FormatSpec const& spec, void const* value);
+    using Func = errc (*)(void* os, FormatSpec const& spec, void const* value);
 
-    template <typename T>
-    static errc FormatValue_template(OS& os, FormatSpec const& spec, void const* value)
+    template <typename OS, typename T>
+    static errc FormatValue_template(void* os, FormatSpec const& spec, void const* value)
     {
-        return fmtxx__FormatValue(os, spec, *static_cast<T const*>(value));
+        return fmtxx__FormatValue(*static_cast<OS*>(os), spec, *static_cast<T const*>(value));
     }
 
     struct Other { void const* value; Func func; };
@@ -291,50 +288,48 @@ public:
 
     Arg() = default;
 
-    template <typename T>
-    Arg(T const& v, BoolConst<true>) : string{ v.data(), v.size() }
+    template <typename OS, typename T>
+    Arg(OS&, T const& v, BoolConst<true>) : string{ v.data(), v.size() }
     {
     }
 
-    template <typename T>
-    Arg(T const& v, BoolConst<false>) : other{ &v, &FormatValue_template<T> }
+    template <typename OS, typename T>
+    Arg(OS&, T const& v, BoolConst<false>) : other{ &v, &FormatValue_template<OS, T> }
     {
     }
 
     // XXX:
     // Keep in sync with Types::GetId() above!!!
-    template <typename T>
-    Arg(T                  const& v) : Arg(v, BoolConst<IsString<T>::value>{}) {}
-    Arg(bool               const& v) : bool_(v) {}
-    Arg(std::string_view   const& v) : string { v.data(), v.size() } {}
-    Arg(std::string        const& v) : string { v.data(), v.size() } {}
-    Arg(std::nullptr_t     const& v) : pvoid(v) {}
-    Arg(void const*        const& v) : pvoid(v) {}
-    Arg(void*              const& v) : pvoid(v) {}
-    Arg(char const*        const& v) : pchar(v) {}
-    Arg(char*              const& v) : pchar(v) {}
-    Arg(char               const& v) : char_(v) {}
-    Arg(signed char        const& v) : schar(v) {}
-    Arg(signed short       const& v) : sshort(v) {}
-    Arg(signed int         const& v) : sint(v) {}
-#if LONG_MAX == INT_MAX
-    Arg(signed long        const& v) : sint(v) {}
-#else
-    Arg(signed long        const& v) : slonglong(v) {}
-#endif
-    Arg(signed long long   const& v) : slonglong(v) {}
-    Arg(unsigned char      const& v) : ulonglong(v) {}
-    Arg(unsigned short     const& v) : ulonglong(v) {}
-    Arg(unsigned int       const& v) : ulonglong(v) {}
-    Arg(unsigned long      const& v) : ulonglong(v) {}
-    Arg(unsigned long long const& v) : ulonglong(v) {}
-    Arg(double             const& v) : double_(v) {}
-    Arg(float              const& v) : double_(static_cast<double>(v)) {}
-    Arg(FormatSpec         const& v) : pvoid(&v) {}
-};
+    template <typename OS, typename T>
+    Arg(OS& os, T const& v) : Arg(os, v, BoolConst<IsString<T>::value>{}) {}
 
-template <typename T> inline constexpr T Min(T x, T y) { return y < x ? y : x; }
-template <typename T> inline constexpr T Max(T x, T y) { return y < x ? x : y; }
+    template <typename OS> Arg(OS&, bool               const& v) : bool_(v) {}
+    template <typename OS> Arg(OS&, std::string_view   const& v) : string { v.data(), v.size() } {}
+    template <typename OS> Arg(OS&, std::string        const& v) : string { v.data(), v.size() } {}
+    template <typename OS> Arg(OS&, std::nullptr_t     const& v) : pvoid(v) {}
+    template <typename OS> Arg(OS&, void const*        const& v) : pvoid(v) {}
+    template <typename OS> Arg(OS&, void*              const& v) : pvoid(v) {}
+    template <typename OS> Arg(OS&, char const*        const& v) : pchar(v) {}
+    template <typename OS> Arg(OS&, char*              const& v) : pchar(v) {}
+    template <typename OS> Arg(OS&, char               const& v) : char_(v) {}
+    template <typename OS> Arg(OS&, signed char        const& v) : schar(v) {}
+    template <typename OS> Arg(OS&, signed short       const& v) : sshort(v) {}
+    template <typename OS> Arg(OS&, signed int         const& v) : sint(v) {}
+#if LONG_MAX == INT_MAX
+    template <typename OS> Arg(OS&, signed long        const& v) : sint(v) {}
+#else
+    template <typename OS> Arg(OS&, signed long        const& v) : slonglong(v) {}
+#endif
+    template <typename OS> Arg(OS&, signed long long   const& v) : slonglong(v) {}
+    template <typename OS> Arg(OS&, unsigned char      const& v) : ulonglong(v) {}
+    template <typename OS> Arg(OS&, unsigned short     const& v) : ulonglong(v) {}
+    template <typename OS> Arg(OS&, unsigned int       const& v) : ulonglong(v) {}
+    template <typename OS> Arg(OS&, unsigned long      const& v) : ulonglong(v) {}
+    template <typename OS> Arg(OS&, unsigned long long const& v) : ulonglong(v) {}
+    template <typename OS> Arg(OS&, double             const& v) : double_(v) {}
+    template <typename OS> Arg(OS&, float              const& v) : double_(static_cast<double>(v)) {}
+    template <typename OS> Arg(OS&, FormatSpec         const& v) : pvoid(&v) {}
+};
 
 // XXX: fmtxx__Put
 // XXX: fmtxx__Write
@@ -565,62 +560,10 @@ inline int ParseInt(const char*& s, const char* end)
     return x;
 }
 
-inline void FixFormatSpec(FormatSpec& spec)
-{
-    if (spec.align != '\0' && !IsAlign(spec.align))
-        spec.align = '>';
-
-    if (spec.sign != '\0' && !IsSign(spec.sign))
-        spec.sign = '-';
-
-    if (spec.width < 0)
-    {
-        if (spec.width < -INT_MAX)
-            spec.width = -INT_MAX;
-        spec.align = '<';
-        spec.width = -spec.width;
-    }
-}
+FMTXX_API errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, int& nextarg, Types types, Arg const* args);
 
 template <typename OS>
-inline errc ParseFormatSpec_part1(FormatSpec& spec, const char*& f, const char* end, int& nextarg, Types types, Arg<OS> const* args)
-{
-    assert(f != end);
-
-    if (*f == '*')
-    {
-        ++f;
-        if (f == end)
-            return errc::invalid_format_string; // missing '}'
-
-        int spec_index = -1;
-        if (IsDigit(*f))
-        {
-            spec_index = ParseInt(f, end);
-            if (spec_index < 0)
-                return errc::invalid_format_string; // overflow
-            if (f == end)
-                return errc::invalid_format_string; // missing '}'
-        }
-        else
-        {
-            spec_index = nextarg++;
-        }
-
-        if (types[spec_index] != Types::T_FORMATSPEC)
-            return errc::invalid_argument;
-
-        spec = *static_cast<FormatSpec const*>(args[spec_index].pvoid);
-        FixFormatSpec(spec);
-    }
-
-    return errc::success;
-}
-
-FMTXX_API errc ParseFormatSpec_part2(FormatSpec& spec, const char*& f, const char* end);
-
-template <typename OS>
-inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types types, Arg<OS> const* args)
+inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types types, Arg const* args)
 {
     const auto type = types[index];
 
@@ -634,7 +577,7 @@ inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types type
     case Types::T_NONE:
         break; // unreachable -- fix warning
     case Types::T_OTHER:
-        return arg.other.func(os, spec, arg.other.value);
+        return arg.other.func(static_cast<void*>(&os), spec, arg.other.value);
     case Types::T_STRING:
         return WriteString(os, spec, arg.string.str, arg.string.len);
     case Types::T_PVOID:
@@ -665,7 +608,7 @@ inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types type
 }
 
 template <typename OS>
-errc DoFormatImpl(OS& os, std::string_view format, Types types, Arg<OS> const* args)
+errc DoFormatImpl(OS& os, std::string_view format, Types types, Arg const* args)
 {
     assert(args != nullptr);
 
@@ -714,10 +657,7 @@ errc DoFormatImpl(OS& os, std::string_view format, Types types, Arg<OS> const* a
         FormatSpec spec;
         if (*f != '}')
         {
-            errc ec = ParseFormatSpec_part1(spec, f, end, nextarg, types, args);
-            if (ec != errc::success)
-                return ec;
-            ec = ParseFormatSpec_part2(spec, f, end);
+            const errc ec = ParseFormatSpec(spec, f, end, nextarg, types, args);
             if (ec != errc::success)
                 return ec;
         }
@@ -740,16 +680,16 @@ errc DoFormatImpl(OS& os, std::string_view format, Types types, Arg<OS> const* a
 
 #if 0
 template <typename OS>
-inline errc DoFormat(OS& os, std::string_view format, Types types, Arg<OS> const* args)
+inline errc DoFormat(OS& os, std::string_view format, Types types, Arg const* args)
 {
     return DoFormatImpl(os, format, types, args);
 }
 #endif
 
-FMTXX_API errc DoFormat(std::string  & os, std::string_view format, Types types, Arg<std::string > const* args);
-FMTXX_API errc DoFormat(std::FILE*   & os, std::string_view format, Types types, Arg<std::FILE*  > const* args);
-FMTXX_API errc DoFormat(std::ostream & os, std::string_view format, Types types, Arg<std::ostream> const* args);
-FMTXX_API errc DoFormat(CharArray    & os, std::string_view format, Types types, Arg<CharArray   > const* args);
+FMTXX_API errc DoFormat(std::string  & os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(std::FILE*   & os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(std::ostream & os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(CharArray    & os, std::string_view format, Types types, Arg const* args);
 
 } // namespace impl
 } // namespace fmtxx
@@ -758,7 +698,7 @@ template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(std::string& os, std::string_view format, Args const&... args)
 {
     const size_t N = sizeof...(Args);
-    const fmtxx::impl::Arg<std::string> arr[N ? N : 1] = { args... };
+    const fmtxx::impl::Arg arr[N ? N : 1] = { fmtxx::impl::Arg(os, args)... };
 
     return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
 }
@@ -775,7 +715,7 @@ template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(std::FILE* os, std::string_view format, Args const&... args)
 {
     const size_t N = sizeof...(Args);
-    const fmtxx::impl::Arg<std::FILE*> arr[N ? N : 1] = { args... };
+    const fmtxx::impl::Arg arr[N ? N : 1] = { fmtxx::impl::Arg(os, args)... };
 
     return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
 }
@@ -784,7 +724,7 @@ template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(std::ostream& os, std::string_view format, Args const&... args)
 {
     const size_t N = sizeof...(Args);
-    const fmtxx::impl::Arg<std::ostream> arr[N ? N : 1] = { args... };
+    const fmtxx::impl::Arg arr[N ? N : 1] = { fmtxx::impl::Arg(os, args)... };
 
     return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
 }
@@ -793,7 +733,7 @@ template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(CharArray& os, std::string_view format, Args const&... args)
 {
     const size_t N = sizeof...(Args);
-    const fmtxx::impl::Arg<CharArray> arr[N ? N : 1] = { args... };
+    const fmtxx::impl::Arg arr[N ? N : 1] = { fmtxx::impl::Arg(os, args)... };
 
     return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
 }

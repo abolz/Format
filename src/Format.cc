@@ -7,6 +7,9 @@
 #include <intrin.h>
 #endif
 
+template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
+template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
+
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
@@ -1099,9 +1102,55 @@ fmtxx::impl::DoubleToAsciiResult fmtxx::impl::DoubleToAscii(char* first, char* l
 //
 //------------------------------------------------------------------------------
 
-fmtxx::errc fmtxx::impl::ParseFormatSpec_part2(FormatSpec& spec, const char*& f, const char* end)
+static void FixFormatSpec(fmtxx::FormatSpec& spec)
+{
+    using namespace fmtxx::impl;
+
+    if (spec.align != '\0' && !IsAlign(spec.align))
+        spec.align = '>';
+
+    if (spec.sign != '\0' && !IsSign(spec.sign))
+        spec.sign = '-';
+
+    if (spec.width < 0)
+    {
+        if (spec.width < -INT_MAX)
+            spec.width = -INT_MAX;
+        spec.align = '<';
+        spec.width = -spec.width;
+    }
+}
+
+fmtxx::errc fmtxx::impl::ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end);
+
+    if (*f == '*')
+    {
+        ++f;
+        if (f == end)
+            return errc::invalid_format_string; // missing '}'
+
+        int spec_index = -1;
+        if (IsDigit(*f))
+        {
+            spec_index = ParseInt(f, end);
+            if (spec_index < 0)
+                return errc::invalid_format_string; // overflow
+            if (f == end)
+                return errc::invalid_format_string; // missing '}'
+        }
+        else
+        {
+            spec_index = nextarg++;
+        }
+
+        if (types[spec_index] != Types::T_FORMATSPEC)
+            return errc::invalid_argument;
+
+        spec = *static_cast<FormatSpec const*>(args[spec_index].pvoid);
+        FixFormatSpec(spec);
+    }
 
     if (*f == ':')
     {
@@ -1191,15 +1240,15 @@ fmtxx::errc fmtxx::impl::ParseFormatSpec_part2(FormatSpec& spec, const char*& f,
     return errc::success;
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(std::string& os, std::string_view format, Types types, Arg<std::string> const* args) {
+fmtxx::errc fmtxx::impl::DoFormat(std::string& os, std::string_view format, Types types, Arg const* args) {
     return DoFormatImpl(os, format, types, args);
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(std::FILE*& os, std::string_view format, Types types, Arg<std::FILE*> const* args) {
+fmtxx::errc fmtxx::impl::DoFormat(std::FILE*& os, std::string_view format, Types types, Arg const* args) {
     return DoFormatImpl(os, format, types, args);
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg<std::ostream> const* args)
+fmtxx::errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args)
 {
     const std::ostream::sentry se(os);
     if (se)
@@ -1207,7 +1256,7 @@ fmtxx::errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Typ
     return errc::io_error;
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(CharArray& os, std::string_view format, Types types, Arg<CharArray> const* args) {
+fmtxx::errc fmtxx::impl::DoFormat(CharArray& os, std::string_view format, Types types, Arg const* args) {
     return DoFormatImpl(os, format, types, args);
 }
 

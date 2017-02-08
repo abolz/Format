@@ -330,9 +330,9 @@ struct Double
     explicit Double(double d) : d(d) {}
     explicit Double(uint64_t bits) : bits(bits) {}
 
-    uint64_t Sign()        const { return (bits & kSignMask      ) >> 63; }
-    uint64_t Exponent()    const { return (bits & kExponentMask  ) >> 52; }
-    uint64_t Significand() const { return (bits & kSignificandMask)      ; }
+    uint64_t Sign()        const { return (bits & kSignMask       ) >> 63; }
+    uint64_t Exponent()    const { return (bits & kExponentMask   ) >> 52; }
+    uint64_t Significand() const { return (bits & kSignificandMask);       }
 
     int UnbiasedExponent() const {
         return static_cast<int>(Exponent()) - kExponentBias;

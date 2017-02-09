@@ -619,6 +619,56 @@ static void test_wide_strings()
 //
 //------------------------------------------------------------------------------
 
+#include <vector>
+
+namespace fmtxx {
+namespace impl {
+
+inline bool Put(ADLEnabled<std::vector<char>>& os, char c)
+{
+    os.value.push_back(c);
+    return true;
+}
+
+inline bool Write(ADLEnabled<std::vector<char>>& os, char const* str, size_t len)
+{
+    os.value.insert(os.value.end(), str, str + len);
+    return true;
+}
+
+inline bool Pad(ADLEnabled<std::vector<char>>& os, char c, size_t count)
+{
+    os.value.resize(os.value.size() + count, c);
+    return true;
+}
+
+} // namespace impl
+
+template <typename ...Args>
+errc Format(std::vector<char>& os, std::string_view format, Args const&... args)
+{
+    return impl::Format(impl::EnableADL(os), format, args...);
+}
+
+} // namespace fmtxx
+
+static void test_vector()
+{
+    std::vector<char> os;
+    fmtxx::Format(os, "{:6}", -1234);
+    assert(os.size() == 6);
+    assert(os[0] == ' '); // pad
+    assert(os[1] == '-'); // put
+    assert(os[2] == '1'); // write...
+    assert(os[3] == '2');
+    assert(os[4] == '3');
+    assert(os[5] == '4');
+}
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
 int main()
 {
     test_format_specs();
@@ -631,6 +681,7 @@ int main()
     test_custom();
     test_char();
     test_wide_strings();
+    test_vector();
 
     return n_errors == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

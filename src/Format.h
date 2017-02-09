@@ -160,11 +160,14 @@ namespace fmtxx {
 namespace impl {
 
 template <typename T>
-struct EnableADL // re-associate T to namespace fmtxx::impl
+struct ADLEnabled // re-associate T to namespace fmtxx::impl
 {
     T& value;
-    explicit EnableADL(T& v) : value(v) {}
+    explicit ADLEnabled(T& v) : value(v) {}
 };
+
+template <typename T>
+ADLEnabled<T> EnableADL(T& v) { return ADLEnabled<T>(v); }
 
 class Types
 {
@@ -675,6 +678,17 @@ FMTXX_API errc DoFormat(std::string&  os, std::string_view format, Types types, 
 FMTXX_API errc DoFormat(std::FILE&    os, std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoFormat(CharArray&    os, std::string_view format, Types types, Arg const* args);
+
+template <typename OS, typename ...Args>
+errc Format(OS&& os, std::string_view format, Args const&... args)
+{
+    const size_t N = sizeof...(Args);
+    const Arg arr[N ? N : 1] = { Arg(os, args)... };
+
+    // NOTE:
+    // No std::forward here!
+    return DoFormatImpl(os, format, Types(args...), arr);
+}
 
 } // namespace impl
 } // namespace fmtxx

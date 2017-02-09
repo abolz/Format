@@ -86,14 +86,7 @@ struct IsString {
 
 template <typename OS, typename T>
 errc fmtxx__FormatValue(OS& os, FormatSpec const& spec, T const& value)
-#if 1
     = delete;
-#else
-{
-    os << value;
-    return os.good() ? errc::success : errc::io_error;
-}
-#endif
 
 //
 // Appends the formatted arguments to the given string.
@@ -334,18 +327,18 @@ public:
 // XXX: fmtxx__Put
 // XXX: fmtxx__Write
 // XXX: fmtxx__Pad
-FMTXX_API bool Put   (std::string  & os, char c);
-FMTXX_API bool Write (std::string  & os, char const* str, size_t len);
-FMTXX_API bool Pad   (std::string  & os, char c, size_t count);
-FMTXX_API bool Put   (std::FILE*   & os, char c);
-FMTXX_API bool Write (std::FILE*   & os, char const* str, size_t len);
-FMTXX_API bool Pad   (std::FILE*   & os, char c, size_t count);
-FMTXX_API bool Put   (std::ostream & os, char c);
-FMTXX_API bool Write (std::ostream & os, char const* str, size_t len);
-FMTXX_API bool Pad   (std::ostream & os, char c, size_t count);
-FMTXX_API bool Put   (CharArray    & os, char c);
-FMTXX_API bool Write (CharArray    & os, char const* str, size_t len);
-FMTXX_API bool Pad   (CharArray    & os, char c, size_t count);
+FMTXX_API bool Put   (std::string&  os, char c);
+FMTXX_API bool Write (std::string&  os, char const* str, size_t len);
+FMTXX_API bool Pad   (std::string&  os, char c, size_t count);
+FMTXX_API bool Put   (std::FILE&    os, char c);
+FMTXX_API bool Write (std::FILE&    os, char const* str, size_t len);
+FMTXX_API bool Pad   (std::FILE&    os, char c, size_t count);
+FMTXX_API bool Put   (std::ostream& os, char c);
+FMTXX_API bool Write (std::ostream& os, char const* str, size_t len);
+FMTXX_API bool Pad   (std::ostream& os, char c, size_t count);
+FMTXX_API bool Put   (CharArray&    os, char c);
+FMTXX_API bool Write (CharArray&    os, char const* str, size_t len);
+FMTXX_API bool Pad   (CharArray&    os, char c, size_t count);
 
 inline bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
 inline bool IsAlign(char ch) { return ch == '<' || ch == '>' || ch == '^' || ch == '='; }
@@ -678,18 +671,10 @@ errc DoFormatImpl(OS& os, std::string_view format, Types types, Arg const* args)
     return errc::success;
 }
 
-#if 0
-template <typename OS>
-inline errc DoFormat(OS& os, std::string_view format, Types types, Arg const* args)
-{
-    return DoFormatImpl(os, format, types, args);
-}
-#endif
-
-FMTXX_API errc DoFormat(std::string  & os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(std::FILE*   & os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(std::ostream & os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(CharArray    & os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(std::string&  os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(std::FILE&    os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(CharArray&    os, std::string_view format, Types types, Arg const* args);
 
 } // namespace impl
 } // namespace fmtxx
@@ -714,10 +699,12 @@ inline std::string fmtxx::StringFormat(std::string_view format, Args const&... a
 template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(std::FILE* os, std::string_view format, Args const&... args)
 {
+    assert(os != nullptr);
+
     const size_t N = sizeof...(Args);
     const fmtxx::impl::Arg arr[N ? N : 1] = { fmtxx::impl::Arg(os, args)... };
 
-    return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
+    return fmtxx::impl::DoFormat(*os, format, fmtxx::impl::Types(args...), arr);
 }
 
 template <typename ...Args>

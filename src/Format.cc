@@ -32,17 +32,17 @@ bool fmtxx::impl::Pad(std::string& os, char c, size_t count)
     return true;
 }
 
-bool fmtxx::impl::Put(std::FILE*& os, char c)
+bool fmtxx::impl::Put(std::FILE& os, char c)
 {
-    return EOF != std::fputc(c, os);
+    return EOF != std::fputc(c, &os);
 }
 
-bool fmtxx::impl::Write(std::FILE*& os, char const* str, size_t len)
+bool fmtxx::impl::Write(std::FILE& os, char const* str, size_t len)
 {
-    return len == std::fwrite(str, 1, len, os);
+    return len == std::fwrite(str, 1, len, &os);
 }
 
-bool fmtxx::impl::Pad(std::FILE*& os, char c, size_t count)
+bool fmtxx::impl::Pad(std::FILE& os, char c, size_t count)
 {
     const size_t kBlockSize = 32;
 
@@ -52,7 +52,7 @@ bool fmtxx::impl::Pad(std::FILE*& os, char c, size_t count)
     while (count > 0)
     {
         const auto n = Min(count, kBlockSize);
-        if (count != std::fwrite(block, 1, count, os))
+        if (count != std::fwrite(block, 1, count, &os))
             return false;
         count -= n;
     }
@@ -1244,7 +1244,7 @@ fmtxx::errc fmtxx::impl::DoFormat(std::string& os, std::string_view format, Type
     return DoFormatImpl(os, format, types, args);
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(std::FILE*& os, std::string_view format, Types types, Arg const* args) {
+fmtxx::errc fmtxx::impl::DoFormat(std::FILE& os, std::string_view format, Types types, Arg const* args) {
     return DoFormatImpl(os, format, types, args);
 }
 

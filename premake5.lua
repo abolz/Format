@@ -94,7 +94,7 @@ project "fmt"
     language "C++"
     kind "SharedLib"
     files {
-        "test/ext/fmt/**",
+        "test/ext/fmt/fmt/**",
     }
     defines {
         "FMT_SHARED",
@@ -135,7 +135,7 @@ project "TestPerf"
     }
     includedirs {
         "src/",
-        "test/ext/",
+        "test/ext/fmt/",
     }
     links {
         "fmtxx",

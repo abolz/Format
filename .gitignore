@@ -1,6 +1,8 @@
 /.vscode/
 /backups/
+/bloat_test/*.cc
 /bloat_test/*.dll
+/bloat_test/*.h
 /bloat_test/*.txt
 /build/
 /ext/

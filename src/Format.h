@@ -266,17 +266,16 @@ public:
     using Func = errc (*)(void* os, FormatSpec const& spec, void const* value);
 
     template <typename OS, typename T>
-    static errc FormatValue_template(void* os, FormatSpec const& spec, void const* value)
+    static errc FormatValue_fn(void* os, FormatSpec const& spec, void const* value)
     {
         return fmtxx__FormatValue(*static_cast<OS*>(os), spec, *static_cast<T const*>(value));
     }
 
     struct Other { void const* value; Func func; };
-    struct String { char const* str; size_t len; };
 
     union {
         Other other;
-        String string;
+        std::string_view string;
         void const* pvoid;
         char const* pchar;
         char char_;
@@ -289,15 +288,13 @@ public:
         double double_;
     };
 
-    Arg() = default;
-
     template <typename OS, typename T>
     Arg(OS&, T const& v, BoolConst<true>) : string{ v.data(), v.size() }
     {
     }
 
     template <typename OS, typename T>
-    Arg(OS&, T const& v, BoolConst<false>) : other{ &v, &FormatValue_template<OS, T> }
+    Arg(OS&, T const& v, BoolConst<false>) : other{ &v, &FormatValue_fn<OS, T> }
     {
     }
 
@@ -307,8 +304,8 @@ public:
     Arg(OS& os, T const& v) : Arg(os, v, BoolConst<IsString<T>::value>{}) {}
 
     template <typename OS> Arg(OS&, bool               const& v) : bool_(v) {}
-    template <typename OS> Arg(OS&, std::string_view   const& v) : string { v.data(), v.size() } {}
-    template <typename OS> Arg(OS&, std::string        const& v) : string { v.data(), v.size() } {}
+    template <typename OS> Arg(OS&, std::string_view   const& v) : string(v) {}
+    template <typename OS> Arg(OS&, std::string        const& v) : string(v) {}
     template <typename OS> Arg(OS&, std::nullptr_t     const& v) : pvoid(v) {}
     template <typename OS> Arg(OS&, void const*        const& v) : pvoid(v) {}
     template <typename OS> Arg(OS&, void*              const& v) : pvoid(v) {}
@@ -589,7 +586,7 @@ inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types type
     case Types::T_OTHER:
         return arg.other.func(static_cast<void*>(&os), spec, arg.other.value);
     case Types::T_STRING:
-        return WriteString(os, spec, arg.string.str, arg.string.len);
+        return WriteString(os, spec, arg.string.data(), arg.string.size());
     case Types::T_PVOID:
         return WritePointer(os, spec, arg.pvoid);
     case Types::T_PCHAR:
@@ -620,7 +617,7 @@ inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types type
 template <typename OS>
 errc DoFormatImpl(OS& os, std::string_view format, Types types, Arg const* args)
 {
-    assert(args != nullptr);
+    //const int num_args = types.value == 0 ? 0 : (16 - (CountLeadingZeros64(types.value) / 4));
 
     if (format.empty())
         return errc::success;
@@ -699,11 +696,15 @@ FMTXX_API errc DoFormat(std::FILE&    os, std::string_view format, Types types, 
 FMTXX_API errc DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoFormat(CharArray&    os, std::string_view format, Types types, Arg const* args);
 
+// GCC allows empty arrays as an extension :-)
+// VC does not :-(
+//template <typename T, size_t N>
+//    using Array = std::conditional_t<N == 0, T*, T[]>;
+
 template <typename OS, typename ...Args>
 errc Format(OS&& os, std::string_view format, Args const&... args)
 {
-    const size_t N = sizeof...(Args);
-    const Arg arr[N ? N : 1] = { Arg(os, args)... };
+    std::conditional_t<sizeof...(Args) == 0, Arg*, Arg[]> arr = { Arg(os, args)... };
 
     // NOTE:
     // No std::forward here! DoFormat always takes the output stream by &

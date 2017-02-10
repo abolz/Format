@@ -696,19 +696,20 @@ FMTXX_API errc DoFormat(std::FILE&    os, std::string_view format, Types types, 
 FMTXX_API errc DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoFormat(CharArray&    os, std::string_view format, Types types, Arg const* args);
 
-// GCC allows empty arrays as an extension :-)
-// VC does not :-(
-//template <typename T, size_t N>
-//    using Array = std::conditional_t<N == 0, T*, T[]>;
-
 template <typename OS, typename ...Args>
 errc Format(OS&& os, std::string_view format, Args const&... args)
 {
-    std::conditional_t<sizeof...(Args) == 0, Arg*, Arg[]> arr = { Arg(os, args)... };
+    Arg arr[] = { Arg(os, args)... };
 
     // NOTE:
     // No std::forward here! DoFormat always takes the output stream by &
     return DoFormat(os, format, Types(args...), arr);
+}
+
+template <typename OS>
+errc Format(OS&& os, std::string_view format)
+{
+    return DoFormat(os, format, 0, nullptr);
 }
 
 } // namespace impl

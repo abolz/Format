@@ -1,3 +1,6 @@
 [submodule "test/ext/fmt"]
 	path = test/ext/fmt
 	url = https://github.com/fmtlib/fmt
+[submodule "test/ext/tinyformat"]
+	path = test/ext/tinyformat
+	url = https://github.com/c42f/tinyformat

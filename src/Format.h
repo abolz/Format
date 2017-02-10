@@ -403,6 +403,13 @@ inline errc WriteRawString(OS& os, FormatSpec const& spec, char const* str, size
 
 // XXX: public...
 template <typename OS>
+inline errc WriteRawString(OS& os, FormatSpec const& spec, std::string_view str)
+{
+    return WriteRawString(os, spec, str.data(), str.size());
+}
+
+// XXX: public...
+template <typename OS>
 inline errc WriteString(OS& os, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t n = len;
@@ -420,7 +427,7 @@ template <typename OS>
 inline errc WriteString(OS& os, FormatSpec const& spec, char const* str)
 {
     if (str == nullptr)
-        return WriteRawString(os, spec, "(null)", 6);
+        return WriteRawString(os, spec, "(null)");
 
     // Use strnlen if a precision was specified.
     // The string may not be null-terminated!
@@ -491,7 +498,7 @@ inline errc WriteInt(OS& os, FormatSpec const& spec, int64_t sext, uint64_t zext
 template <typename OS>
 inline errc WriteBool(OS& os, FormatSpec const& spec, bool val)
 {
-    return WriteRawString(os, spec, val ? "true" : "false", val ? 4u : 5u);
+    return WriteRawString(os, spec, val ? "true" : "false");
 }
 
 // XXX: public...
@@ -506,7 +513,7 @@ template <typename OS>
 inline errc WritePointer(OS& os, FormatSpec const& spec, void const* pointer)
 {
     if (pointer == nullptr)
-        return WriteRawString(os, spec, "(nil)", 5);
+        return WriteRawString(os, spec, "(nil)");
 
     FormatSpec f = spec;
     f.hash = '#';
@@ -604,7 +611,7 @@ inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types type
     case Types::T_DOUBLE:
         return WriteDouble(os, spec, arg.double_);
     case Types::T_FORMATSPEC:
-        return WriteRawString(os, spec, "[[error]]", 9);
+        return WriteRawString(os, spec, "[[error]]");
     }
 
     return errc::success; // unreachable -- fix warning

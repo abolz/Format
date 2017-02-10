@@ -89,6 +89,13 @@ errc fmtxx__FormatValue(OS& os, FormatSpec const& spec, T const& value)
     = delete;
 
 //
+// Appends the formatted arguments to the given output stream.
+//
+
+//template <typename OS, typename ...Args>
+//errc FormatToStream(OS&& os, std::string_view format, Args const&... args);
+
+//
 // Appends the formatted arguments to the given string.
 //
 
@@ -674,6 +681,12 @@ errc DoFormatImpl(OS& os, std::string_view format, Types types, Arg const* args)
     return errc::success;
 }
 
+template <typename OS>
+errc DoFormat(OS& os, std::string_view format, Types types, Arg const* args)
+{
+    return DoFormatImpl(os, format, types, args);
+}
+
 FMTXX_API errc DoFormat(std::string&  os, std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoFormat(std::FILE&    os, std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
@@ -686,20 +699,23 @@ errc Format(OS&& os, std::string_view format, Args const&... args)
     const Arg arr[N ? N : 1] = { Arg(os, args)... };
 
     // NOTE:
-    // No std::forward here!
-    return DoFormatImpl(os, format, Types(args...), arr);
+    // No std::forward here! DoFormat always takes the output stream by &
+    return DoFormat(os, format, Types(args...), arr);
 }
 
 } // namespace impl
 } // namespace fmtxx
 
+//template <typename OS, typename ...Args>
+//inline fmtxx::errc fmtxx::FormatToStream(OS&& os, std::string_view format, Args const&... args)
+//{
+//    return fmtxx::impl::Format(std::forward<OS>(os), format, args...);
+//}
+
 template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(std::string& os, std::string_view format, Args const&... args)
 {
-    const size_t N = sizeof...(Args);
-    const fmtxx::impl::Arg arr[N ? N : 1] = { fmtxx::impl::Arg(os, args)... };
-
-    return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
+    return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
@@ -714,29 +730,19 @@ template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(std::FILE* os, std::string_view format, Args const&... args)
 {
     assert(os != nullptr);
-
-    const size_t N = sizeof...(Args);
-    const fmtxx::impl::Arg arr[N ? N : 1] = { fmtxx::impl::Arg(os, args)... };
-
-    return fmtxx::impl::DoFormat(*os, format, fmtxx::impl::Types(args...), arr);
+    return fmtxx::impl::Format(*os, format, args...);
 }
 
 template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(std::ostream& os, std::string_view format, Args const&... args)
 {
-    const size_t N = sizeof...(Args);
-    const fmtxx::impl::Arg arr[N ? N : 1] = { fmtxx::impl::Arg(os, args)... };
-
-    return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
+    return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(CharArray& os, std::string_view format, Args const&... args)
 {
-    const size_t N = sizeof...(Args);
-    const fmtxx::impl::Arg arr[N ? N : 1] = { fmtxx::impl::Arg(os, args)... };
-
-    return fmtxx::impl::DoFormat(os, format, fmtxx::impl::Types(args...), arr);
+    return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
@@ -746,7 +752,7 @@ inline fmtxx::FormatToCharArrayResult fmtxx::Format(char* first, char* last, std
 
     FormatToCharArrayResult res;
 
-    res.ec = Format(os, format, args...);
+    res.ec = fmtxx::Format(os, format, args...);
     res.next = os.next;
 
     return res;

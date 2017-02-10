@@ -1250,6 +1250,9 @@ fmtxx::errc fmtxx::impl::DoFormat(std::FILE& os, std::string_view format, Types 
 
 fmtxx::errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args)
 {
+    // Construction of the sentry object could be moved into the header file for more
+    // consistency, but it would increase the code size an the call site...
+
     const std::ostream::sentry se(os);
     if (se)
         return DoFormatImpl(os, format, types, args);

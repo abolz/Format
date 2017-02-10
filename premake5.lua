@@ -24,7 +24,7 @@ solution "Libs"
     configuration { "Release" }
         defines { "NDEBUG" }
         symbols "Off"
-        optimize "On"
+        optimize "Full"
             -- On ==> -O2
             -- Full ==> -O3
 
@@ -33,8 +33,8 @@ solution "Libs"
             "-march=native",
             "-std=c++14",
             "-Wformat",
-            "-Wsign-compare",
-            "-Wsign-conversion",
+--            "-Wsign-compare",
+--            "-Wsign-conversion",
 --            "-pedantic",
             "-fvisibility=hidden",
             "-fno-exceptions",

@@ -27,7 +27,7 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
 {
     //std::ostringstream buf;
     //const auto err = fmtxx::Format(buf, format, args...);
-    //std::string str = buf.str();
+    //const auto str = buf.str();
 
     std::string str;
     const auto err = fmtxx::Format(str, format, args...);
@@ -70,7 +70,8 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
 template <typename ...Args>
 static bool expect_errc(fmtxx::errc expected_err, std::string_view format, Args const&... args)
 {
-    std::ostringstream str;
+    //std::ostringstream str;
+    std::string str;
     const auto err = fmtxx::Format(str, format, args...);
 
     if (err != expected_err)
@@ -624,20 +625,17 @@ static void test_wide_strings()
 namespace fmtxx {
 namespace impl {
 
-inline bool Put(ADLEnabled<std::vector<char>>& os, char c)
-{
+inline bool Put(ADLEnabled<std::vector<char>>& os, char c) {
     os.value.push_back(c);
     return true;
 }
 
-inline bool Write(ADLEnabled<std::vector<char>>& os, char const* str, size_t len)
-{
+inline bool Write(ADLEnabled<std::vector<char>>& os, char const* str, size_t len) {
     os.value.insert(os.value.end(), str, str + len);
     return true;
 }
 
-inline bool Pad(ADLEnabled<std::vector<char>>& os, char c, size_t count)
-{
+inline bool Pad(ADLEnabled<std::vector<char>>& os, char c, size_t count) {
     os.value.resize(os.value.size() + count, c);
     return true;
 }
@@ -645,8 +643,7 @@ inline bool Pad(ADLEnabled<std::vector<char>>& os, char c, size_t count)
 } // namespace impl
 
 template <typename ...Args>
-errc Format(std::vector<char>& os, std::string_view format, Args const&... args)
-{
+errc Format(std::vector<char>& os, std::string_view format, Args const&... args) {
     return impl::Format(impl::EnableADL(os), format, args...);
 }
 

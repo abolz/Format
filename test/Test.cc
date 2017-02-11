@@ -3,7 +3,6 @@ cl /EHsc Test.cc Format.cc /std:c++latest /Fe: Test.exe
 g++ Test.cc Format.cc
 #endif
 
-#define FMTXX_SHARED 1
 #include "Format.h"
 
 #include <limits>
@@ -22,31 +21,100 @@ static int n_errors = 0;
 //    struct IsString<std::string> { enum { value = true }; };
 //}
 
-template <typename ...Args>
+struct FormatterResult
+{
+    std::string str;
+    fmtxx::errc ec;
+};
+
+struct StringFormatter
+{
+    template <typename ...Args>
+    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    {
+        FormatterResult res;
+
+        std::string os;
+
+        res.ec = fmtxx::Format(os, format, args...);
+        res.str = os;
+
+        return res;
+    }
+};
+
+struct StreamFormatter
+{
+    template <typename ...Args>
+    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    {
+        FormatterResult res;
+
+        std::ostringstream os;
+
+        res.ec = fmtxx::Format(os, format, args...);
+        res.str = os.str();
+
+        return res;
+    }
+};
+
+#ifndef _MSC_VER
+struct FILEFormatter
+{
+    template <typename ...Args>
+    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    {
+        FormatterResult res;
+
+        char buf[1000] = {0};
+        FILE* f = fmemopen(buf, sizeof(buf), "w");
+        assert(f != 0);
+
+        res.ec = fmtxx::Format(f, format, args...);
+
+        fclose(f); // flush!
+
+        res.str = buf;
+
+        return res;
+    }
+};
+#endif
+
+struct CharArrayFormatter
+{
+    template <typename ...Args>
+    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    {
+        FormatterResult res;
+
+        char buf[500];
+        fmtxx::CharArray os { buf, buf + 500 };
+
+        res.ec = fmtxx::Format(os, format, args...);
+        res.str = std::string { buf, os.next };
+
+        return res;
+    }
+};
+
+template <typename Formatter, typename ...Args>
 static bool expect_equal(char const* expected, std::string_view format, Args const&... args)
 {
-    //std::ostringstream buf;
-    //const auto err = fmtxx::Format(buf, format, args...);
-    //const auto str = buf.str();
+    Formatter formatter {};
+    FormatterResult res = formatter(format, args...);
 
-    //std::string str;
-    //const auto err = fmtxx::Format(str, format, args...);
-
-    char buf[500];
-    const auto res = fmtxx::Format(buf, buf + 500, format, args...);
-    const auto err = res.ec;
-    const auto str = std::string { buf, res.next };
-
-    if (err != fmtxx::errc::success)
+    if (res.ec != fmtxx::errc::success)
     {
         fprintf(stderr, "FAIL: invalid format string\n");
         return false;
     }
 
-    if (expected != str)
+    if (expected != res.str)
     {
         ++n_errors;
-        fprintf(stderr, "FAIL: '%s' != '%s'", expected, str.c_str());
+        fprintf(stderr, "FAIL: '%s' != '%s'", expected, res.str.c_str());
         return false;
     }
 
@@ -54,30 +122,29 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
 }
 
 #define EXPECT_EQUAL(EXPECTED, FORMAT, ...)             \
-    if (!expect_equal(EXPECTED, FORMAT, __VA_ARGS__))   \
+    if (!expect_equal<Formatter>(EXPECTED, FORMAT, __VA_ARGS__))   \
     {                                                   \
         fprintf(stderr, "    line %d\n", __LINE__);              \
     }                                                   \
     /**/
 
 #define EXPECT_EQUAL_0(EXPECTED, FORMAT)                \
-    if (!expect_equal(EXPECTED, FORMAT))                \
+    if (!expect_equal<Formatter>(EXPECTED, FORMAT))                \
     {                                                   \
         fprintf(stderr, "    line %d\n", __LINE__);              \
     }                                                   \
     /**/
 
-template <typename ...Args>
+template <typename Formatter, typename ...Args>
 static bool expect_errc(fmtxx::errc expected_err, std::string_view format, Args const&... args)
 {
-    std::ostringstream str;
-    //std::string str;
-    const auto err = fmtxx::Format(str, format, args...);
+    Formatter formatter {};
+    FormatterResult res = formatter(format, args...);
 
-    if (err != expected_err)
+    if (res.ec != expected_err)
     {
         ++n_errors;
-        fprintf(stderr, "FAIL: expected error code %d, got %d", (int)expected_err, (int)err);
+        fprintf(stderr, "FAIL: expected error code %d, got %d", (int)expected_err, (int)res.ec);
         return false;
     }
 
@@ -85,11 +152,12 @@ static bool expect_errc(fmtxx::errc expected_err, std::string_view format, Args 
 }
 
 #define EXPECT_ERRC(EXPECTED_ERR, FORMAT, ...)             \
-    if (!expect_errc(EXPECTED_ERR, FORMAT, __VA_ARGS__)) { \
+    if (!expect_errc<Formatter>(EXPECTED_ERR, FORMAT, __VA_ARGS__)) { \
         fprintf(stderr, "    line %d\n", __LINE__);                  \
     }                                                       \
     /**/
 
+template <typename Formatter>
 static void test_format_specs()
 {
     EXPECT_ERRC(fmtxx::errc::invalid_format_string, "{", 0);
@@ -147,6 +215,7 @@ static void test_format_specs()
 
 template <typename T> struct incomplete;
 
+template <typename Formatter>
 static void test_0()
 {
     EXPECT_EQUAL("Hello",                           "Hello",                                    0);
@@ -161,6 +230,7 @@ static void test_0()
     EXPECT_EQUAL("2 1 1 2",                         "{1} {} {0} {}",                            1, 2);
 }
 
+template <typename Formatter>
 static void test_strings()
 {
     EXPECT_EQUAL_0("", "");
@@ -207,8 +277,12 @@ static void test_strings()
     EXPECT_EQUAL("(null)", "{:.10}", (char const*)0);
     EXPECT_EQUAL("(null)", "{:3.3}", (char const*)0);
     EXPECT_EQUAL("    (null)", "{:10.3}", (char const*)0);
+
+    std::string spad = std::string(128, ' ');
+    EXPECT_EQUAL(spad.c_str(), "{:128}", ' ');
 }
 
+template <typename Formatter>
 static void test_ints()
 {
     EXPECT_EQUAL("2 1 1 2", "{1} {} {0} {}", 1, 2);
@@ -364,6 +438,7 @@ static void test_ints()
     EXPECT_EQUAL("        01", "{:#10o}",  1);
 }
 
+template <typename Formatter>
 static void test_floats()
 {
 #if 1
@@ -533,6 +608,7 @@ static void test_floats()
 #endif
 }
 
+template <typename Formatter>
 static void test_pointer()
 {
     EXPECT_EQUAL("0x1020304", "{}", (void*)0x01020304)
@@ -546,6 +622,7 @@ static void test_pointer()
     EXPECT_EQUAL("(nil)", "{}", nullptr);
 }
 
+template <typename Formatter>
 static void test_dynamic()
 {
 //    EXPECT_EQUAL("    x", "{1:0$}", 5, 'x');
@@ -590,11 +667,13 @@ inline fmtxx::errc fmtxx__FormatValue(OS os, fmtxx::FormatSpec const& spec, Foo 
     return fmtxx::FormatTo(os, "{*}", spec, value.value);
 }
 
+template <typename Formatter>
 static void test_custom()
 {
     EXPECT_EQUAL("struct Foo '   123'", "struct Foo '{:6}'", Foo{123});
 }
 
+template <typename Formatter>
 static void test_char()
 {
     EXPECT_EQUAL("A", "{}", 'A');
@@ -603,6 +682,7 @@ static void test_char()
     //EXPECT_EQUAL("41", "{:x}", 'A');
 }
 
+template <typename Formatter>
 static void test_wide_strings()
 {
     #if 0
@@ -661,6 +741,7 @@ struct VectorBuffer
 //    }
 //}
 
+template <typename Formatter>
 static void test_vector()
 {
     std::vector<char> os;
@@ -681,19 +762,41 @@ static void test_vector()
 //
 //------------------------------------------------------------------------------
 
+template <typename Formatter>
+static void test_all()
+{
+    test_format_specs<Formatter>();
+    test_0<Formatter>();
+    test_strings<Formatter>();
+    test_ints<Formatter>();
+    test_floats<Formatter>();
+    test_pointer<Formatter>();
+    test_dynamic<Formatter>();
+    test_custom<Formatter>();
+    test_char<Formatter>();
+    test_wide_strings<Formatter>();
+    test_vector<Formatter>();
+}
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
 int main()
 {
-    test_format_specs();
-    test_0();
-    test_strings();
-    test_ints();
-    test_floats();
-    test_pointer();
-    test_dynamic();
-    test_custom();
-    test_char();
-    test_wide_strings();
-    test_vector();
+    fprintf(stderr, "StringFormatter...\n");
+    test_all<StringFormatter>();
+
+    fprintf(stderr, "StreamFormatter...\n");
+    test_all<StreamFormatter>();
+
+#ifndef _MSC_VER
+    fprintf(stderr, "FILEFormatter...\n");
+    test_all<FILEFormatter>();
+#endif
+
+    fprintf(stderr, "CharArrayFormatter...\n");
+    test_all<CharArrayFormatter>();
 
     return n_errors == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

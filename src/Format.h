@@ -20,10 +20,10 @@
 #  endif
 #endif
 
-#ifdef __GNUC__
-#  define FMTXX_VISIBILITY_DEFAULT __attribute__((visibility("default")))
-#else
+#ifdef _MSC_VER
 #  define FMTXX_VISIBILITY_DEFAULT
+#else
+#  define FMTXX_VISIBILITY_DEFAULT __attribute__((visibility("default")))
 #endif
 
 #ifdef FMTXX_SHARED
@@ -46,7 +46,7 @@
 
 namespace fmtxx {
 
-enum struct errc {
+enum struct FMTXX_VISIBILITY_DEFAULT errc {
     success                 =  0,
     invalid_format_string   = -1,
     invalid_argument        = -2,
@@ -89,7 +89,7 @@ errc fmtxx__FormatValue(OS os, FormatSpec const& spec, T const& value)
 //
 // Wraps the input range for the Format() function below.
 //
-struct CharArray
+struct FMTXX_VISIBILITY_DEFAULT CharArray
 {
     char*           next = nullptr; // assert: next <= last
     char* /*const*/ last = nullptr;
@@ -106,7 +106,7 @@ struct CharArray
 // Output buffers
 //
 
-struct StringBuffer
+struct FMTXX_VISIBILITY_DEFAULT StringBuffer
 {
     std::string& os;
     explicit StringBuffer(std::string& v) : os(v) {}
@@ -116,7 +116,7 @@ struct StringBuffer
     FMTXX_API bool Pad(char c, size_t count);
 };
 
-struct FILEBuffer
+struct FMTXX_VISIBILITY_DEFAULT FILEBuffer
 {
     std::FILE* os;
     explicit FILEBuffer(std::FILE* v) : os(v) {}
@@ -126,7 +126,7 @@ struct FILEBuffer
     FMTXX_API bool Pad(char c, size_t count);
 };
 
-struct StreamBuffer
+struct FMTXX_VISIBILITY_DEFAULT StreamBuffer
 {
     std::ostream& os;
     explicit StreamBuffer(std::ostream& v) : os(v) {}
@@ -136,7 +136,7 @@ struct StreamBuffer
     FMTXX_API bool Pad(char c, size_t count);
 };
 
-struct CharArrayBuffer
+struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer
 {
     // XXX:
     // Modifies the 'next' member of the CharArray...
@@ -714,7 +714,7 @@ errc Format(OS os, std::string_view format, Args const&... args)
 }
 
 template <typename OS>
-errc Format(OS&& os, std::string_view format)
+errc Format(OS os, std::string_view format)
 {
     return DoFormat(os, format, 0, nullptr);
 }

@@ -73,7 +73,6 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
 // T must have member functions data() and size() and their return values must
 // be convertible to char const* and size_t resp.
 //
-
 template <typename T>
 struct IsString {
     static constexpr bool value = false;
@@ -83,72 +82,111 @@ struct IsString {
 // Formatting function for user-defined types.
 // Implement this in the data-type's namespace!
 //
-
 template <typename OS, typename T>
-errc fmtxx__FormatValue(OS& os, FormatSpec const& spec, T const& value)
+errc fmtxx__FormatValue(OS os, FormatSpec const& spec, T const& value)
     = delete;
+
+//
+// Wraps the input range for the Format() function below.
+//
+struct CharArray
+{
+    char*           next = nullptr; // assert: next <= last
+    char* /*const*/ last = nullptr;
+
+    CharArray() = default;
+
+    explicit CharArray(char* f, char* l) : next(f), last(l) {}
+
+    template <size_t N>
+    explicit CharArray(char (&buf)[N]) : next(buf), last(buf + N) {}
+};
+
+//
+// Output buffers
+//
+
+struct StringBuffer
+{
+    std::string& os;
+    explicit StringBuffer(std::string& v) : os(v) {}
+
+    FMTXX_API bool Put(char c);
+    FMTXX_API bool Write(char const* str, size_t len);
+    FMTXX_API bool Pad(char c, size_t count);
+};
+
+struct FILEBuffer
+{
+    std::FILE* os;
+    explicit FILEBuffer(std::FILE* v) : os(v) {}
+
+    FMTXX_API bool Put(char c);
+    FMTXX_API bool Write(char const* str, size_t len);
+    FMTXX_API bool Pad(char c, size_t count);
+};
+
+struct StreamBuffer
+{
+    std::ostream& os;
+    explicit StreamBuffer(std::ostream& v) : os(v) {}
+
+    FMTXX_API bool Put(char c);
+    FMTXX_API bool Write(char const* str, size_t len);
+    FMTXX_API bool Pad(char c, size_t count);
+};
+
+struct CharArrayBuffer
+{
+    // XXX:
+    // Modifies the 'next' member of the CharArray...
+    CharArray& os;
+    explicit CharArrayBuffer(CharArray& v) : os(v) {}
+
+    FMTXX_API bool Put(char c);
+    FMTXX_API bool Write(char const* str, size_t len);
+    FMTXX_API bool Pad(char c, size_t count);
+};
 
 //
 // Appends the formatted arguments to the given output stream.
 //
-
-//template <typename OS, typename ...Args>
-//errc FormatToStream(OS&& os, std::string_view format, Args const&... args);
+template <typename OS, typename ...Args>
+errc FormatTo(OS os, std::string_view format, Args const&... args);
 
 //
+// Convenience wrappers
+//
+
 // Appends the formatted arguments to the given string.
-//
-
 template <typename ...Args>
 errc Format(std::string& os, std::string_view format, Args const&... args);
 
-//
 // Returns a std::string containing the formatted arguments.
-//
-
 template <typename ...Args>
 std::string StringFormat(std::string_view format, Args const&... args);
 
-//
 // Appends the formatted arguments to the given stream.
-//
-
 template <typename ...Args>
 errc Format(std::FILE* os, std::string_view format, Args const&... args);
 
-//
 // Appends the formatted arguments to the given stream.
-//
-
 template <typename ...Args>
 errc Format(std::ostream& os, std::string_view format, Args const&... args);
 
-//
 // Appends the formatted arguments to the given array.
-//
-
-// Wraps the input range for the Format() function below.
-// If a custom formatting function writes into the buffer, it needs to update the next pointer.
-//
-// assert: next <= last
-struct FMTXX_VISIBILITY_DEFAULT CharArray {
-    char* next = nullptr;
-    char* last = nullptr;
-};
-
 template <typename ...Args>
 errc Format(CharArray& os, std::string_view format, Args const&... args);
 
-//
 // Appends the formatted arguments to the given array.
-//  (API as std::to_chars)
-//
 
 struct FMTXX_VISIBILITY_DEFAULT FormatToCharArrayResult {
     char* next = nullptr;
     errc  ec   = errc::success;
 };
 
+// XXX:
+// Or take FIRST by & ???
 template <typename ...Args>
 FormatToCharArrayResult Format(char* first, char* last, std::string_view format, Args const&... args);
 
@@ -165,16 +203,6 @@ FormatToCharArrayResult Format(char* first, char* last, std::string_view format,
 
 namespace fmtxx {
 namespace impl {
-
-template <typename T>
-struct ADLEnabled // re-associate T to namespace fmtxx::impl
-{
-    T& value;
-    explicit ADLEnabled(T& v) : value(v) {}
-};
-
-template <typename T>
-ADLEnabled<T> EnableADL(T& v) { return ADLEnabled<T>(v); }
 
 class Types
 {
@@ -289,77 +317,61 @@ public:
     };
 
     template <typename OS, typename T>
-    Arg(OS&, T const& v, BoolConst<true>) : string{ v.data(), v.size() }
+    Arg(OS, T const& v, BoolConst<true>) : string{ v.data(), v.size() }
     {
     }
 
     template <typename OS, typename T>
-    Arg(OS&, T const& v, BoolConst<false>) : other{ &v, &FormatValue_fn<OS, T> }
+    Arg(OS, T const& v, BoolConst<false>) : other{ &v, &FormatValue_fn<OS, T> }
     {
     }
 
     // XXX:
     // Keep in sync with Types::GetId() above!!!
     template <typename OS, typename T>
-    Arg(OS& os, T const& v) : Arg(os, v, BoolConst<IsString<T>::value>{}) {}
+    Arg(OS os, T const& v) : Arg(os, v, BoolConst<IsString<T>::value>{}) {}
 
-    template <typename OS> Arg(OS&, bool               const& v) : bool_(v) {}
-    template <typename OS> Arg(OS&, std::string_view   const& v) : string(v) {}
-    template <typename OS> Arg(OS&, std::string        const& v) : string(v) {}
-    template <typename OS> Arg(OS&, std::nullptr_t     const& v) : pvoid(v) {}
-    template <typename OS> Arg(OS&, void const*        const& v) : pvoid(v) {}
-    template <typename OS> Arg(OS&, void*              const& v) : pvoid(v) {}
-    template <typename OS> Arg(OS&, char const*        const& v) : pchar(v) {}
-    template <typename OS> Arg(OS&, char*              const& v) : pchar(v) {}
-    template <typename OS> Arg(OS&, char               const& v) : char_(v) {}
-    template <typename OS> Arg(OS&, signed char        const& v) : schar(v) {}
-    template <typename OS> Arg(OS&, signed short       const& v) : sshort(v) {}
-    template <typename OS> Arg(OS&, signed int         const& v) : sint(v) {}
+    template <typename OS> Arg(OS, bool               const& v) : bool_(v) {}
+    template <typename OS> Arg(OS, std::string_view   const& v) : string(v) {}
+    template <typename OS> Arg(OS, std::string        const& v) : string(v) {}
+    template <typename OS> Arg(OS, std::nullptr_t     const& v) : pvoid(v) {}
+    template <typename OS> Arg(OS, void const*        const& v) : pvoid(v) {}
+    template <typename OS> Arg(OS, void*              const& v) : pvoid(v) {}
+    template <typename OS> Arg(OS, char const*        const& v) : pchar(v) {}
+    template <typename OS> Arg(OS, char*              const& v) : pchar(v) {}
+    template <typename OS> Arg(OS, char               const& v) : char_(v) {}
+    template <typename OS> Arg(OS, signed char        const& v) : schar(v) {}
+    template <typename OS> Arg(OS, signed short       const& v) : sshort(v) {}
+    template <typename OS> Arg(OS, signed int         const& v) : sint(v) {}
 #if LONG_MAX == INT_MAX
-    template <typename OS> Arg(OS&, signed long        const& v) : sint(v) {}
+    template <typename OS> Arg(OS, signed long        const& v) : sint(v) {}
 #else
-    template <typename OS> Arg(OS&, signed long        const& v) : slonglong(v) {}
+    template <typename OS> Arg(OS, signed long        const& v) : slonglong(v) {}
 #endif
-    template <typename OS> Arg(OS&, signed long long   const& v) : slonglong(v) {}
-    template <typename OS> Arg(OS&, unsigned char      const& v) : ulonglong(v) {}
-    template <typename OS> Arg(OS&, unsigned short     const& v) : ulonglong(v) {}
-    template <typename OS> Arg(OS&, unsigned int       const& v) : ulonglong(v) {}
-    template <typename OS> Arg(OS&, unsigned long      const& v) : ulonglong(v) {}
-    template <typename OS> Arg(OS&, unsigned long long const& v) : ulonglong(v) {}
-    template <typename OS> Arg(OS&, double             const& v) : double_(v) {}
-    template <typename OS> Arg(OS&, float              const& v) : double_(static_cast<double>(v)) {}
-    template <typename OS> Arg(OS&, FormatSpec         const& v) : pvoid(&v) {}
+    template <typename OS> Arg(OS, signed long long   const& v) : slonglong(v) {}
+    template <typename OS> Arg(OS, unsigned char      const& v) : ulonglong(v) {}
+    template <typename OS> Arg(OS, unsigned short     const& v) : ulonglong(v) {}
+    template <typename OS> Arg(OS, unsigned int       const& v) : ulonglong(v) {}
+    template <typename OS> Arg(OS, unsigned long      const& v) : ulonglong(v) {}
+    template <typename OS> Arg(OS, unsigned long long const& v) : ulonglong(v) {}
+    template <typename OS> Arg(OS, double             const& v) : double_(v) {}
+    template <typename OS> Arg(OS, float              const& v) : double_(static_cast<double>(v)) {}
+    template <typename OS> Arg(OS, FormatSpec         const& v) : pvoid(&v) {}
 };
-
-// XXX: fmtxx__Put
-// XXX: fmtxx__Write
-// XXX: fmtxx__Pad
-FMTXX_API bool Put   (std::string&  os, char c);
-FMTXX_API bool Write (std::string&  os, char const* str, size_t len);
-FMTXX_API bool Pad   (std::string&  os, char c, size_t count);
-FMTXX_API bool Put   (std::FILE&    os, char c);
-FMTXX_API bool Write (std::FILE&    os, char const* str, size_t len);
-FMTXX_API bool Pad   (std::FILE&    os, char c, size_t count);
-FMTXX_API bool Put   (std::ostream& os, char c);
-FMTXX_API bool Write (std::ostream& os, char const* str, size_t len);
-FMTXX_API bool Pad   (std::ostream& os, char c, size_t count);
-FMTXX_API bool Put   (CharArray&    os, char c);
-FMTXX_API bool Write (CharArray&    os, char const* str, size_t len);
-FMTXX_API bool Pad   (CharArray&    os, char c, size_t count);
 
 inline bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
 inline bool IsAlign(char ch) { return ch == '<' || ch == '>' || ch == '^' || ch == '='; }
 inline bool IsSign (char ch) { return ch == ' ' || ch == '-' || ch == '+'; }
 
-inline void ComputePadding(size_t min_len, char align, int width, size_t& lpad, size_t& spad, size_t& rpad)
+inline void ComputePadding(size_t len, char align, int width, size_t& lpad, size_t& spad, size_t& rpad)
 {
     assert(width >= 0 && "internal error");
 
     const size_t w = static_cast<size_t>(width);
-    if (w <= min_len)
+    if (w <= len)
         return;
 
-    const size_t d = w - min_len;
+    const size_t d = w - len;
     switch (align)
     {
     case '>':
@@ -380,7 +392,7 @@ inline void ComputePadding(size_t min_len, char align, int width, size_t& lpad, 
 
 // XXX: public...
 template <typename OS>
-inline errc WriteRawString(OS& os, FormatSpec const& spec, char const* str, size_t len)
+inline errc WriteRawString(OS os, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t lpad = 0;
     size_t spad = 0;
@@ -388,11 +400,11 @@ inline errc WriteRawString(OS& os, FormatSpec const& spec, char const* str, size
 
     ComputePadding(len, spec.align, spec.width, lpad, spad, rpad);
 
-    if (lpad > 0 && !Pad(os, spec.fill, lpad))
+    if (lpad > 0 && !os.Pad(spec.fill, lpad))
         return errc::io_error;
-    if (len > 0  && !Write(os, str, len))
+    if (len > 0  && !os.Write(str, len))
         return errc::io_error;
-    if (rpad > 0 && !Pad(os, spec.fill, rpad))
+    if (rpad > 0 && !os.Pad(spec.fill, rpad))
         return errc::io_error;
 
     return errc::success;
@@ -400,14 +412,14 @@ inline errc WriteRawString(OS& os, FormatSpec const& spec, char const* str, size
 
 // XXX: public...
 template <typename OS>
-inline errc WriteRawString(OS& os, FormatSpec const& spec, std::string_view str)
+inline errc WriteRawString(OS os, FormatSpec const& spec, std::string_view str)
 {
     return WriteRawString(os, spec, str.data(), str.size());
 }
 
 // XXX: public...
 template <typename OS>
-inline errc WriteString(OS& os, FormatSpec const& spec, char const* str, size_t len)
+inline errc WriteString(OS os, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t n = len;
     if (spec.prec >= 0)
@@ -421,7 +433,7 @@ inline errc WriteString(OS& os, FormatSpec const& spec, char const* str, size_t 
 
 // XXX: public...
 template <typename OS>
-inline errc WriteString(OS& os, FormatSpec const& spec, char const* str)
+inline errc WriteString(OS os, FormatSpec const& spec, char const* str)
 {
     if (str == nullptr)
         return WriteRawString(os, spec, "(null)");
@@ -439,7 +451,7 @@ inline errc WriteString(OS& os, FormatSpec const& spec, char const* str)
 
 // XXX: public...
 template <typename OS>
-inline errc WriteNumber(OS& os, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
+inline errc WriteNumber(OS os, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
 {
     const size_t min_len = (sign ? 1u : 0u) + nprefix + ndigits;
 
@@ -449,17 +461,17 @@ inline errc WriteNumber(OS& os, FormatSpec const& spec, char sign, char const* p
 
     ComputePadding(min_len, spec.zero ? '=' : spec.align, spec.width, lpad, spad, rpad);
 
-    if (lpad > 0     && !Pad(os, spec.fill, lpad))
+    if (lpad > 0     && !os.Pad(spec.fill, lpad))
         return errc::io_error;
-    if (sign != '\0' && !Put(os, sign))
+    if (sign != '\0' && !os.Put(sign))
         return errc::io_error;
-    if (nprefix > 0  && !Write(os, prefix, nprefix))
+    if (nprefix > 0  && !os.Write(prefix, nprefix))
         return errc::io_error;
-    if (spad > 0     && !Pad(os, spec.zero ? '0' : spec.fill, spad))
+    if (spad > 0     && !os.Pad(spec.zero ? '0' : spec.fill, spad))
         return errc::io_error;
-    if (ndigits > 0  && !Write(os, digits, ndigits))
+    if (ndigits > 0  && !os.Write(digits, ndigits))
         return errc::io_error;
-    if (rpad > 0     && !Pad(os, spec.fill, rpad))
+    if (rpad > 0     && !os.Pad(spec.fill, rpad))
         return errc::io_error;
 
     return errc::success;
@@ -479,7 +491,7 @@ FMTXX_API IntToAsciiResult IntToAscii(char* first, char* last, FormatSpec const&
 
 // XXX: public...
 template <typename OS>
-inline errc WriteInt(OS& os, FormatSpec const& spec, int64_t sext, uint64_t zext)
+inline errc WriteInt(OS os, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
     char buf[64];
 
@@ -493,21 +505,21 @@ inline errc WriteInt(OS& os, FormatSpec const& spec, int64_t sext, uint64_t zext
 
 // XXX: public...
 template <typename OS>
-inline errc WriteBool(OS& os, FormatSpec const& spec, bool val)
+inline errc WriteBool(OS os, FormatSpec const& spec, bool val)
 {
     return WriteRawString(os, spec, val ? "true" : "false");
 }
 
 // XXX: public...
 template <typename OS>
-inline errc WriteChar(OS& os, FormatSpec const& spec, char ch)
+inline errc WriteChar(OS os, FormatSpec const& spec, char ch)
 {
     return WriteString(os, spec, &ch, 1u);
 }
 
 // XXX: public...
 template <typename OS>
-inline errc WritePointer(OS& os, FormatSpec const& spec, void const* pointer)
+inline errc WritePointer(OS os, FormatSpec const& spec, void const* pointer)
 {
     if (pointer == nullptr)
         return WriteRawString(os, spec, "(nil)");
@@ -533,7 +545,7 @@ FMTXX_API DoubleToAsciiResult DoubleToAscii(char* first, char* last, FormatSpec 
 
 // XXX: public...
 template <typename OS>
-inline errc WriteDouble(OS& os, FormatSpec const& spec, double x)
+inline errc WriteDouble(OS os, FormatSpec const& spec, double x)
 {
     static const size_t kBufSize = 1000; // >= 32
     char buf[kBufSize];
@@ -570,7 +582,7 @@ inline int ParseInt(const char*& s, const char* end)
 FMTXX_API errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, int& nextarg, Types types, Arg const* args);
 
 template <typename OS>
-inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types types, Arg const* args)
+inline errc CallFormatFunc(OS os, FormatSpec const& spec, int index, Types types, Arg const* args)
 {
     const auto type = types[index];
 
@@ -615,10 +627,8 @@ inline errc CallFormatFunc(OS& os, FormatSpec const& spec, int index, Types type
 }
 
 template <typename OS>
-errc DoFormatImpl(OS& os, std::string_view format, Types types, Arg const* args)
+errc DoFormatImpl(OS os, std::string_view format, Types types, Arg const* args)
 {
-    //const int num_args = types.value == 0 ? 0 : (16 - (CountLeadingZeros64(types.value) / 4));
-
     if (format.empty())
         return errc::success;
 
@@ -632,7 +642,7 @@ errc DoFormatImpl(OS& os, std::string_view format, Types types, Arg const* args)
         while (f != end && *f != '{' && *f != '}')
             ++f;
 
-        if (f != s && !Write(os, s, static_cast<size_t>(f - s)))
+        if (f != s && !os.Write(s, static_cast<size_t>(f - s)))
             return errc::io_error;
 
         if (f == end) // done.
@@ -686,23 +696,20 @@ errc DoFormatImpl(OS& os, std::string_view format, Types types, Arg const* args)
 }
 
 template <typename OS>
-errc DoFormat(OS& os, std::string_view format, Types types, Arg const* args)
+errc DoFormat(OS os, std::string_view format, Types types, Arg const* args)
 {
     return DoFormatImpl(os, format, types, args);
 }
 
-FMTXX_API errc DoFormat(std::string&  os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(std::FILE&    os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(CharArray&    os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(StringBuffer    os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(FILEBuffer      os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(StreamBuffer    os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(CharArrayBuffer os, std::string_view format, Types types, Arg const* args);
 
 template <typename OS, typename ...Args>
-errc Format(OS&& os, std::string_view format, Args const&... args)
+errc Format(OS os, std::string_view format, Args const&... args)
 {
     Arg arr[] = { Arg(os, args)... };
-
-    // NOTE:
-    // No std::forward here! DoFormat always takes the output stream by &
     return DoFormat(os, format, Types(args...), arr);
 }
 
@@ -715,16 +722,16 @@ errc Format(OS&& os, std::string_view format)
 } // namespace impl
 } // namespace fmtxx
 
-//template <typename OS, typename ...Args>
-//inline fmtxx::errc fmtxx::FormatToStream(OS&& os, std::string_view format, Args const&... args)
-//{
-//    return fmtxx::impl::Format(std::forward<OS>(os), format, args...);
-//}
+template <typename OS, typename ...Args>
+inline fmtxx::errc fmtxx::FormatTo(OS os, std::string_view format, Args const&... args)
+{
+    return fmtxx::impl::Format(os, format, args...);
+}
 
 template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(std::string& os, std::string_view format, Args const&... args)
 {
-    return fmtxx::impl::Format(os, format, args...);
+    return fmtxx::FormatTo(StringBuffer(os), format, args...);
 }
 
 template <typename ...Args>
@@ -738,20 +745,19 @@ inline std::string fmtxx::StringFormat(std::string_view format, Args const&... a
 template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(std::FILE* os, std::string_view format, Args const&... args)
 {
-    assert(os != nullptr);
-    return fmtxx::impl::Format(*os, format, args...);
+    return fmtxx::FormatTo(FILEBuffer(os), format, args...);
 }
 
 template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(std::ostream& os, std::string_view format, Args const&... args)
 {
-    return fmtxx::impl::Format(os, format, args...);
+    return fmtxx::FormatTo(StreamBuffer(os), format, args...);
 }
 
 template <typename ...Args>
 inline fmtxx::errc fmtxx::Format(CharArray& os, std::string_view format, Args const&... args)
 {
-    return fmtxx::impl::Format(os, format, args...);
+    return fmtxx::FormatTo(CharArrayBuffer(os), format, args...);
 }
 
 template <typename ...Args>

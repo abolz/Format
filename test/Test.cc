@@ -29,13 +29,13 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
     //const auto err = fmtxx::Format(buf, format, args...);
     //const auto str = buf.str();
 
-    std::string str;
-    const auto err = fmtxx::Format(str, format, args...);
+    //std::string str;
+    //const auto err = fmtxx::Format(str, format, args...);
 
-    //char buf[500];
-    //const auto res = fmtxx::Format(buf, buf + 500, format, args...);
-    //const auto err = res.ec;
-    //const auto str = std::string { buf, res.next };
+    char buf[500];
+    const auto res = fmtxx::Format(buf, buf + 500, format, args...);
+    const auto err = res.ec;
+    const auto str = std::string { buf, res.next };
 
     if (err != fmtxx::errc::success)
     {
@@ -70,8 +70,8 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
 template <typename ...Args>
 static bool expect_errc(fmtxx::errc expected_err, std::string_view format, Args const&... args)
 {
-    //std::ostringstream str;
-    std::string str;
+    std::ostringstream str;
+    //std::string str;
     const auto err = fmtxx::Format(str, format, args...);
 
     if (err != expected_err)
@@ -585,9 +585,9 @@ struct Foo {
 };
 
 template <typename OS>
-inline fmtxx::errc fmtxx__FormatValue(OS& os, fmtxx::FormatSpec const& spec, Foo const& value)
+inline fmtxx::errc fmtxx__FormatValue(OS os, fmtxx::FormatSpec const& spec, Foo const& value)
 {
-    return fmtxx::Format(os, "{*}", spec, value.value);
+    return fmtxx::FormatTo(os, "{*}", spec, value.value);
 }
 
 static void test_custom()
@@ -622,37 +622,49 @@ static void test_wide_strings()
 
 #include <vector>
 
-namespace fmtxx {
-namespace impl {
+struct VectorBuffer
+{
+    std::vector<char>& os;
+    explicit VectorBuffer(std::vector<char>& v) : os(v) {}
 
-inline bool Put(ADLEnabled<std::vector<char>>& os, char c) {
-    os.value.push_back(c);
-    return true;
-}
+    bool Put(char c) {
+        os.push_back(c);
+        return true;
+    }
 
-inline bool Write(ADLEnabled<std::vector<char>>& os, char const* str, size_t len) {
-    os.value.insert(os.value.end(), str, str + len);
-    return true;
-}
+    bool Write(char const* str, size_t len) {
+        os.insert(os.end(), str, str + len);
+        return true;
+    }
 
-inline bool Pad(ADLEnabled<std::vector<char>>& os, char c, size_t count) {
-    os.value.resize(os.value.size() + count, c);
-    return true;
-}
+    bool Pad(char c, size_t count) {
+        os.resize(os.size() + count, c);
+        return true;
+    }
+};
 
-} // namespace impl
+//namespace fmtxx
+//{
+//    template <typename OS>
+//    errc fmtxx__FormatValue(OS os, FormatSpec const& spec, std::vector<char> const& vec)
+//    {
+//        return fmtxx::FormatTo(os, "{*}", spec, std::string_view(vec.data(), vec.size()));
+//    }
+//}
 
-template <typename ...Args>
-errc Format(std::vector<char>& os, std::string_view format, Args const&... args) {
-    return impl::Format(impl::EnableADL(os), format, args...);
-}
-
-} // namespace fmtxx
+//namespace std
+//{
+//    template <typename OS>
+//    fmtxx::errc fmtxx__FormatValue(OS os, fmtxx::FormatSpec const& spec, vector<char> const& vec)
+//    {
+//        return fmtxx::FormatTo(os, "{*}", spec, string_view(vec.data(), vec.size()));
+//    }
+//}
 
 static void test_vector()
 {
     std::vector<char> os;
-    fmtxx::Format(os, "{:6}", -1234);
+    fmtxx::FormatTo(VectorBuffer(os), "{:6}", -1234);
     assert(os.size() == 6);
     assert(os[0] == ' '); // pad
     assert(os[1] == '-'); // put
@@ -660,6 +672,9 @@ static void test_vector()
     assert(os[3] == '2');
     assert(os[4] == '3');
     assert(os[5] == '4');
+
+    //std::vector<char> str = { '1', '2', '3', '4' };
+    //EXPECT_EQUAL("1234", "{}", str);
 }
 
 //------------------------------------------------------------------------------

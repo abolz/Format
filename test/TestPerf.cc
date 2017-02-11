@@ -158,8 +158,9 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #if 1
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
-        const auto res = fmtxx::Format(buf, buf + 500, format_fmtxx, i);
-        std::fwrite(buf, 1, static_cast<size_t>(res.next - buf), stdout);
+        fmtxx::CharArray os { buf };
+        fmtxx::Format(os, format_fmtxx, i);
+        std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
     });
 #endif
 #if 0
@@ -193,7 +194,11 @@ static void TestInts(char const* format_printf, char const* format_fmtxx, char c
         std::numeric_limits<T>::lowest(),
         std::numeric_limits<T>::max()
     };
+#ifndef NDEBUG
+    RunTest(500000, dist, format_printf, format_fmtxx, format_fmt);
+#else
     RunTest(5000000, dist, format_printf, format_fmtxx, format_fmt);
+#endif
 }
 
 template <typename T>
@@ -203,7 +208,11 @@ static void TestFloats(char const* format_printf, char const* format_fmtxx, char
         static_cast<T>(0.0),
         static_cast<T>(1.0)
     };
+#ifndef NDEBUG
+    RunTest(250000, dist, format_printf, format_fmtxx, format_fmt);
+#else
     RunTest(2500000, dist, format_printf, format_fmtxx, format_fmt);
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -234,19 +243,23 @@ int main()
 
     PrintAvgTimes();
     timing_results.clear();
+#endif
 
-    //TestInts<uint32_t>("%u",     "{}");
-    //TestInts<uint32_t>("%8u",    "{:8d}");
-    //TestInts<uint32_t>("%24u",   "{:24d}");
-    //TestInts<uint32_t>("%128u",  "{:128d}");
-    //TestInts<uint32_t>("%x",     "{:x}");
-    //TestInts<uint32_t>("%08x",   "{:08x}");
-    //TestInts<uint32_t>("%016x",  "{:016x}");
-    //TestInts<uint32_t>("%0128x", "{:0128x}");
-    //
-    //PrintAvgTimes();
-    //timing_results.clear();
+#if 0
+    TestInts<uint32_t>("%u",     "{}");
+    TestInts<uint32_t>("%8u",    "{:8d}");
+    TestInts<uint32_t>("%24u",   "{:24d}");
+    TestInts<uint32_t>("%128u",  "{:128d}");
+    TestInts<uint32_t>("%x",     "{:x}");
+    TestInts<uint32_t>("%08x",   "{:08x}");
+    TestInts<uint32_t>("%016x",  "{:016x}");
+    TestInts<uint32_t>("%0128x", "{:0128x}");
 
+    PrintAvgTimes();
+    timing_results.clear();
+#endif
+
+#if 1
     TestInts<int64_t>("%lld",     "{}");
     TestInts<int64_t>("%8lld",    "{:8d}");
     TestInts<int64_t>("%24lld",   "{:24d}");
@@ -260,7 +273,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0
+#if 1
     TestFloats<float>("%f",     "{:f}");
     TestFloats<float>("%e",     "{:e}");
     TestFloats<float>("%g",     "{:g}");
@@ -274,7 +287,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0
+#if 1
     TestFloats<float>("%.12a", "{:x}", "{:.12a}");
     TestFloats<float>("%.17g", "{:s}", "{:.17g}");
 

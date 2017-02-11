@@ -14,35 +14,35 @@ template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
 //
 //------------------------------------------------------------------------------
 
-bool fmtxx::impl::Put(std::string& os, char c)
+bool fmtxx::StringBuffer::Put(char c)
 {
     os.push_back(c);
     return true;
 }
 
-bool fmtxx::impl::Write(std::string& os, char const* str, size_t len)
+bool fmtxx::StringBuffer::Write(char const* str, size_t len)
 {
     os.append(str, len);
     return true;
 }
 
-bool fmtxx::impl::Pad(std::string& os, char c, size_t count)
+bool fmtxx::StringBuffer::Pad(char c, size_t count)
 {
     os.append(count, c);
     return true;
 }
 
-bool fmtxx::impl::Put(std::FILE& os, char c)
+bool fmtxx::FILEBuffer::Put(char c)
 {
-    return EOF != std::fputc(c, &os);
+    return EOF != std::fputc(c, os);
 }
 
-bool fmtxx::impl::Write(std::FILE& os, char const* str, size_t len)
+bool fmtxx::FILEBuffer::Write(char const* str, size_t len)
 {
-    return len == std::fwrite(str, 1, len, &os);
+    return len == std::fwrite(str, 1, len, os);
 }
 
-bool fmtxx::impl::Pad(std::FILE& os, char c, size_t count)
+bool fmtxx::FILEBuffer::Pad(char c, size_t count)
 {
     const size_t kBlockSize = 32;
 
@@ -52,7 +52,7 @@ bool fmtxx::impl::Pad(std::FILE& os, char c, size_t count)
     while (count > 0)
     {
         const auto n = Min(count, kBlockSize);
-        if (count != std::fwrite(block, 1, count, &os))
+        if (count != std::fwrite(block, 1, count, os))
             return false;
         count -= n;
     }
@@ -60,7 +60,7 @@ bool fmtxx::impl::Pad(std::FILE& os, char c, size_t count)
     return true;
 }
 
-bool fmtxx::impl::Put(std::ostream& os, char c)
+bool fmtxx::StreamBuffer::Put(char c)
 {
     using traits_type = std::ostream::traits_type;
 
@@ -72,7 +72,7 @@ bool fmtxx::impl::Put(std::ostream& os, char c)
     return true;
 }
 
-bool fmtxx::impl::Write(std::ostream& os, char const* str, size_t len)
+bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
 {
     const auto kMaxLen = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
 
@@ -92,7 +92,7 @@ bool fmtxx::impl::Write(std::ostream& os, char const* str, size_t len)
     return true;
 }
 
-bool fmtxx::impl::Pad(std::ostream& os, char c, size_t count)
+bool fmtxx::StreamBuffer::Pad(char c, size_t count)
 {
     const size_t kBlockSize = 32;
 
@@ -114,7 +114,7 @@ bool fmtxx::impl::Pad(std::ostream& os, char c, size_t count)
     return true;
 }
 
-bool fmtxx::impl::Put(CharArray& os, char c)
+bool fmtxx::CharArrayBuffer::Put(char c)
 {
     if (os.next >= os.last)
         return false;
@@ -123,7 +123,7 @@ bool fmtxx::impl::Put(CharArray& os, char c)
     return true;
 }
 
-bool fmtxx::impl::Write(CharArray& os, char const* str, size_t len)
+bool fmtxx::CharArrayBuffer::Write(char const* str, size_t len)
 {
     if (static_cast<size_t>(os.last - os.next) < len)
         return false;
@@ -133,7 +133,7 @@ bool fmtxx::impl::Write(CharArray& os, char const* str, size_t len)
     return true;
 }
 
-bool fmtxx::impl::Pad(CharArray& os, char c, size_t count)
+bool fmtxx::CharArrayBuffer::Pad(char c, size_t count)
 {
     if (static_cast<size_t>(os.last - os.next) < count)
         return false;
@@ -1240,26 +1240,26 @@ fmtxx::errc fmtxx::impl::ParseFormatSpec(FormatSpec& spec, const char*& f, const
     return errc::success;
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(std::string& os, std::string_view format, Types types, Arg const* args) {
+fmtxx::errc fmtxx::impl::DoFormat(StringBuffer os, std::string_view format, Types types, Arg const* args) {
     return DoFormatImpl(os, format, types, args);
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(std::FILE& os, std::string_view format, Types types, Arg const* args) {
+fmtxx::errc fmtxx::impl::DoFormat(FILEBuffer os, std::string_view format, Types types, Arg const* args) {
     return DoFormatImpl(os, format, types, args);
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args)
+fmtxx::errc fmtxx::impl::DoFormat(StreamBuffer os, std::string_view format, Types types, Arg const* args)
 {
     // Construction of the sentry object could be moved into the header file for more
     // consistency, but it would increase the code size an the call site...
 
-    const std::ostream::sentry se(os);
+    const std::ostream::sentry se(os.os);
     if (se)
         return DoFormatImpl(os, format, types, args);
     return errc::io_error;
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(CharArray& os, std::string_view format, Types types, Arg const* args) {
+fmtxx::errc fmtxx::impl::DoFormat(CharArrayBuffer os, std::string_view format, Types types, Arg const* args) {
     return DoFormatImpl(os, format, types, args);
 }
 

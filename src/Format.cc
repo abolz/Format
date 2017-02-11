@@ -52,7 +52,7 @@ bool fmtxx::FILEBuffer::Pad(char c, size_t count)
     while (count > 0)
     {
         const auto n = Min(count, kBlockSize);
-        if (count != std::fwrite(block, 1, count, os))
+        if (n != std::fwrite(block, 1, n, os))
             return false;
         count -= n;
     }

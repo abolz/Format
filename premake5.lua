@@ -43,17 +43,19 @@ solution "Libs"
 --            "-ftime-report",
         }
 
---    configuration { "gmake", "Debug", "not Windows" }
---        buildoptions {
---            "-fno-omit-frame-pointer",
---            "-fsanitize=undefined",
+    configuration { "gmake", "Debug", "not Windows" }
+        buildoptions {
+            "-fno-omit-frame-pointer",
+            "-fsanitize=undefined",
+            "-fsanitize=address",
 --            "-fsanitize=memory",
 --            "-fsanitize-memory-track-origins",
---        }
---        linkoptions {
---            "-fsanitize=undefined",
+        }
+        linkoptions {
+            "-fsanitize=undefined",
+            "-fsanitize=address",
 --            "-fsanitize=memory",
---        }
+        }
 
     configuration { "vs*" }
         buildoptions {

@@ -43,13 +43,17 @@ solution "Libs"
 --            "-ftime-report",
         }
 
-    configuration { "gmake", "Debug", "not Windows" }
-        buildoptions {
-            "-fsanitize=undefined",
-        }
-        linkoptions {
-            "-fsanitize=undefined",
-        }
+--    configuration { "gmake", "Debug", "not Windows" }
+--        buildoptions {
+--            "-fno-omit-frame-pointer",
+--            "-fsanitize=undefined",
+--            "-fsanitize=memory",
+--            "-fsanitize-memory-track-origins",
+--        }
+--        linkoptions {
+--            "-fsanitize=undefined",
+--            "-fsanitize=memory",
+--        }
 
     configuration { "vs*" }
         buildoptions {
@@ -94,7 +98,8 @@ project "fmt"
     language "C++"
     kind "SharedLib"
     files {
-        "test/ext/fmt/fmt/**",
+        "test/ext/fmt/fmt/*.cc",
+        "test/ext/fmt/fmt/*.h",
     }
     defines {
         "FMT_SHARED",

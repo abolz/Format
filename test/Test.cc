@@ -32,14 +32,9 @@ struct StringFormatter
     template <typename ...Args>
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
-        FormatterResult res;
-
         std::string os;
-
-        res.ec = fmtxx::Format(os, format, args...);
-        res.str = os;
-
-        return res;
+        const auto ec = fmtxx::Format(os, format, args...);
+        return { os, ec };
     }
 };
 
@@ -48,14 +43,9 @@ struct StreamFormatter
     template <typename ...Args>
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
-        FormatterResult res;
-
         std::ostringstream os;
-
-        res.ec = fmtxx::Format(os, format, args...);
-        res.str = os.str();
-
-        return res;
+        const auto ec = fmtxx::Format(os, format, args...);
+        return { os.str(), ec };
     }
 };
 
@@ -65,19 +55,11 @@ struct FILEFormatter
     template <typename ...Args>
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
-        FormatterResult res;
-
         char buf[1000] = {0};
         FILE* f = fmemopen(buf, sizeof(buf), "w");
-        assert(f != 0);
-
-        res.ec = fmtxx::Format(f, format, args...);
-
+        const auto ec = fmtxx::Format(f, format, args...);
         fclose(f); // flush!
-
-        res.str = buf;
-
-        return res;
+        return { std::string(buf), ec };
     }
 };
 #endif
@@ -87,15 +69,10 @@ struct CharArrayFormatter
     template <typename ...Args>
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
-        FormatterResult res;
-
         char buf[500];
-        fmtxx::CharArray os { buf, buf + 500 };
-
-        res.ec = fmtxx::Format(os, format, args...);
-        res.str = std::string { buf, os.next };
-
-        return res;
+        fmtxx::CharArray os { buf };
+        const auto ec = fmtxx::Format(os, format, args...);
+        return { std::string(buf, os.next), ec };
     }
 };
 

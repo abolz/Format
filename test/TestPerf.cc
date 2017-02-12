@@ -1,7 +1,5 @@
-#define FMTXX_SHARED 1
 #include "Format.h"
 
-#define FMT_SHARED 1
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 
@@ -155,10 +153,20 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #if 0
     times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(std::cout, format_fmtxx, i); });
 #endif
+#if 0
+    times.t_fmtxx   = GenerateNumbers(n, dist, [&](auto i) { std::cout << fmtxx::StringFormat(format_fmtxx, i); });
+#endif
+#if 0
+    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+        const auto str = fmtxx::StringFormat(format_fmtxx, i);
+        std::fwrite(str.data(), 1, str.size(), stdout);
+    });
+#endif
 #if 1
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArray os { buf };
+        //fmtxx::FormatTo(fmtxx::CharArrayBuffer(os), format_fmtxx, i);
         fmtxx::Format(os, format_fmtxx, i);
         std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
     });

@@ -46,6 +46,10 @@
 
 namespace fmtxx {
 
+//------------------------------------------------------------------------------
+// API
+//
+
 enum struct FMTXX_VISIBILITY_DEFAULT errc {
     success                 =  0,
     invalid_format_string   = -1,
@@ -87,20 +91,14 @@ errc fmtxx__FormatValue(OS os, FormatSpec const& spec, T const& value)
     = delete;
 
 //
-// Wraps the input range for the Format() function below.
+// Appends the formatted arguments to the given output stream.
 //
-struct FMTXX_VISIBILITY_DEFAULT CharArray
-{
-    char*           next = nullptr; // assert: next <= last
-    char* /*const*/ last = nullptr;
+template <typename OS, typename ...Args>
+errc FormatTo(OS os, std::string_view format, Args const&... args);
 
-    CharArray() = default;
-
-    explicit CharArray(char* f, char* l) : next(f), last(l) {}
-
-    template <size_t N>
-    explicit CharArray(char (&buf)[N]) : next(buf), last(buf + N) {}
-};
+//------------------------------------------------------------------------------
+// Extended API
+//
 
 //
 // Output buffers
@@ -136,10 +134,19 @@ struct FMTXX_VISIBILITY_DEFAULT StreamBuffer
     FMTXX_API bool Pad(char c, size_t count);
 };
 
+struct FMTXX_VISIBILITY_DEFAULT CharArray
+{
+    char*       next; // assert: next <= last
+    char* const last;
+
+    explicit CharArray(char* f, char* l) : next(f), last(l) {}
+
+    template <size_t N>
+    explicit CharArray(char (&buf)[N]) : next(buf), last(buf + N) {}
+};
+
 struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer
 {
-    // XXX:
-    // Modifies the 'next' member of the CharArray...
     CharArray& os;
     explicit CharArrayBuffer(CharArray& v) : os(v) {}
 
@@ -149,22 +156,12 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer
 };
 
 //
-// Appends the formatted arguments to the given output stream.
-//
-template <typename OS, typename ...Args>
-errc FormatTo(OS os, std::string_view format, Args const&... args);
-
-//
 // Convenience wrappers
 //
 
 // Appends the formatted arguments to the given string.
 template <typename ...Args>
 errc Format(std::string& os, std::string_view format, Args const&... args);
-
-// Returns a std::string containing the formatted arguments.
-template <typename ...Args>
-std::string StringFormat(std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
 template <typename ...Args>
@@ -178,17 +175,13 @@ errc Format(std::ostream& os, std::string_view format, Args const&... args);
 template <typename ...Args>
 errc Format(CharArray& os, std::string_view format, Args const&... args);
 
-// Appends the formatted arguments to the given array.
+//
+// More convenience wrappers
+//
 
-struct FMTXX_VISIBILITY_DEFAULT FormatToCharArrayResult {
-    char* next = nullptr;
-    errc  ec   = errc::success;
-};
-
-// XXX:
-// Or take FIRST by & ???
+// Returns a std::string containing the formatted arguments.
 template <typename ...Args>
-FormatToCharArrayResult Format(char* first, char* last, std::string_view format, Args const&... args);
+std::string StringFormat(std::string_view format, Args const&... args);
 
 } // namespace fmtxx
 
@@ -735,14 +728,6 @@ fmtxx::errc fmtxx::Format(std::string& os, std::string_view format, Args const&.
 }
 
 template <typename ...Args>
-std::string fmtxx::StringFormat(std::string_view format, Args const&... args)
-{
-    std::string os;
-    fmtxx::Format(os, format, args...);
-    return os;
-}
-
-template <typename ...Args>
 fmtxx::errc fmtxx::Format(std::FILE* os, std::string_view format, Args const&... args)
 {
     return fmtxx::FormatTo(FILEBuffer(os), format, args...);
@@ -761,17 +746,20 @@ fmtxx::errc fmtxx::Format(CharArray& os, std::string_view format, Args const&...
 }
 
 template <typename ...Args>
-fmtxx::FormatToCharArrayResult fmtxx::Format(char* first, char* last, std::string_view format, Args const&... args)
+std::string fmtxx::StringFormat(std::string_view format, Args const&... args)
 {
-    CharArray os { first, last };
-
-    FormatToCharArrayResult res;
-
-    res.ec = fmtxx::Format(os, format, args...);
-    res.next = os.next;
-
-    return res;
+    std::string os;
+    fmtxx::FormatTo(StringBuffer(os), format, args...);
+    return os;
 }
+
+//template <typename ...Args>
+//fmtxx::FormatToCharArrayResult fmtxx::Format(char* first, char* last, std::string_view format, Args const&... args)
+//{
+//    CharArray os { first, last };
+//    const errc ec = fmtxx::FormatTo(CharArrayBuffer(os), format, args...);
+//    return { os.next, ec };
+//}
 
 //------------------------------------------------------------------------------
 // Copyright 2016 A. Bolz

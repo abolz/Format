@@ -644,10 +644,22 @@ inline fmtxx::errc fmtxx__FormatValue(OS os, fmtxx::FormatSpec const& spec, Foo 
     return fmtxx::FormatTo(os, "{*}", spec, value.value);
 }
 
+namespace foo2_ns
+{
+    struct Foo2 {
+        int value;
+    };
+
+    inline std::ostream& operator <<(std::ostream& stream, Foo2 const& value) {
+        return stream << value.value;
+    }
+}
+
 template <typename Formatter>
 static void test_custom()
 {
     EXPECT_EQUAL("struct Foo '   123'", "struct Foo '{:6}'", Foo{123});
+    EXPECT_EQUAL("struct Foo2 '   123'", "struct Foo2 '{:6}'", foo2_ns::Foo2{123});
 }
 
 template <typename Formatter>

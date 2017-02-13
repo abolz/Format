@@ -84,11 +84,17 @@ struct IsString {
 
 //
 // Formatting function for user-defined types.
-// Implement this in the data-type's namespace!
+//  (Implement this in the data-type's namespace!)
+//
+// The default implementation uses std::ostringstream to convert the value into
+// a string and then writes the string to the output buffer.
+//
+// I.e., the default implementation requires:
+//      #include <sstream>
+// !!!
 //
 template <typename OS, typename T>
-errc fmtxx__FormatValue(OS os, FormatSpec const& spec, T const& value)
-    = delete;
+errc fmtxx__FormatValue(OS os, FormatSpec const& spec, T const& value);
 
 //
 // Appends the formatted arguments to the given output stream.
@@ -442,6 +448,23 @@ errc WriteString(OS os, FormatSpec const& spec, char const* str)
     return WriteRawString(os, spec, str, len);
 }
 
+template <typename OS, typename T, typename Stream = std::ostringstream>
+errc StreamValue(OS os, FormatSpec const& spec, T const& value)
+{
+    // Using this method requires #include <sstream>
+    //
+    // TODO:
+    // Better error message...
+    //
+    // TODO:
+    // Set stream flags from SPEC and then write the raw string into the output buffer...
+
+    Stream stream;
+    stream << value;
+    const auto& str = stream.str();
+    return fmtxx::impl::WriteString(os, spec, str.data(), str.size());
+}
+
 // XXX: public...
 template <typename OS>
 errc WriteNumber(OS os, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
@@ -714,6 +737,17 @@ errc Format(OS os, std::string_view format)
 
 } // namespace impl
 } // namespace fmtxx
+
+template <typename OS, typename T>
+fmtxx::errc fmtxx::fmtxx__FormatValue(OS os, FormatSpec const& spec, T const& value)
+{
+    // Using this method requires #include <sstream>
+    //
+    // TODO:
+    // Better error message...
+
+    return fmtxx::impl::StreamValue(os, spec, value);
+}
 
 template <typename OS, typename ...Args>
 fmtxx::errc fmtxx::FormatTo(OS os, std::string_view format, Args const&... args)

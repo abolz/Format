@@ -82,13 +82,13 @@ struct IsString {
     static constexpr bool value = false;
 };
 
-struct FMTXX_API FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT FormatBuffer
 {
-    virtual ~FormatBuffer();
+    FMTXX_API virtual ~FormatBuffer();
 
-    virtual bool Put(char c) = 0;
-    virtual bool Pad(char c, size_t count) = 0;
-    virtual bool Write(char const* str, size_t len) = 0;
+    FMTXX_API virtual bool Put(char c) = 0;
+    FMTXX_API virtual bool Pad(char c, size_t count) = 0;
+    FMTXX_API virtual bool Write(char const* str, size_t len) = 0;
 };
 
 //
@@ -119,48 +119,48 @@ errc Format(FormatBuffer& fb, std::string_view format, Args const&... args);
 // Output buffers
 //
 
-struct FMTXX_API StringBuffer : public FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT StringBuffer : public FormatBuffer
 {
     std::string& os;
     StringBuffer(std::string& v) : os(v) {}
 
-    virtual bool Put(char c) override;
-    virtual bool Write(char const* str, size_t len) override;
-    virtual bool Pad(char c, size_t count) override;
+    FMTXX_API virtual bool Put(char c) override;
+    FMTXX_API virtual bool Write(char const* str, size_t len) override;
+    FMTXX_API virtual bool Pad(char c, size_t count) override;
 };
 
-struct FMTXX_API FILEBuffer : public FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT FILEBuffer : public FormatBuffer
 {
     std::FILE* os;
     explicit FILEBuffer(std::FILE* v) : os(v) {}
 
-    virtual bool Put(char c) override;
-    virtual bool Write(char const* str, size_t len) override;
-    virtual bool Pad(char c, size_t count) override;
+    FMTXX_API virtual bool Put(char c) override;
+    FMTXX_API virtual bool Write(char const* str, size_t len) override;
+    FMTXX_API virtual bool Pad(char c, size_t count) override;
 };
 
-struct FMTXX_API StreamBuffer : public FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT StreamBuffer : public FormatBuffer
 {
     std::ostream& os;
     StreamBuffer(std::ostream& v) : os(v) {}
 
-    virtual bool Put(char c) override;
-    virtual bool Write(char const* str, size_t len) override;
-    virtual bool Pad(char c, size_t count) override;
+    FMTXX_API virtual bool Put(char c) override;
+    FMTXX_API virtual bool Write(char const* str, size_t len) override;
+    FMTXX_API virtual bool Pad(char c, size_t count) override;
 };
 
-struct FMTXX_API CharArrayBuffer : public FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
 {
     char*       next;
     char* const last;
-    CharArrayBuffer(char* f, char* l) : next(f), last(l) {}
+    explicit CharArrayBuffer(char* f, char* l) : next(f), last(l) {}
 
     template <size_t N>
-    CharArrayBuffer(char (&buf)[N]) : next(buf), last(buf + N) {}
+    explicit CharArrayBuffer(char (&buf)[N]) : next(buf), last(buf + N) {}
 
-    virtual bool Put(char c) override;
-    virtual bool Write(char const* str, size_t len) override;
-    virtual bool Pad(char c, size_t count) override;
+    FMTXX_API virtual bool Put(char c) override;
+    FMTXX_API virtual bool Write(char const* str, size_t len) override;
+    FMTXX_API virtual bool Pad(char c, size_t count) override;
 };
 
 //

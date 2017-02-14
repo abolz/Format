@@ -7,41 +7,51 @@
 #include <intrin.h>
 #endif
 
+using namespace fmtxx;
+using namespace fmtxx::impl;
+
 template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
 template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
 
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
+// API
+fmtxx::FormatBuffer::~FormatBuffer()
+{
+}
 
+// API
 bool fmtxx::StringBuffer::Put(char c)
 {
     os.push_back(c);
     return true;
 }
 
+// API
 bool fmtxx::StringBuffer::Write(char const* str, size_t len)
 {
     os.append(str, len);
     return true;
 }
 
+// API
 bool fmtxx::StringBuffer::Pad(char c, size_t count)
 {
     os.append(count, c);
     return true;
 }
 
+// API
 bool fmtxx::FILEBuffer::Put(char c)
 {
     return EOF != std::fputc(c, os);
 }
 
+// API
 bool fmtxx::FILEBuffer::Write(char const* str, size_t len)
 {
     return len == std::fwrite(str, 1, len, os);
 }
 
+// API
 bool fmtxx::FILEBuffer::Pad(char c, size_t count)
 {
     const size_t kBlockSize = 32;
@@ -52,14 +62,17 @@ bool fmtxx::FILEBuffer::Pad(char c, size_t count)
     while (count > 0)
     {
         const auto n = Min(count, kBlockSize);
+
         if (n != std::fwrite(block, 1, n, os))
             return false;
+
         count -= n;
     }
 
     return true;
 }
 
+// API
 bool fmtxx::StreamBuffer::Put(char c)
 {
     using traits_type = std::ostream::traits_type;
@@ -72,6 +85,7 @@ bool fmtxx::StreamBuffer::Put(char c)
     return true;
 }
 
+// API
 bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
 {
     const auto kMaxLen = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
@@ -79,8 +93,9 @@ bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
     while (len > 0)
     {
         const auto n = Min(len, kMaxLen);
+        const auto k = static_cast<std::streamsize>(n);
 
-        if (static_cast<std::streamsize>(n) != os.rdbuf()->sputn(str, static_cast<std::streamsize>(n))) {
+        if (k != os.rdbuf()->sputn(str, k)) {
             os.setstate(std::ios_base::badbit);
             return false;
         }
@@ -92,6 +107,7 @@ bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
     return true;
 }
 
+// API
 bool fmtxx::StreamBuffer::Pad(char c, size_t count)
 {
     const size_t kBlockSize = 32;
@@ -102,8 +118,9 @@ bool fmtxx::StreamBuffer::Pad(char c, size_t count)
     while (count > 0)
     {
         const auto n = Min(count, kBlockSize);
+        const auto k = static_cast<std::streamsize>(n);
 
-        if (static_cast<std::streamsize>(n) != os.rdbuf()->sputn(block, static_cast<std::streamsize>(n))) {
+        if (k != os.rdbuf()->sputn(block, k)) {
             os.setstate(std::ios_base::badbit);
             return false;
         }
@@ -114,46 +131,41 @@ bool fmtxx::StreamBuffer::Pad(char c, size_t count)
     return true;
 }
 
+// API
 bool fmtxx::CharArrayBuffer::Put(char c)
 {
-    if (os.next >= os.last)
+    if (next >= last)
         return false;
 
-    *os.next++ = c;
+    *next++ = c;
     return true;
 }
 
+// API
 bool fmtxx::CharArrayBuffer::Write(char const* str, size_t len)
 {
-    if (static_cast<size_t>(os.last - os.next) < len)
+    if (static_cast<size_t>(last - next) < len)
         return false;
 
-    std::memcpy(os.next, str, len);
-    os.next += len;
+    std::memcpy(next, str, len);
+    next += len;
     return true;
 }
 
+// API
 bool fmtxx::CharArrayBuffer::Pad(char c, size_t count)
 {
-    if (static_cast<size_t>(os.last - os.next) < count)
+    if (static_cast<size_t>(last - next) < count)
         return false;
 
-    std::memset(os.next, static_cast<unsigned char>(c), count);
-    os.next += count;
+    std::memset(next, static_cast<unsigned char>(c), count);
+    next += count;
     return true;
 }
 
-static char ComputeSignChar(bool neg, char sign, char fill)
-{
-    if (neg)
-        return '-';
-    if (sign == '+')
-        return '+';
-    if (sign == ' ')
-        return fill;
-
-    return '\0';
-}
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
 
 static int CountDecimalDigits32(uint32_t x)
 {
@@ -197,7 +209,127 @@ static int CountLeadingZeros64(uint64_t n)
 #endif
 }
 
-static char* IntToDecAsciiBackwards(char* last/*[-20]*/, uint64_t n)
+static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
+static bool IsAlign(char ch) { return ch == '<' || ch == '>' || ch == '^' || ch == '='; }
+static bool IsSign (char ch) { return ch == ' ' || ch == '-' || ch == '+'; }
+
+static char ComputeSignChar(bool neg, char sign, char fill)
+{
+    if (neg)
+        return '-';
+    if (sign == '+')
+        return '+';
+    if (sign == ' ')
+        return fill;
+
+    return '\0';
+}
+
+static void ComputePadding(size_t len, char align, int width, size_t& lpad, size_t& spad, size_t& rpad)
+{
+    assert(width >= 0 && "internal error");
+
+    const size_t w = static_cast<size_t>(width);
+    if (w <= len)
+        return;
+
+    const size_t d = w - len;
+    switch (align)
+    {
+    case '>':
+        lpad = d;
+        break;
+    case '<':
+        rpad = d;
+        break;
+    case '^':
+        lpad = d/2;
+        rpad = d - d/2;
+        break;
+    case '=':
+        spad = d;
+        break;
+    }
+}
+
+static errc WriteRawString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
+{
+    size_t lpad = 0;
+    size_t spad = 0;
+    size_t rpad = 0;
+
+    ComputePadding(len, spec.align, spec.width, lpad, spad, rpad);
+
+    if (lpad > 0 && !fb.Pad(spec.fill, lpad))
+        return errc::io_error;
+    if (len > 0  && !fb.Write(str, len))
+        return errc::io_error;
+    if (rpad > 0 && !fb.Pad(spec.fill, rpad))
+        return errc::io_error;
+
+    return errc::success;
+}
+
+static errc WriteRawString(FormatBuffer& fb, FormatSpec const& spec, std::string_view str)
+{
+    return WriteRawString(fb, spec, str.data(), str.size());
+}
+
+static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
+{
+    size_t n = len;
+    if (spec.prec >= 0)
+    {
+        if (n > static_cast<size_t>(spec.prec))
+            n = static_cast<size_t>(spec.prec);
+    }
+
+    return WriteRawString(fb, spec, str, n);
+}
+
+static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* str)
+{
+    if (str == nullptr)
+        return WriteRawString(fb, spec, "(null)");
+
+    // Use strnlen if a precision was specified.
+    // The string may not be null-terminated!
+    size_t len;
+    if (spec.prec >= 0)
+        len = ::strnlen(str, static_cast<size_t>(spec.prec));
+    else
+        len = ::strlen(str);
+
+    return WriteRawString(fb, spec, str, len);
+}
+
+static errc WriteNumber(FormatBuffer& fb, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
+{
+    const size_t len = (sign ? 1u : 0u) + nprefix + ndigits;
+
+    size_t lpad = 0;
+    size_t spad = 0;
+    size_t rpad = 0;
+
+    ComputePadding(len, spec.zero ? '=' : spec.align, spec.width, lpad, spad, rpad);
+
+    if (lpad > 0     && !fb.Pad(spec.fill, lpad))
+        return errc::io_error;
+    if (sign != '\0' && !fb.Put(sign))
+        return errc::io_error;
+    if (nprefix > 0  && !fb.Write(prefix, nprefix))
+        return errc::io_error;
+    if (spad > 0     && !fb.Pad(spec.zero ? '0' : spec.fill, spad))
+        return errc::io_error;
+    if (ndigits > 0  && !fb.Write(digits, ndigits))
+        return errc::io_error;
+    if (rpad > 0     && !fb.Pad(spec.fill, rpad))
+        return errc::io_error;
+
+    return errc::success;
+}
+
+static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
 {
     static const char* const kDecDigits100/*[100*2 + 1]*/ =
         "00010203040506070809"
@@ -244,7 +376,7 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
     switch (base)
     {
     case 10:
-        return IntToDecAsciiBackwards(last, n);
+        return DecIntToAsciiBackwards(last, n);
     case 16:
         do *--last = xdigits[n & 15]; while (n >>= 4);
         return last;
@@ -260,60 +392,78 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
     return last;
 }
 
-// XXX: public...
-fmtxx::impl::IntToAsciiResult fmtxx::impl::IntToAscii(char* first, char* last, FormatSpec const& spec, int64_t sext, uint64_t zext)
+static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
-    assert(last - first >= 64);
-    static_cast<void>(first);
-
-    IntToAsciiResult res;
-
-    res.first   = last;
-    res.last    = last;
-    res.nprefix = 0;
-    res.base    = 10;
-    res.conv    = spec.conv;
-    res.sign    = '\0';
-
     uint64_t number = zext;
-    switch (res.conv)
+    char     conv = spec.conv;
+    char     sign = '\0';
+    int      base = 10;
+    size_t   nprefix = 0;
+
+    switch (conv)
     {
     default:
         // I'm sorry Dave, I'm afraid I can't do that.
     case '\0':
     case 'd':
     case 'i':
-        res.sign = ComputeSignChar(sext < 0, spec.sign, spec.fill);
+        sign = ComputeSignChar(sext < 0, spec.sign, spec.fill);
         if (sext < 0)
             number = 0 - static_cast<uint64_t>(sext);
         // [[fall_through]]
     case 'u':
-        res.base = 10;
+        base = 10;
         break;
     case 'x':
     case 'X':
-        res.base = 16;
+        base = 16;
         if (spec.hash != '\0')
-            res.nprefix = 2;
+            nprefix = 2;
         break;
     case 'b':
     case 'B':
-        res.base = 2;
+        base = 2;
         if (spec.hash != '\0')
-            res.nprefix = 2;
+            nprefix = 2;
         break;
     case 'o':
-        res.base = 8;
+        base = 8;
         if (spec.hash != '\0' && number != 0)
-            res.nprefix = 1;
+            nprefix = 1;
         break;
     }
 
-    const bool upper = ('A' <= res.conv && res.conv <= 'Z');
+    const char prefix[] = {'0', conv};
 
-    res.first = IntToAsciiBackwards(last, number, res.base, upper);
+    const bool upper = ('A' <= conv && conv <= 'Z');
 
-    return res;
+    char buf[64];
+    char* const l = buf + 64;
+    char* const f = IntToAsciiBackwards(l, number, base, upper);
+
+    return WriteNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
+}
+
+static errc WriteBool(FormatBuffer& fb, FormatSpec const& spec, bool val)
+{
+    return WriteRawString(fb, spec, val ? "true" : "false");
+}
+
+static errc WriteChar(FormatBuffer& fb, FormatSpec const& spec, char ch)
+{
+    return WriteString(fb, spec, &ch, 1u);
+}
+
+static errc WritePointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer)
+{
+    if (pointer == nullptr)
+        return WriteRawString(fb, spec, "(nil)");
+
+    FormatSpec f = spec;
+    f.hash = '#';
+    f.conv = 'x';
+
+    return WriteInt(fb, f, 0, reinterpret_cast<uintptr_t>(pointer));
 }
 
 struct Double
@@ -979,29 +1129,18 @@ static char* NumberToHexString(double x, char* buf, bool trailing_dot_zero = fal
     return buf;
 }
 
-// XXX: public...
-fmtxx::impl::DoubleToAsciiResult fmtxx::impl::DoubleToAscii(char* first, char* last, FormatSpec const& spec, double x)
+static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 {
-    assert(last - first >= 32);
-
-    DoubleToAsciiResult res;
-
-    res.first     = first;
-    res.last      = last;
-    res.conv      = spec.conv;
-    res.sign      = '\0';
-    res.isnum     = false;
-    res.hexprefix = false;
-
+    char conv = spec.conv;
     bool upper = false;
     bool tostr = false;
     bool tohex = false;
-    switch (res.conv)
+    switch (conv)
     {
     default:
         // I'm sorry Dave, I'm afraid I can't do that.
     case '\0':
-        res.conv = 's';
+        conv = 's';
         tostr = true;
         break;
     case 'S':
@@ -1031,7 +1170,7 @@ fmtxx::impl::DoubleToAsciiResult fmtxx::impl::DoubleToAscii(char* first, char* l
     const bool neg = (d.Sign() != 0);
     const double abs_x = d.Abs();
 
-    res.sign = ComputeSignChar(neg, spec.sign, spec.fill);
+    const char sign = ComputeSignChar(neg, spec.sign, spec.fill);
 
     if (d.IsSpecial())
     {
@@ -1041,71 +1180,79 @@ fmtxx::impl::DoubleToAsciiResult fmtxx::impl::DoubleToAscii(char* first, char* l
                        : (upper ?  "INF" :  "inf"))
                 : (upper ? "NAN" : "nan");
 
-        const auto len = ::strlen(s);
-
-        std::memcpy(res.first, s, len);
-
-        res.isnum = false;
-        res.last = res.first + len;
+        return WriteRawString(fb, spec, s, std::strlen(s));
     }
     else if (tostr)
     {
         const bool alt = (spec.hash != '\0');
 
-        res.isnum = true;
-        res.last = NumberToString(abs_x, res.first, /*trailing_dot_zero*/alt);
+        char buf[32];
+        char* const f = buf;
+        char* const l = NumberToString(abs_x, f, /*trailing_dot_zero*/alt);
+
+        return WriteNumber(fb, spec, sign, nullptr, 0, f, static_cast<size_t>(l - f));
     }
     else if (tohex)
     {
         const bool alt = (spec.hash != '\0');
 
-        res.isnum = true;
-        res.hexprefix = alt;
-        res.last = NumberToHexString(abs_x, res.first, /*trailing_dot_zero*/alt);
+        char buf[32];
+        char* const f = buf;
+        char* const l = NumberToHexString(abs_x, f, /*trailing_dot_zero*/alt);
+
+        const size_t nprefix = alt ? 2u : 0u;
+
+        return WriteNumber(fb, spec, sign, "0x", nprefix, f, static_cast<size_t>(l - f));
     }
     else
     {
-        const auto bufsize = static_cast<size_t>(last - first);
+        const size_t kBufSize = 1000;
+        char buf[1000];
 
         int n;
         if (spec.prec >= 0)
         {
-            const char format[] = {'%', '.', '*', res.conv, '\0'};
-            n = std::snprintf(res.first, bufsize, format, spec.prec, abs_x);
+            const char format[] = {'%', '.', '*', conv, '\0'};
+            n = std::snprintf(buf, kBufSize, format, spec.prec, abs_x);
         }
         else
         {
-            const char format[] = {'%', res.conv, '\0'};
-            n = std::snprintf(res.first, bufsize, format, abs_x);
+            const char format[] = {'%', conv, '\0'};
+            n = std::snprintf(buf, kBufSize, format, abs_x);
         }
         assert(n >= 0);
 
         size_t len = static_cast<size_t>(n);
-        if (len >= bufsize)
-        {
-            std::memcpy(res.first, "[[error]]", 9);
+        if (len >= kBufSize)
+            return WriteRawString(fb, spec, "[[error]]");
 
-            res.isnum = false;
-            res.last = res.first + 9;
-        }
-        else
-        {
-            res.isnum = true;
-            res.last = res.first + len;
-        }
+        return WriteNumber(fb, spec, sign, nullptr, 0, buf, len);
     }
-
-    return res;
 }
 
-//------------------------------------------------------------------------------
+
 //
-//------------------------------------------------------------------------------
-
-static void FixFormatSpec(fmtxx::FormatSpec& spec)
+// Parse a non-negative integer in the range [0, INT_MAX].
+// Returns -1 on overflow.
+//
+// PRE: IsDigit(*s) == true.
+//
+static int ParseInt(const char*& s, const char* end)
 {
-    using namespace fmtxx::impl;
+    int x = *s - '0';
 
+    while (++s != end && IsDigit(*s))
+    {
+        if (x > INT_MAX / 10 || *s - '0' > INT_MAX - 10*x)
+            return -1;
+        x = 10*x + (*s - '0');
+    }
+
+    return x;
+}
+
+static void FixFormatSpec(FormatSpec& spec)
+{
     if (spec.align != '\0' && !IsAlign(spec.align))
         spec.align = '>';
 
@@ -1121,7 +1268,7 @@ static void FixFormatSpec(fmtxx::FormatSpec& spec)
     }
 }
 
-fmtxx::errc fmtxx::impl::ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, int& nextarg, Types types, Arg const* args)
+static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end);
 
@@ -1240,27 +1387,144 @@ fmtxx::errc fmtxx::impl::ParseFormatSpec(FormatSpec& spec, const char*& f, const
     return errc::success;
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(StringBuffer os, std::string_view format, Types types, Arg const* args) {
-    return DoFormatImpl(os, format, types, args);
-}
-
-fmtxx::errc fmtxx::impl::DoFormat(FILEBuffer os, std::string_view format, Types types, Arg const* args) {
-    return DoFormatImpl(os, format, types, args);
-}
-
-fmtxx::errc fmtxx::impl::DoFormat(StreamBuffer os, std::string_view format, Types types, Arg const* args)
+static errc CallFormatFunc(FormatBuffer& fb, FormatSpec const& spec, int index, Types types, Arg const* args)
 {
-    // Construction of the sentry object could be moved into the header file for more
-    // consistency, but it would increase the code size an the call site...
+    const auto type = types[index];
 
-    const std::ostream::sentry se(os.os);
-    if (se)
-        return DoFormatImpl(os, format, types, args);
-    return errc::io_error;
+    if (type == Types::T_NONE)
+        return errc::index_out_of_range;
+
+    const auto& arg = args[index];
+
+    switch (type)
+    {
+    case Types::T_NONE:
+        break; // unreachable -- fix warning
+    case Types::T_OTHER:
+        return arg.other.func(fb, spec, arg.other.value);
+    case Types::T_STRING:
+        return WriteString(fb, spec, arg.string.data(), arg.string.size());
+    case Types::T_PVOID:
+        return WritePointer(fb, spec, arg.pvoid);
+    case Types::T_PCHAR:
+        return WriteString(fb, spec, arg.pchar);
+    case Types::T_CHAR:
+        return WriteChar(fb, spec, arg.char_);
+    case Types::T_BOOL:
+        return WriteBool(fb, spec, arg.bool_);
+    case Types::T_SCHAR:
+        return WriteInt(fb, spec, arg.schar, static_cast<unsigned char>(arg.schar));
+    case Types::T_SSHORT:
+        return WriteInt(fb, spec, arg.sshort, static_cast<unsigned short>(arg.sshort));
+    case Types::T_SINT:
+        return WriteInt(fb, spec, arg.sint, static_cast<unsigned int>(arg.sint));
+    case Types::T_SLONGLONG:
+        return WriteInt(fb, spec, arg.slonglong, static_cast<unsigned long long>(arg.slonglong));
+    case Types::T_ULONGLONG:
+        return WriteInt(fb, spec, 0, arg.ulonglong);
+    case Types::T_DOUBLE:
+        return WriteDouble(fb, spec, arg.double_);
+    case Types::T_FORMATSPEC:
+        return WriteRawString(fb, spec, "[[error]]");
+    }
+
+    return errc::success; // unreachable -- fix warning
 }
 
-fmtxx::errc fmtxx::impl::DoFormat(CharArrayBuffer os, std::string_view format, Types types, Arg const* args) {
-    return DoFormatImpl(os, format, types, args);
+// Internal API
+errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types types, Arg const* args)
+{
+    if (format.empty())
+        return errc::success;
+
+    int nextarg = 0;
+
+    const char*       f   = format.data();
+    const char* const end = f + format.size();
+    const char*       s   = f;
+    for (;;)
+    {
+        while (f != end && *f != '{' && *f != '}')
+            ++f;
+
+        if (f != s && !fb.Write(s, static_cast<size_t>(f - s)))
+            return errc::io_error;
+
+        if (f == end) // done.
+            break;
+
+        const char c = *f++; // skip '{' or '}'
+
+        if (*f == c) // '{{' or '}}'
+        {
+            s = f++;
+            continue;
+        }
+
+        if (c == '}')
+            return errc::invalid_format_string; // stray '}'
+        if (f == end)
+            return errc::invalid_format_string; // missing '}'
+
+        int index = -1;
+        if (IsDigit(*f))
+        {
+            index = ParseInt(f, end);
+            if (index < 0)
+                return errc::invalid_format_string; // overflow
+            if (f == end)
+                return errc::invalid_format_string; // missing '}'
+        }
+
+        FormatSpec spec;
+        if (*f != '}')
+        {
+            const errc ec = ParseFormatSpec(spec, f, end, nextarg, types, args);
+            if (ec != errc::success)
+                return ec;
+        }
+
+        if (index < 0)
+            index = nextarg++;
+
+        const errc ec = CallFormatFunc(fb, spec, index, types, args);
+        if (ec != errc::success)
+            return ec;
+
+        if (f == end) // done.
+            break;
+
+        s = ++f; // skip '}'
+    }
+
+    return errc::success;
+}
+
+// Internal API
+errc fmtxx::impl::DoFormat(std::string& os, std::string_view format, Types types, Arg const* args)
+{
+    StringBuffer fb { os };
+    return DoFormat(fb, format, types, args);
+}
+
+// Internal API
+errc fmtxx::impl::DoFormat(std::FILE* os, std::string_view format, Types types, Arg const* args)
+{
+    FILEBuffer fb { os };
+    return DoFormat(fb, format, types, args);
+}
+
+// Internal API
+errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args)
+{
+    const std::ostream::sentry se(os);
+    if (se)
+    {
+        StreamBuffer fb { os };
+        return DoFormat(fb, format, types, args);
+    }
+
+    return errc::io_error;
 }
 
 //------------------------------------------------------------------------------

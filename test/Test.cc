@@ -5,12 +5,12 @@ g++ Test.cc Format.cc
 
 #include "Format.h"
 
+#include <cfloat>
+#include <cmath>
+#include <iostream>
 #include <limits>
 #include <sstream>
 #include <vector>
-#include <cmath>
-#include <cfloat>
-#include <iostream>
 
 #define NO_FLOATS 0
 
@@ -49,7 +49,7 @@ struct StreamFormatter
     }
 };
 
-#ifndef _MSC_VER
+#ifndef _WIN32
 struct FILEFormatter
 {
     template <typename ...Args>
@@ -70,7 +70,7 @@ struct CharArrayFormatter
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
         char buf[500];
-        fmtxx::CharArray os { buf };
+        fmtxx::CharArrayBuffer os { buf };
         const auto ec = fmtxx::Format(os, format, args...);
         return { std::string(buf, os.next), ec };
     }
@@ -638,10 +638,9 @@ struct Foo {
     int value;
 };
 
-template <typename OS>
-inline fmtxx::errc fmtxx__FormatValue(OS os, fmtxx::FormatSpec const& spec, Foo const& value)
+inline fmtxx::errc fmtxx__FormatValue(fmtxx::FormatBuffer& os, fmtxx::FormatSpec const& spec, Foo const& value)
 {
-    return fmtxx::FormatTo(os, "{*}", spec, value.value);
+    return fmtxx::Format(os, "{*}", spec, value.value);
 }
 
 namespace foo2_ns
@@ -691,23 +690,25 @@ static void test_wide_strings()
 
 #include <vector>
 
-struct VectorBuffer
+class VectorBuffer : public fmtxx::FormatBuffer
 {
     std::vector<char>& os;
+
+public:
     explicit VectorBuffer(std::vector<char>& v) : os(v) {}
 
-    bool Put(char c) {
+    virtual bool Put(char c) override {
         os.push_back(c);
         return true;
     }
 
-    bool Write(char const* str, size_t len) {
-        os.insert(os.end(), str, str + len);
+    virtual bool Pad(char c, size_t count) override {
+        os.resize(os.size() + count, c);
         return true;
     }
 
-    bool Pad(char c, size_t count) {
-        os.resize(os.size() + count, c);
+    virtual bool Write(char const* str, size_t len) override {
+        os.insert(os.end(), str, str + len);
         return true;
     }
 };
@@ -734,7 +735,8 @@ template <typename Formatter>
 static void test_vector()
 {
     std::vector<char> os;
-    fmtxx::FormatTo(VectorBuffer(os), "{:6}", -1234);
+    VectorBuffer buf { os };
+    fmtxx::Format(buf, "{:6}", -1234);
     assert(os.size() == 6);
     assert(os[0] == ' '); // pad
     assert(os[1] == '-'); // put
@@ -779,7 +781,7 @@ int main()
     fprintf(stderr, "StreamFormatter...\n");
     test_all<StreamFormatter>();
 
-#ifndef _MSC_VER
+#ifndef _WIN32
     fprintf(stderr, "FILEFormatter...\n");
     test_all<FILEFormatter>();
 #endif

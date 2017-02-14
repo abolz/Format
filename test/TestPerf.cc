@@ -165,10 +165,9 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #if 1
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
-        fmtxx::CharArray os { buf };
-        //fmtxx::FormatTo(fmtxx::CharArrayBuffer(os), format_fmtxx, i);
-        fmtxx::Format(os, format_fmtxx, i);
-        std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
+        fmtxx::CharArrayBuffer fb { buf };
+        fmtxx::Format(fb, format_fmtxx, i);
+        std::fwrite(buf, 1, static_cast<size_t>(fb.next - buf), stdout);
     });
 #endif
 #if 0
@@ -281,7 +280,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestFloats<float>("%f",     "{:f}");
     TestFloats<float>("%e",     "{:e}");
     TestFloats<float>("%g",     "{:g}");

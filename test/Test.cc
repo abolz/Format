@@ -518,12 +518,13 @@ static void test_floats()
     EXPECT_EQUAL("0p+0",                "{:X}", 0.0);
     EXPECT_EQUAL("-0p+0",               "{:x}", -0.0);
     EXPECT_EQUAL("1.8p+0",              "{:x}", 1.5);
-//    EXPECT_EQUAL("1.8000p+0",           "{:.4x}", 1.5);
-//    EXPECT_EQUAL("1p+1",                "{:.0x}", 1.5);
-    EXPECT_EQUAL("1.921FB5A7ED197p+1",  "{:x}", 3.1415927);
-//    EXPECT_EQUAL("1.922p+1",            "{:.3x}", 3.1415927);
-//    EXPECT_EQUAL("1.9220p+1",           "{:.4x}", 3.1415927);
-//    EXPECT_EQUAL("1.921fbp+1",          "{:.5x}", 3.1415927);
+    EXPECT_EQUAL("0x1.8000p+0",           "{:.4a}", 1.5);
+    EXPECT_EQUAL("0x1p+1",                "{:.0a}", 1.5);
+    EXPECT_EQUAL("0x1.921fb5a7ed197p+1",  "{:a}", 3.1415927);
+    EXPECT_EQUAL("0X1.921FB5A7ED197P+1",  "{:A}", 3.1415927);
+    EXPECT_EQUAL("0x1.922p+1",            "{:.3a}", 3.1415927);
+    EXPECT_EQUAL("0x1.9220p+1",           "{:.4a}", 3.1415927);
+    EXPECT_EQUAL("0x1.921fbp+1",          "{:.5a}", 3.1415927);
 
     EXPECT_EQUAL("1p-1022",               "{:x}", std::numeric_limits<double>::min());
     EXPECT_EQUAL("1p-1074",               "{:x}", std::numeric_limits<double>::denorm_min());
@@ -554,10 +555,10 @@ static void test_floats()
     EXPECT_EQUAL("0x0p+0",  "{:#x}",  0.0);
     EXPECT_EQUAL("-0x0p+0", "{:#x}",  -0.0);
 
-    EXPECT_EQUAL("1p+0",    "{:x}",     1.0);
-//    EXPECT_EQUAL("1.0p+0",    "{:.0x}",   1.0);
-//    EXPECT_EQUAL("1.0p+0",  "{:.1x}",   1.0);
-//    EXPECT_EQUAL("1.00p+0", "{:.2x}",   1.0);
+    EXPECT_EQUAL("0x1p+0",    "{:a}",     1.0);
+    EXPECT_EQUAL("0x1p+0",    "{:.0a}",   1.0);
+    EXPECT_EQUAL("0x1.0p+0",  "{:.1a}",   1.0);
+    EXPECT_EQUAL("0x1.00p+0", "{:.2a}",   1.0);
 
     double InvVal = std::numeric_limits<double>::infinity();
     EXPECT_EQUAL("inf", "{:s}", InvVal);

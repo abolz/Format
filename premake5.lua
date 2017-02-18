@@ -80,6 +80,8 @@ project "fmtxx"
     files {
         "src/Format.h",
         "src/Format.cc",
+        "src/double-conversion/*.h",
+        "src/double-conversion/*.cc",
     }
     defines {
         "FMTXX_SHARED",

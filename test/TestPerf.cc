@@ -266,7 +266,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestInts<int64_t>("%lld",     "{}");
     TestInts<int64_t>("%8lld",    "{:8d}");
     TestInts<int64_t>("%24lld",   "{:24d}");
@@ -280,7 +280,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0
+#if 1
     TestFloats<float>("%f",     "{:f}");
     TestFloats<float>("%e",     "{:e}");
     TestFloats<float>("%g",     "{:g}");
@@ -294,7 +294,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestFloats<float>("%.12a", "{:x}", "{:.12a}");
     TestFloats<float>("%.17g", "{:s}", "{:.17g}");
 

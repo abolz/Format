@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+namespace fmtxx {
+
 struct Double
 {
     static const uint64_t kSignMask        = 0x8000000000000000;
@@ -56,12 +58,6 @@ struct Double
     }
 };
 
-//int Format_s_min_buffer_length(const double d);
-//int Format_f_min_buffer_length(const double d, const int precision);
-//int Format_e_min_buffer_length(const double d, const int precision);
-//int Format_g_min_buffer_length(const double d, const int precision);
-//int Format_a_min_buffer_length(const double d, const int precision);
-
 enum struct FormatStyle {
     fixed,
     exponential,
@@ -72,6 +68,18 @@ enum struct FormatStyle {
 struct FormatResult {
     char* next;
     int ec;
+};
+
+struct FormatOptions {
+    bool use_upper_case_digits       = true;  //       A
+    bool normalize                   = true;  //       A
+    char grouping_char               = '\0';  // F   G   S
+    char decimal_point_char          = '.';   // F E G A S
+    bool emit_trailing_dot           = false; // F E G A S
+    bool emit_trailing_zero          = false; // F E G A S
+    int  min_exponent_length         = 2;     //   E G A S
+    char exponent_char               = 'e';   //   E G A S
+    bool emit_positive_exponent_sign = true;  //   E G A S
 };
 
 // %f
@@ -101,7 +109,8 @@ FormatResult Format_f_non_negative(
     char* first,
     char* last,
     const double d,
-    const int precision);
+    const int precision,
+    const FormatOptions& options);
 
 // %e
 //
@@ -125,9 +134,7 @@ FormatResult Format_e_non_negative(
     char* last,
     const double d,
     const int precision,
-    const int min_exponent_length = 2,
-    const char exponent_char = 'e',
-    const bool emit_positive_exponent_sign = true);
+    const FormatOptions& options);
 
 // %g
 //
@@ -154,9 +161,7 @@ FormatResult Format_g_non_negative(
     char* last,
     const double d,
     const int precision,
-    const int min_exponent_length = 2,
-    const char exponent_char = 'e',
-    const bool emit_positive_exponent_sign = true);
+    const FormatOptions& options);
 
 // %a
 //
@@ -184,11 +189,8 @@ FormatResult Format_a_non_negative(
     char* first,
     char* last,
     const double d,
-    const int precision = -1,
-    const bool upper_case_digits = true,
-    const int min_exponent_length = 1,
-    const char exponent_char = 'p',
-    const bool emit_positive_exponent_sign = true);
+    const int precision,
+    const FormatOptions& options);
 
 // %s
 //
@@ -211,13 +213,15 @@ FormatResult Format_s_non_negative(
     char* last,
     const double d,
     const FormatStyle style,
-    const int min_exponent_length = 1,
-    const char exponent_char = 'e',
-    const bool emit_positive_exponent_sign = true);
+    const FormatOptions& options);
 
 FormatResult Printf_non_negative(
     char* first,
     char* last,
     const double d,
     const int precision,
+    const char grouping_char,
+    const bool alt,
     const char conversion_specifier);
+
+} // namespace fmtxx

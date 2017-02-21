@@ -4,10 +4,16 @@
 #include "fast-dtoa.h"
 #include "fixed-dtoa.h"
 
+#include <algorithm>
 #include <cstring>
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
+
+using namespace fmtxx;
+
+template <typename T> static constexpr T Min(T const& x, T const& y) { return y < x ? y : x; }
+template <typename T> static constexpr T Max(T const& x, T const& y) { return y < x ? x : y; }
 
 //------------------------------------------------------------------------------
 //
@@ -25,75 +31,87 @@ enum struct DtoaMode {
     PRECISION,
 };
 
-static bool DoubleToAsciiFixed(double v, int requested_digits, char* buffer, int buffer_length, int* num_digits, int* decimal_point)
+static bool DoubleToAsciiFixed(
+    double                          v,
+    int                             requested_digits,
+    double_conversion::Vector<char> vec,
+    int*                            num_digits,
+    int*                            decpt)
 {
     using namespace double_conversion;
 
     const Double d { v };
     const int e = d.UnbiasedExponent();
 
-    const double kLog2_10 = 3.321928094887362347870319429489390175864831393024580612054;
+    const double log2_of_10 = 3.32192809488736235;
     const int min_buffer_length
-        = requested_digits + (e <= 0 ? 0 : static_cast<int>(e / kLog2_10)) + 1/*null*/;
+        = requested_digits
+            + (e <= 0 ? 0
+                      : static_cast<int>((e + 1) / log2_of_10))
+            + 1 // null
+            ;
 
-    if (buffer_length < min_buffer_length)
+    if (vec.length() < min_buffer_length)
         return false;
 
-    Vector<char> vec(buffer, buffer_length);
-
-    if (!FastFixedDtoa(v, requested_digits, vec, num_digits, decimal_point)) {
-        BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decimal_point);
-    }
+    if (!FastFixedDtoa(v, requested_digits, vec, num_digits, decpt))
+        BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
 
     assert(*num_digits <= min_buffer_length);
 
     return true;
 }
 
-// v = buf * 10^(decimal_point - buffer_length)
-static bool DoubleToAscii(double v, DtoaMode mode, int requested_digits, char* buffer, int buffer_length, int* num_digits, int* decimal_point)
+// v = buf * 10^(decpt - buffer_length)
+static bool DoubleToAscii(
+    double   v,
+    DtoaMode mode,
+    int      requested_digits,
+    char*    buffer,
+    int      buffer_length,
+    int*     num_digits,
+    int*     decpt)
 {
     using namespace double_conversion;
 
     if (buffer_length < 1)
         return false;
 
-    assert(!Double(v).IsSpecial());
-    assert(Double(v).Abs() >= 0);
+    const Double d { v };
+
+    assert(!d.IsSpecial());
+    assert(d.Abs() >= 0);
     assert(mode == DtoaMode::SHORTEST || requested_digits >= 0);
 
-    if (mode == DtoaMode::PRECISION && requested_digits == 0)
-    {
+    if (mode == DtoaMode::PRECISION && requested_digits == 0) {
         *num_digits = 0;
-        *decimal_point = 0;
+        *decpt = 0;
         return true;
     }
 
-    if (v == 0)
-    {
+    if (d.IsZero()) {
         *buffer = '0';
         *num_digits = 1;
-        *decimal_point = 1;
+        *decpt = 1;
         return true;
     }
 
-    switch (mode)
-    {
+    Vector<char> vec(buffer, buffer_length);
+
+    switch (mode) {
     case DtoaMode::SHORTEST:
         assert(buffer_length >= 17 + 1/*null*/);
-        if (!FastDtoa(v, FAST_DTOA_SHORTEST, 0, Vector<char>(buffer, buffer_length), num_digits, decimal_point)) {
-            BignumDtoa(v, BIGNUM_DTOA_SHORTEST, -1, Vector<char>(buffer, buffer_length), num_digits, decimal_point);
-        }
+        if (!FastDtoa(v, FAST_DTOA_SHORTEST, 0, vec, num_digits, decpt))
+            BignumDtoa(v, BIGNUM_DTOA_SHORTEST, -1, vec, num_digits, decpt);
         break;
     case DtoaMode::PRECISION:
         if (buffer_length < requested_digits + 1/*null*/)
             return false;
-        if (!FastDtoa(v, FAST_DTOA_PRECISION, requested_digits, Vector<char>(buffer, buffer_length), num_digits, decimal_point)) {
-            BignumDtoa(v, BIGNUM_DTOA_PRECISION, requested_digits, Vector<char>(buffer, buffer_length), num_digits, decimal_point);
-        }
+        if (!FastDtoa(v, FAST_DTOA_PRECISION, requested_digits, vec, num_digits, decpt))
+            BignumDtoa(v, BIGNUM_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
         break;
     case DtoaMode::FIXED:
-        return DoubleToAsciiFixed(v, requested_digits, buffer, buffer_length, num_digits, decimal_point);
+        return DoubleToAsciiFixed(v, requested_digits, vec, num_digits, decpt);
     }
 
     return true;
@@ -103,142 +121,194 @@ static bool DoubleToAscii(double v, DtoaMode mode, int requested_digits, char* b
 //
 //------------------------------------------------------------------------------
 
-static int ComputeFixedRepresentationLength(int num_digits, int decimal_point, int precision)
+static int ComputeFixedRepresentationLength(
+    int                  num_digits,
+    int                  decpt,
+    int                  precision,
+    const FormatOptions& options)
 {
-    int len = 0;
+    if (decpt <= 0)
+        return 1 + (precision > 0 ? 1 + precision : 0);
 
-    if (decimal_point <= 0)
-    {
-        len += 1
-            + (precision <= 0
-                ? 0
-                : (1 + (-decimal_point) + num_digits + (precision - (-decimal_point) - num_digits)));
-    }
-    else if (decimal_point >= num_digits)
-    {
-        len += num_digits + (decimal_point - num_digits)
-            + (precision <= 0
-                ? 0
-                : 1 + precision);
-    }
-    else
-    {
-        len += decimal_point + 1 + (num_digits - decimal_point) + (precision - (num_digits - decimal_point));
-    }
+    const int extra = options.grouping_char != '\0' ? (decpt - 1) / 3 : 0;
 
-    return len;
+    if (decpt >= num_digits)
+        return extra + decpt + (precision > 0 ? 1 + precision : 0);
+
+    return extra + decpt + 1 + precision;
 }
 
-static void CreateFixedRepresentation(char* buf, int num_digits, int decimal_point, int precision)
+static void InsertGroupingChars(char* buf, int buflen, int decpt, const FormatOptions& options)
+{
+    assert(options.grouping_char != '\0');
+    assert(decpt > 0);
+
+    int shift = (decpt - 1) / 3;
+
+    if (shift <= 0)
+        return;
+
+    for (int i = buflen - 1; i >= decpt; --i)
+        buf[i + shift] = buf[i];
+
+    for (int i = decpt - 1; shift > 0; shift--, i -= 3)
+    {
+        assert(i - 2 >= 0);
+        buf[i - 0 + shift    ] = buf[i - 0];
+        buf[i - 1 + shift    ] = buf[i - 1];
+        buf[i - 2 + shift    ] = buf[i - 2];
+        buf[i - 2 + shift - 1] = options.grouping_char;
+    }
+}
+
+static void CreateFixedRepresentation(
+    char*                buf,
+    int                  num_digits,
+    int                  decpt,
+    int                  precision,
+    const FormatOptions& options)
 {
     // Create a representation that is padded with zeros if needed.
 
-    if (decimal_point <= 0)
+    if (decpt <= 0)
     {
         // 0.[000]digits[000]
+        assert(precision == 0 || precision >= -decpt + num_digits);
 
-        const int shift = 1 + (precision > 0 ? (1 + (-decimal_point)) : 0);
-
-        std::memmove(buf + shift, buf, static_cast<size_t>(num_digits));
-        buf[0] = '0';
         if (precision > 0)
         {
-            buf[1] = '.';
-            std::memset(buf + 2, '0', static_cast<size_t>(-decimal_point));
-            std::memset(buf + (2 + (-decimal_point) + num_digits), '0', static_cast<size_t>(precision - (-decimal_point) - num_digits));
+            std::fill_n(buf + num_digits, 2 + (precision - num_digits), '0');
+            buf[num_digits + 1] = options.decimal_point_char;
+            std::rotate(buf, buf + num_digits, buf + (num_digits + 2 + -decpt));
         }
+        else
+        {
+            buf[0] = '0';
+        }
+
+        return;
     }
-    else if (decimal_point >= num_digits)
+
+    int buflen = 0;
+    if (decpt >= num_digits)
     {
         // digits[000].0
 
-        std::memset(buf + num_digits, '0', static_cast<size_t>(decimal_point - num_digits));
         if (precision > 0)
         {
-            buf[decimal_point] = '.';
-            std::memset(buf + (decimal_point + 1), '0', static_cast<size_t>(precision));
+            std::fill_n(buf + num_digits, decpt - num_digits + 1 + precision, '0');
+            buf[decpt] = options.decimal_point_char;
+            buflen = decpt + 1 + precision;
+        }
+        else
+        {
+            std::fill_n(buf + num_digits, decpt - num_digits, '0');
+            buflen = decpt;
         }
     }
     else
     {
+        // 0 < decpt < num_digits
         // dig.its
+        assert(precision >= num_digits - decpt);
 
-        std::memmove(buf + (decimal_point + 1), buf + decimal_point, static_cast<size_t>(num_digits - decimal_point));
-        buf[decimal_point] = '.';
-        std::memset(buf + (num_digits + 1), '0', static_cast<size_t>(precision - (num_digits - decimal_point)));
+        std::copy_backward(buf + decpt, buf + num_digits, buf + (num_digits + 1));
+        buf[decpt] = options.decimal_point_char;
+        std::fill_n(buf + (num_digits + 1), precision, '0');
+
+        buflen = decpt + 1 + precision;
     }
+
+    if (options.grouping_char != '\0')
+        InsertGroupingChars(buf, buflen, decpt, options);
 }
 
-FormatResult Format_f_non_negative(
-    char* first,
-    char* last,
-    const double d,
-    const int precision)
+FormatResult fmtxx::Format_f_non_negative(
+    char*                first,
+    char*                last,
+    const double         d,
+    const int            precision,
+    const FormatOptions& options)
 {
     int num_digits = 0;
-    int decimal_point = 0;
+    int decpt = 0;
 
-    if (!DoubleToAscii(d, DtoaMode::FIXED, precision, first, static_cast<int>(last - first), &num_digits, &decimal_point))
+    if (!DoubleToAscii(d,
+                       DtoaMode::FIXED,
+                       precision,
+                       first,
+                       static_cast<int>(last - first),
+                       &num_digits,
+                       &decpt))
+    {
         return { last, -1 };
+    }
 
     assert(num_digits >= 0);
 
-    const int output_len = ComputeFixedRepresentationLength(num_digits, decimal_point, precision);
+    const int fixed_len = ComputeFixedRepresentationLength(num_digits, decpt, precision, options);
 
-    if (last - first < output_len)
+    if (last - first < fixed_len)
         return { last, -1 };
 
-    CreateFixedRepresentation(first, num_digits, decimal_point, precision);
-    return { first + output_len, 0 };
+    CreateFixedRepresentation(first, num_digits, decpt, precision, options);
+    return { first + fixed_len, 0 };
 }
 
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
 
-static int ComputeExponentLength(int exponent, int min_exponent_length, bool emit_positive_exponent_sign)
+static int ComputeExponentLength(int exponent, const FormatOptions& options)
 {
     int len = 1; // exponent_char
 
-    if (exponent < 0) {
+    if (exponent < 0)
+    {
         len += 1;
         exponent = -exponent;
     }
-    else if (emit_positive_exponent_sign) {
+    else if (options.emit_positive_exponent_sign)
+    {
         len += 1;
     }
 
-    if (exponent >= 1000 || min_exponent_length >= 4) return len + 4;
-    if (exponent >=  100 || min_exponent_length >= 3) return len + 3;
-    if (exponent >=   10 || min_exponent_length >= 2) return len + 2;
+    if (exponent >= 1000 || options.min_exponent_length >= 4) return len + 4;
+    if (exponent >=  100 || options.min_exponent_length >= 3) return len + 3;
+    if (exponent >=   10 || options.min_exponent_length >= 2) return len + 2;
     return len + 1;
 }
 
-static void AppendExponent(char*& p, int exponent, int min_exponent_length, char exponent_char, bool emit_positive_exponent_sign)
+static void AppendExponent(char*& p, int exponent, const FormatOptions& options)
 {
     assert(-10000 < exponent && exponent < 10000);
-    assert(1 <= min_exponent_length && min_exponent_length <= 4);
+    assert(1 <= options.min_exponent_length && options.min_exponent_length <= 4);
 
-    *p++ = exponent_char;
+    *p++ = options.exponent_char;
 
     if (exponent < 0)
     {
         *p++ = '-';
         exponent = -exponent;
     }
-    else if (emit_positive_exponent_sign)
+    else if (options.emit_positive_exponent_sign)
     {
         *p++ = '+';
     }
 
     const int k = exponent;
-    if (k >= 1000 || min_exponent_length >= 4) { *p++ = static_cast<char>('0' + exponent / 1000); exponent %= 1000; };
-    if (k >=  100 || min_exponent_length >= 3) { *p++ = static_cast<char>('0' + exponent /  100); exponent %=  100; };
-    if (k >=   10 || min_exponent_length >= 2) { *p++ = static_cast<char>('0' + exponent /   10); exponent %=   10; };
+
+    if (k >= 1000 || options.min_exponent_length >= 4) { *p++ = static_cast<char>('0' + exponent / 1000); exponent %= 1000; }
+    if (k >=  100 || options.min_exponent_length >= 3) { *p++ = static_cast<char>('0' + exponent /  100); exponent %=  100; }
+    if (k >=   10 || options.min_exponent_length >= 2) { *p++ = static_cast<char>('0' + exponent /   10); exponent %=   10; }
     *p++ = static_cast<char>('0' + exponent % 10);
 }
 
-static int ComputeExponentialRepresentationLength(int num_digits, int exponent, int num_digits_after_point, int min_exponent_length, bool emit_positive_exponent_sign)
+static int ComputeExponentialRepresentationLength(
+    int                  num_digits,
+    int                  exponent,
+    int                  num_digits_after_point,
+    const FormatOptions& options)
 {
     int len = 0;
 
@@ -246,116 +316,128 @@ static int ComputeExponentialRepresentationLength(int num_digits, int exponent, 
     if (num_digits > 1)
     {
         len += 1; // decimal point
-        if (num_digits_after_point > num_digits - 1)
-            len += num_digits_after_point - (num_digits - 1);
+        const int nz = num_digits_after_point - (num_digits - 1);
+        if (nz > 0)
+            len += nz;
     }
     else if (num_digits_after_point > 0)
     {
         len += 1 + num_digits_after_point;
     }
 
-    return len + ComputeExponentLength(exponent, min_exponent_length, emit_positive_exponent_sign);
+    return len + ComputeExponentLength(exponent, options);
 }
 
-static void CreateExponentialRepresentation(char* buf, int num_digits, int exponent, int num_digits_after_point, int min_exponent_length, char exponent_char, bool emit_positive_exponent_sign)
+static void CreateExponentialRepresentation(char* buf, int num_digits, int exponent, int num_digits_after_point, const FormatOptions& options)
 {
     assert(num_digits > 0);
 
     buf += 1;
     if (num_digits > 1)
     {
-        std::memmove(buf + 1, buf, static_cast<size_t>(num_digits - 1));
-        buf[0] = '.';
-        buf += num_digits;
-        if (num_digits_after_point > num_digits - 1)
+        std::copy_backward(buf, buf + (num_digits - 1), buf + num_digits);
+        buf[0] = options.decimal_point_char;
+        buf += (num_digits - 1) + 1;
+
+        const int nz = num_digits_after_point - (num_digits - 1);
+        if (nz > 0)
         {
-            const int z = num_digits_after_point - (num_digits - 1);
-            std::memset(buf, '0', static_cast<size_t>(z));
-            buf += z;
+            std::fill_n(buf, nz, '0');
+            buf += nz;
         }
     }
     else if (num_digits_after_point > 0)
     {
-        buf[0] = '.';
-        std::memset(buf + 1, '0', static_cast<size_t>(num_digits_after_point));
-
-        buf += 1 + num_digits_after_point;
+        std::fill_n(buf, num_digits_after_point + 1, '0');
+        buf[0] = options.decimal_point_char;
+        buf += num_digits_after_point + 1;
     }
 
-    AppendExponent(buf, exponent, min_exponent_length, exponent_char, emit_positive_exponent_sign);
+    AppendExponent(buf, exponent, options);
 }
 
-FormatResult Format_e_non_negative(
-    char* first,
-    char* last,
-    const double d,
-    const int precision,
-    const int min_exponent_length,
-    const char exponent_char,
-    const bool emit_positive_exponent_sign)
+FormatResult fmtxx::Format_e_non_negative(
+    char*                first,
+    char*                last,
+    const double         d,
+    const int            precision,
+    const FormatOptions& options)
 {
     int num_digits = 0;
-    int decimal_point = 0;
+    int decpt = 0;
 
-    if (!DoubleToAscii(d, DtoaMode::PRECISION, precision + 1, first, static_cast<int>(last - first), &num_digits, &decimal_point))
+    if (!DoubleToAscii(d,
+                       DtoaMode::PRECISION,
+                       precision + 1,
+                       first,
+                       static_cast<int>(last - first),
+                       &num_digits,
+                       &decpt))
+    {
         return { last, -1 };
+    }
 
     assert(num_digits > 0);
 
-    const int exponent = decimal_point - 1;
-    const int output_len = ComputeExponentialRepresentationLength(num_digits, exponent, precision, min_exponent_length, emit_positive_exponent_sign);
+    const int exponent = decpt - 1;
+    const int exponential_len
+        = ComputeExponentialRepresentationLength(num_digits, exponent, precision, options);
 
-    if (last - first < output_len)
+    if (last - first < exponential_len)
         return { last, -1 };
 
-    CreateExponentialRepresentation(first, num_digits, exponent, precision, min_exponent_length, exponent_char, emit_positive_exponent_sign);
-    return { first + output_len, 0 };
+    CreateExponentialRepresentation(first, num_digits, exponent, precision, options);
+    return { first + exponential_len, 0 };
 }
 
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
 
-FormatResult Format_g_non_negative(
+FormatResult fmtxx::Format_g_non_negative(
     char* first,
     char* last,
     const double d,
     const int precision,
-    const int min_exponent_length,
-    const char exponent_char,
-    const bool emit_positive_exponent_sign)
+    const FormatOptions& options)
 {
     int num_digits = 0;
-    int decimal_point = 0;
+    int decpt = 0;
 
     const int P = precision == 0 ? 1 : precision;
 
-    if (!DoubleToAscii(d, DtoaMode::PRECISION, P, first, static_cast<int>(last - first), &num_digits, &decimal_point))
+    if (!DoubleToAscii(d,
+                       DtoaMode::PRECISION,
+                       P,
+                       first,
+                       static_cast<int>(last - first),
+                       &num_digits,
+                       &decpt))
+    {
         return { last, -1 };
+    }
 
     assert(num_digits > 0);
     assert(num_digits == P);
 
-    const int X = decimal_point - 1;
+    const int X = decpt - 1;
 
     // Trim trailing zeros.
     while (num_digits > 0 && first[num_digits - 1] == '0')
-    {
         --num_digits;
-    }
 
     if (-4 <= X && X < P)
     {
         int prec = P - (X + 1);
 
         // Adjust precision not to print trailing zeros.
-        if (prec > num_digits - decimal_point)
-            prec = num_digits - decimal_point;
+        if (prec > num_digits - decpt)
+            prec = num_digits - decpt;
 
-        const int output_len = ComputeFixedRepresentationLength(num_digits, decimal_point, prec);
+        const int output_len = ComputeFixedRepresentationLength(num_digits, decpt, prec, options);
         if (last - first >= output_len)
         {
-            CreateFixedRepresentation(first, num_digits, decimal_point, prec);
+            CreateFixedRepresentation(first, num_digits, decpt, prec, options);
             return { first + output_len, 0 };
         }
     }
@@ -363,10 +445,10 @@ FormatResult Format_g_non_negative(
     {
         const int prec = P - 1;
 
-        const int output_len = ComputeExponentialRepresentationLength(num_digits, X, prec, min_exponent_length, emit_positive_exponent_sign);
+        const int output_len = ComputeExponentialRepresentationLength(num_digits, X, prec, options);
         if (last - first >= output_len)
         {
-            CreateExponentialRepresentation(first, num_digits, X, prec, min_exponent_length, exponent_char, emit_positive_exponent_sign);
+            CreateExponentialRepresentation(first, num_digits, X, prec, options);
             return { first + output_len, 0 };
         }
     }
@@ -406,7 +488,14 @@ static int CountLeadingZeros64(uint64_t n)
 #endif
 }
 
-static void HexDoubleToAscii(double v, int precision, bool normalize, bool upper, char* buffer, int* num_digits, int* binary_exponent)
+static void HexDoubleToAscii(
+    double v,
+    int    precision,
+    bool   normalize,
+    bool   upper,
+    char*  buffer,
+    int*   num_digits,
+    int*   binary_exponent)
 {
     const char* const kHexDigits = upper
         ? "0123456789ABCDEF"
@@ -414,8 +503,7 @@ static void HexDoubleToAscii(double v, int precision, bool normalize, bool upper
 
     const Double d { v };
 
-    if (d.IsZero())
-    {
+    if (d.IsZero()) {
         buffer[(*num_digits)++] = '0';
         return;
     }
@@ -491,29 +579,36 @@ static void HexDoubleToAscii(double v, int precision, bool normalize, bool upper
     }
 }
 
-FormatResult Format_a_non_negative(
-    char* first,
-    char* last,
-    const double d,
-    const int precision,
-    const bool upper_case_digits,
-    const int min_exponent_length,
-    const char exponent_char,
-    const bool emit_positive_exponent_sign)
+FormatResult fmtxx::Format_a_non_negative(
+    char*                first,
+    char*                last,
+    const double         d,
+    const int            precision,
+    const FormatOptions& options)
 {
-    int num_digits = 0;
-    int binary_exponent = 0;
     char buf[32];
 
-    HexDoubleToAscii(d, precision, /*normalize*/ true, upper_case_digits, buf, &num_digits, &binary_exponent);
+    int num_digits = 0;
+    int binary_exponent = 0;
 
-    const int output_len = ComputeExponentialRepresentationLength(num_digits, binary_exponent, precision, min_exponent_length, emit_positive_exponent_sign);
+    const bool use_buf = (last - first < 52/4);
+    HexDoubleToAscii(d,
+                     precision,
+                     options.normalize,
+                     options.use_upper_case_digits,
+                     use_buf ? buf : first,
+                     &num_digits,
+                     &binary_exponent);
+
+    const int output_len
+        = ComputeExponentialRepresentationLength(num_digits, binary_exponent, precision, options);
 
     if (last - first > output_len)
     {
-        std::memcpy(first, buf, static_cast<size_t>(num_digits));
+        if (use_buf)
+            std::memcpy(first, buf, static_cast<size_t>(num_digits));
 
-        CreateExponentialRepresentation(first, num_digits, binary_exponent, precision, min_exponent_length, exponent_char, emit_positive_exponent_sign);
+        CreateExponentialRepresentation(first, num_digits, binary_exponent, precision, options);
         return { first + output_len, 0 };
     }
 
@@ -524,64 +619,69 @@ FormatResult Format_a_non_negative(
 //
 //------------------------------------------------------------------------------
 
-static int ComputePrecisionForShortFixedRepresentation(int num_digits, int decimal_point)
+static int ComputePrecisionForShortFixedRepresentation(int num_digits, int decpt)
 {
-    if (num_digits <= decimal_point)
+    if (num_digits <= decpt)
         return 0;
 
-    if (0 < decimal_point)
-        return num_digits - decimal_point;
+    if (0 < decpt)
+        return num_digits - decpt;
 
-    return -decimal_point + num_digits;
+    return -decpt + num_digits;
 }
 
-FormatResult Format_s_non_negative(
-    char* first,
-    char* last,
-    const double d,
-    const FormatStyle style,
-    const int min_exponent_length,
-    const char exponent_char,
-    const bool emit_positive_exponent_sign)
+FormatResult fmtxx::Format_s_non_negative(
+    char*                first,
+    char*                last,
+    const double         d,
+    const FormatStyle    style,
+    const FormatOptions& options)
 {
-    const int kBufSize = 32;
-    char buf[kBufSize];
+    char buf[17 + 1];
 
     int num_digits = 0;
-    int decimal_point = 0;
+    int decpt = 0;
 
-    if (!DoubleToAscii(d, DtoaMode::SHORTEST, /*precision*/ -1, buf, kBufSize, &num_digits, &decimal_point))
-        return { last, -1 };
+    const bool use_buf = (last - first < 17 + 1);
+    DoubleToAscii(d,
+                  DtoaMode::SHORTEST,
+                  -1, // precision -- ignored.
+                  use_buf ? buf : first,
+                  17 + 1,
+                  &num_digits,
+                  &decpt);
 
     assert(num_digits > 0);
 
-    const int fixed_precision        = ComputePrecisionForShortFixedRepresentation(num_digits, decimal_point);
-    const int fixed_output_len       = ComputeFixedRepresentationLength(num_digits, decimal_point, fixed_precision);
-    const int exponent               = decimal_point - 1;
-    const int exponential_output_len = ComputeExponentialRepresentationLength(num_digits, exponent, /*num_digits_after_point*/ num_digits - 1, min_exponent_length, emit_positive_exponent_sign);
+    const int fixed_precision = ComputePrecisionForShortFixedRepresentation(num_digits, decpt);
+    const int fixed_len       = ComputeFixedRepresentationLength(num_digits, decpt, fixed_precision, options);
+    const int exponent        = decpt - 1;
+    const int exponential_len = ComputeExponentialRepresentationLength(num_digits, exponent, num_digits - 1, options);
 
-    const bool use_fixed =
-        (style == FormatStyle::fixed) ||
-        (style == FormatStyle::general && fixed_output_len <= exponential_output_len);
+    const bool use_fixed
+        = (style == FormatStyle::fixed)
+            || (style == FormatStyle::general && fixed_len <= exponential_len);
 
     if (use_fixed)
     {
-        if (last - first >= fixed_output_len)
+        if (last - first >= fixed_len)
         {
-            std::memcpy(first, buf, static_cast<size_t>(num_digits));
+            if (use_buf)
+                std::memcpy(first, buf, static_cast<size_t>(num_digits));
 
-            CreateFixedRepresentation(first, num_digits, decimal_point, fixed_precision);
-            return { first + fixed_output_len, 0 };
+            CreateFixedRepresentation(first, num_digits, decpt, fixed_precision, options);
+            return { first + fixed_len, 0 };
         }
     }
     else
     {
-        if (last - first >= exponential_output_len)
+        if (last - first >= exponential_len)
         {
-            std::memcpy(first, buf, static_cast<size_t>(num_digits));
+            if (use_buf)
+                std::memcpy(first, buf, static_cast<size_t>(num_digits));
 
-            CreateExponentialRepresentation(first, num_digits, exponent, /*num_digits_after_point*/ num_digits - 1, min_exponent_length, exponent_char, emit_positive_exponent_sign);
-            return { first + exponential_output_len, 0 };
+            CreateExponentialRepresentation(first, num_digits, exponent, /*num_digits_after_point*/ num_digits - 1, options);
+            return { first + exponential_len, 0 };
         }
     }
 
@@ -592,13 +692,27 @@ FormatResult Format_s_non_negative(
 //
 //------------------------------------------------------------------------------
 
-FormatResult Printf_non_negative(
-    char* first,
-    char* last,
+FormatResult fmtxx::Printf_non_negative(
+    char*        first,
+    char*        last,
     const double d,
-    const int precision,
-    const char conversion_specifier)
+    const int    precision,
+    const char   grouping_char,
+    const bool   /*alt*/,
+    const char   conversion_specifier)
 {
+    FormatOptions options;
+
+    options.use_upper_case_digits       = true;          //       A
+    options.normalize                   = true;          //       A
+    options.grouping_char               = grouping_char; // F   G   S
+    options.decimal_point_char          = '.';           // F E G A S
+    options.emit_trailing_dot           = false;         // F E G A S
+    options.emit_trailing_zero          = false;         // F E G A S
+    options.min_exponent_length         = 2;             //   E G A S
+    options.exponent_char               = 'e';           //   E G A S
+    options.emit_positive_exponent_sign = true;          //   E G A S
+
     int prec = precision;
     switch (conversion_specifier)
     {
@@ -606,33 +720,43 @@ FormatResult Printf_non_negative(
     case 'F':
         if (prec < 0)
             prec = 6;
-        return Format_f_non_negative(first, last, d, prec);
+        return Format_f_non_negative(first, last, d, prec, options);
     case 'e':
     case 'E':
         if (prec < 0)
             prec = 6;
-        return Format_e_non_negative(first, last, d, prec, 2, conversion_specifier, true);
+        options.exponent_char = conversion_specifier;
+        return Format_e_non_negative(first, last, d, prec, options);
     case 'g':
         if (prec < 0)
             prec = 6;
-        return Format_g_non_negative(first, last, d, prec, 2, 'e', true);
+        options.exponent_char = 'e';
+        return Format_g_non_negative(first, last, d, prec, options);
     case 'G':
         if (prec < 0)
             prec = 6;
-        return Format_g_non_negative(first, last, d, prec, 2, 'E', true);
+        options.exponent_char = 'E';
+        return Format_g_non_negative(first, last, d, prec, options);
     case 'a':
         if (last - first < 2)
             return { last, -1 };
         *first++ = '0';
         *first++ = 'x';
-        return Format_a_non_negative(first, last, d, prec, false, 1, 'p', true);
+        options.use_upper_case_digits = false;
+        options.min_exponent_length   = 1;
+        options.exponent_char         = 'p';
+        return Format_a_non_negative(first, last, d, prec, options);
     case 'A':
         if (last - first < 2)
             return { last, -1 };
         *first++ = '0';
         *first++ = 'X';
-        return Format_a_non_negative(first, last, d, prec, true, 1, 'P', true);
+        options.use_upper_case_digits = true;
+        options.min_exponent_length   = 1;
+        options.exponent_char         = 'P';
+        return Format_a_non_negative(first, last, d, prec, options);
     default:
+        assert(!"invalid conversion specifier");
         return { last, -1 };
     }
 }

@@ -446,7 +446,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     case 'g':
     case 'a':
         break;
-	case 'F':
+    case 'F':
     case 'E':
     case 'G':
     case 'A':
@@ -477,18 +477,38 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     }
     else if (tostr)
     {
+        FormatOptions options;
+
+        options.use_upper_case_digits       = true;
+        options.grouping_char               = '\0';
+        options.emit_trailing_dot           = false;
+        options.emit_trailing_zero          = false;
+        options.min_exponent_length         = 1;
+        options.exponent_char               = 'e';
+        options.emit_positive_exponent_sign = true;
+
         char buf[32];
-        const auto res = Format_s_non_negative(buf, buf + 32, abs_x, FormatStyle::general);
+        const auto res = Format_s_non_negative(buf, buf + 32, abs_x, FormatStyle::general, options);
         assert(!res.ec);
 
         return WriteNumber(fb, spec, sign, nullptr, 0, buf, static_cast<size_t>(res.next - buf));
     }
     else if (tohex)
     {
+        FormatOptions options;
+
+        options.use_upper_case_digits       = true;
+        options.grouping_char               = '\0';
+        options.emit_trailing_dot           = false;
+        options.emit_trailing_zero          = false;
+        options.min_exponent_length         = 1;
+        options.exponent_char               = 'p';
+        options.emit_positive_exponent_sign = true;
+
         const bool alt = (spec.hash != '\0');
 
         char buf[32];
-        const auto res = Format_a_non_negative(buf, buf + 32, abs_x, -1, upper, 1, 'p', true);
+        const auto res = Format_a_non_negative(buf, buf + 32, abs_x, -1, options);
         assert(!res.ec);
 
         const size_t nprefix = alt ? 2u : 0u;
@@ -500,7 +520,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         const int kBufSize = 1500;
         char buf[kBufSize];
 
-        const auto res = Printf_non_negative(buf, buf + kBufSize, abs_x, spec.prec, conv);
+        const auto res = Printf_non_negative(buf, buf + kBufSize, abs_x, spec.prec, /*grouping_char*/ '\0', /*alt*/ false, conv);
         if (res.ec)
             return WriteRawString(fb, spec, "[[internal buffer too small]]");
 

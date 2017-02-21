@@ -135,9 +135,9 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     //times.t_tiny    = 1.0;
     times.t_fmt     = 1.0;
 #else
-    times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf(format_printf, i); });
+    //times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf(format_printf, i); });
     //times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { fprintf(stdout, format_printf, i); });
-    //times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf_buffered(format_printf, i); });
+    times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf_buffered(format_printf, i); });
 	//times.t_printf  = 1.0;
 
 	//times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
@@ -213,12 +213,12 @@ static void TestFloats(char const* format_printf, char const* format_fmtxx, char
 {
     std::uniform_real_distribution<T> dist {
         static_cast<T>(0.0),
-        static_cast<T>(1.0)
+        std::numeric_limits<T>::max()//static_cast<T>(1.0)
     };
 #ifndef NDEBUG
-    RunTest(250000, dist, format_printf, format_fmtxx, format_fmt);
+    RunTest(25000, dist, format_printf, format_fmtxx, format_fmt);
 #else
-    RunTest(2500000, dist, format_printf, format_fmtxx, format_fmt);
+    RunTest(500000, dist, format_printf, format_fmtxx, format_fmt);
 #endif
 }
 
@@ -238,7 +238,7 @@ int main()
     setvbuf(stdout, kIOBuf, _IOFBF, kIOBufSize);
 #endif
 
-#if 1
+#if 0
     TestInts<int32_t>("%d",     "{}");
     TestInts<int32_t>("%8d",    "{:8d}");
     TestInts<int32_t>("%24d",   "{:24d}");
@@ -280,23 +280,33 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestFloats<float>("%f",     "{:f}");
-    TestFloats<float>("%e",     "{:e}");
-    TestFloats<float>("%g",     "{:g}");
-    TestFloats<float>("%a",     "{:a}");
+    //TestFloats<float>("%e",     "{:e}");
+    //TestFloats<float>("%g",     "{:g}");
     TestFloats<float>("%.17f",  "{:.17f}");
-    TestFloats<float>("%.17e",  "{:.17e}");
-    TestFloats<float>("%.17g",  "{:.17g}");
-    TestFloats<float>("%.17a",  "{:.17a}");
+    //TestFloats<float>("%.17e",  "{:.17e}");
+    //TestFloats<float>("%.17g",  "{:.17g}");
+
+    PrintAvgTimes();
+    timing_results.clear();
+#endif
+
+#if 1
+    TestFloats<double>("%f",     "{:f}");
+    TestFloats<double>("%e",     "{:e}");
+    TestFloats<double>("%g",     "{:g}");
+    TestFloats<double>("%.17f",  "{:.17f}");
+    TestFloats<double>("%.17e",  "{:.17e}");
+    TestFloats<double>("%.17g",  "{:.17g}");
 
     PrintAvgTimes();
     timing_results.clear();
 #endif
 
 #if 0
-    TestFloats<float>("%.12a", "{:x}", "{:.12a}");
-    TestFloats<float>("%.17g", "{:s}", "{:.17g}");
+    TestFloats<double>("%.12a", "{:x}", "{:.12a}");
+    TestFloats<double>("%.17g", "{:s}", "{:.17g}");
 
     PrintAvgTimes();
     timing_results.clear();

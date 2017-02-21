@@ -737,12 +737,14 @@ void Bignum::BigitsShiftLeft(int shift_amount) {
 
 void Bignum::SubtractTimes(const Bignum& other, int factor) {
   ASSERT(exponent_ <= other.exponent_);
+#if 0
   if (factor < 3) {
     for (int i = 0; i < factor; ++i) {
       SubtractBignum(other);
     }
     return;
   }
+#endif
   Chunk borrow = 0;
   int exponent_diff = other.exponent_ - exponent_;
   for (int i = 0; i < other.used_digits_; ++i) {

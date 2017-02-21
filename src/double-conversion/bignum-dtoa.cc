@@ -76,14 +76,14 @@ static void GenerateShortestDigits(Bignum* numerator, Bignum* denominator,
 // Generates 'requested_digits' after the decimal point.
 static void BignumToFixed(int requested_digits, int* decimal_point,
                           Bignum* numerator, Bignum* denominator,
-                          Vector<char>(buffer), int* length);
+                          Vector<char> buffer, int* length);
 // Generates 'count' digits of numerator/denominator.
 // Once 'count' digits have been produced rounds the result depending on the
 // remainder (remainders of exactly .5 round upwards). Might update the
 // decimal_point when rounding up (for example for 0.9999).
 static void GenerateCountedDigits(int count, int* decimal_point,
                                   Bignum* numerator, Bignum* denominator,
-                                  Vector<char>(buffer), int* length);
+                                  Vector<char> buffer, int* length);
 
 
 void BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
@@ -284,6 +284,49 @@ static void GenerateCountedDigits(int count, int* decimal_point,
                                   Bignum* numerator, Bignum* denominator,
                                   Vector<char> buffer, int* length) {
   ASSERT(count >= 0);
+#if 1
+  //
+  // XXX:
+  // -- kDigitsPerStep == 4 should work ?!?!?!
+  // -- If DivideModuloIntBignum works for num/den < uint32_t it should be able to
+  //    produce 9 digits at once (10^9 < 2^32) ?!?!?!
+  //
+  static const int kDigitsPerStep = 3;
+  static const uint32_t kDigitsPerStepMultiplier = 1000;  // 10^kDigitsPerStep
+
+  if (count > 0) {
+    // v = numerator / denominator < 10
+    numerator->MultiplyByUInt32(kDigitsPerStepMultiplier / 10);
+    // v = numerator / denominator < kDigitsPerStepMultiplier
+
+    int i = 0;
+    for (;;) {
+      // v = numerator / denominator < kDigitsPerStepMultiplier
+
+      uint16_t quotient = numerator->DivideModuloIntBignum(*denominator);
+      ASSERT(quotient < kDigitsPerStepMultiplier);
+
+      // quotient = numerator / denominator < kDigitsPerStepMultiplier (integer division)
+      // numerator = numerator % denominator
+      // ==> v = numerator / denominator < 1 (integer division)
+
+      const int num_digits = Min(kDigitsPerStep, count - 1 - i);
+      for (int k = num_digits - 1; k >= 0; --k) {
+        const char digit = static_cast<char>('0' + quotient % 10);
+        quotient /= 10;
+        buffer[i + k] = digit;
+      }
+
+      i += num_digits;
+      if (i == count - 1)
+        break;
+
+      // v = numerator / denominator < 1 (integer division)
+      numerator->MultiplyByUInt32(kDigitsPerStepMultiplier);
+      // v = numerator / denominator < kDigitsPerStepMultiplier (integer division)
+    }
+  }
+#else
   for (int i = 0; i < count - 1; ++i) {
     uint16_t digit;
     digit = numerator->DivideModuloIntBignum(*denominator);
@@ -294,6 +337,7 @@ static void GenerateCountedDigits(int count, int* decimal_point,
     // Prepare for next iteration.
     numerator->Times10();
   }
+#endif
   // Generate the last digit.
   uint16_t digit;
   digit = numerator->DivideModuloIntBignum(*denominator);
@@ -325,7 +369,7 @@ static void GenerateCountedDigits(int count, int* decimal_point,
 // Input verifies:  1 <= (numerator + delta) / denominator < 10.
 static void BignumToFixed(int requested_digits, int* decimal_point,
                           Bignum* numerator, Bignum* denominator,
-                          Vector<char>(buffer), int* length) {
+                          Vector<char> buffer, int* length) {
   // Note that we have to look at more than just the requested_digits, since
   // a number could be rounded up. Example: v=0.5 with requested_digits=0.
   // Even though the power of v equals 0 we can't just stop here.

@@ -260,9 +260,10 @@ class StringBuilder {
   // Add the first 'n' characters of the given string 's' to the
   // builder. The input string must have enough characters.
   void AddSubstring(const char* s, int n) {
+    ASSERT(n >= 0);
     ASSERT(!is_finalized() && position_ + n < buffer_.length());
-    ////ASSERT(static_cast<size_t>(n) <= strlen(s));
-    memmove(&buffer_[position_], s, n * kCharSize);
+    ASSERT(static_cast<size_t>(n) <= strlen(s));
+    memmove(&buffer_[position_], s, static_cast<size_t>(n * kCharSize));
     position_ += n;
   }
 

@@ -286,7 +286,7 @@ static void GenerateCountedDigits(int count, int* decimal_point,
   ASSERT(count >= 0);
 
   int i = 0;
-#if 1
+#if 0
   if (i < count - 1) {
     static const int kDigitsPerStep = 3;
     static const uint32_t kDigitsPerStepMultiplier = 1000;  // 10^kDigitsPerStep

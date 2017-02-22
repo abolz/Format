@@ -504,7 +504,7 @@ uint16_t Bignum::DivideModuloIntBignum(const Bignum& other) {
     // This naive approach is extremely inefficient if `this` divided by other
     // is big. This function is implemented for doubleToString where
     // the result should be small (less than 10).
-#if 0
+#if 1
     ASSERT(other.bigits_[other.used_digits_ - 1] >= ((1 << kBigitSize) / 16));
 #endif
     ASSERT(bigits_[used_digits_ - 1] < 0x10000);

@@ -284,50 +284,38 @@ static void GenerateCountedDigits(int count, int* decimal_point,
                                   Bignum* numerator, Bignum* denominator,
                                   Vector<char> buffer, int* length) {
   ASSERT(count >= 0);
+
+  int i = 0;
 #if 1
-  //
-  // XXX:
-  // -- kDigitsPerStep == 4 should work ?!?!?!
-  // -- If DivideModuloIntBignum works for num/den < uint32_t it should be able to
-  //    produce 9 digits at once (10^9 < 2^32) ?!?!?!
-  //
-  static const int kDigitsPerStep = 3;
-  static const uint32_t kDigitsPerStepMultiplier = 1000;  // 10^kDigitsPerStep
+  if (i < count - 1) {
+    static const int kDigitsPerStep = 3;
+    static const uint32_t kDigitsPerStepMultiplier = 1000;  // 10^kDigitsPerStep
 
-  if (count > 0) {
-    // v = numerator / denominator < 10
-    numerator->MultiplyByUInt32(kDigitsPerStepMultiplier / 10);
-    // v = numerator / denominator < kDigitsPerStepMultiplier
+    // Generate the first digit
+    const uint16_t digit = numerator->DivideModuloIntBignum(*denominator);
+    ASSERT(digit <= 9);
+    buffer[i] = static_cast<char>('0' + digit);
+    ++i;
 
-    int i = 0;
-    for (;;) {
-      // v = numerator / denominator < kDigitsPerStepMultiplier
-
-      uint16_t quotient = numerator->DivideModuloIntBignum(*denominator);
-      ASSERT(quotient < kDigitsPerStepMultiplier);
-
-      // quotient = numerator / denominator < kDigitsPerStepMultiplier (integer division)
-      // numerator = numerator % denominator
-      // ==> v = numerator / denominator < 1 (integer division)
-
-      const int num_digits = Min(kDigitsPerStep, count - 1 - i);
-      for (int k = num_digits - 1; k >= 0; --k) {
-        const char digit = static_cast<char>('0' + quotient % 10);
-        quotient /= 10;
-        buffer[i + k] = digit;
-      }
-
-      i += num_digits;
-      if (i == count - 1)
-        break;
-
-      // v = numerator / denominator < 1 (integer division)
+    // Generate digits in groups of kDigitsPerStep.
+    // This is faster than generating the digits one-by-one.
+    for (; i + kDigitsPerStep <= count - 1; i += kDigitsPerStep) {
       numerator->MultiplyByUInt32(kDigitsPerStepMultiplier);
-      // v = numerator / denominator < kDigitsPerStepMultiplier (integer division)
+      uint16_t q = numerator->DivideModuloIntBignum(*denominator);
+      ASSERT(q < kDigitsPerStepMultiplier);
+      // Write the digits into the buffer (in reverse order)
+      for (int k = kDigitsPerStep - 1; k >= 0; --k) {
+        const int r = q % 10;
+        q /= 10;
+        buffer[i + k] = static_cast<char>('0' + r);
+      }
     }
+
+    // Prepare for next iteration. (The remaining digits below.)
+    numerator->Times10();
   }
-#else
-  for (int i = 0; i < count - 1; ++i) {
+#endif
+  for (; i < count - 1; ++i) {
     uint16_t digit;
     digit = numerator->DivideModuloIntBignum(*denominator);
     ASSERT(digit <= 9);  // digit is a uint16_t and therefore always positive.
@@ -337,7 +325,6 @@ static void GenerateCountedDigits(int count, int* decimal_point,
     // Prepare for next iteration.
     numerator->Times10();
   }
-#endif
   // Generate the last digit.
   uint16_t digit;
   digit = numerator->DivideModuloIntBignum(*denominator);

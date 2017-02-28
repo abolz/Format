@@ -395,10 +395,10 @@ FormatResult fmtxx::Format_e_non_negative(
 //------------------------------------------------------------------------------
 
 FormatResult fmtxx::Format_g_non_negative(
-    char* first,
-    char* last,
-    const double d,
-    const int precision,
+    char*                first,
+    char*                last,
+    const double         d,
+    const int            precision,
     const FormatOptions& options)
 {
     int num_digits = 0;

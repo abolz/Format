@@ -65,10 +65,6 @@ class Bignum {
   //  this = this % other;
   // In the worst case this function is in O(this/other).
   uint16_t DivideModuloIntBignum(const Bignum& other);
-  // Pseudocode:
-  //  int result = this / other;
-  //  this = this % other;
-  uint64_t DivMod(const Bignum& other);
 
   bool ToHexString(char* buffer, int buffer_size) const;
 
@@ -131,10 +127,6 @@ class Bignum {
   int BigitLength() const { return used_digits_ + exponent_; }
   Chunk BigitAt(int index) const;
   void SubtractTimes(const Bignum& other, int factor);
-
-  // u := u % v
-  // Returns the least significant digit(s) of u / v (integer division).
-  static uint64_t LongDivide(Bignum& u, const Bignum& v);
 
   Chunk bigits_buffer_[kBigitCapacity];
   // A vector backed by bigits_buffer_. This way accesses to the array are

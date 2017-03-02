@@ -1,8 +1,8 @@
-#include "format-double.h"
+#include "Format-double.h"
 
-#include "bignum-dtoa.h"
-#include "fast-dtoa.h"
-#include "fixed-dtoa.h"
+#include "double-conversion/bignum-dtoa.h"
+#include "double-conversion/fast-dtoa.h"
+#include "double-conversion/fixed-dtoa.h"
 
 #include <algorithm>
 #include <cstring>

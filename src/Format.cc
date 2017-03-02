@@ -1,8 +1,7 @@
 // Distributed under the MIT license. See the end of the file for details.
 
 #include "Format.h"
-
-#include "double-conversion/format-double.h"
+#include "Format-double.h"
 
 #include <ostream>
 

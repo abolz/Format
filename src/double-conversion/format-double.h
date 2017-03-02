@@ -73,7 +73,7 @@ struct FormatResult {
 struct FormatOptions {
     bool use_upper_case_digits       = true;  //       A
     bool normalize                   = true;  //       A
-    char grouping_char               = '\0';  // F   G   S
+    char thousands_sep               = '\0';  // F   G   S
     char decimal_point_char          = '.';   // F E G A S
     bool emit_trailing_dot           = false; // F E G A S (not implemented)
     bool emit_trailing_zero          = false; // F E G A S (not implemented)
@@ -220,7 +220,7 @@ FormatResult Printf_non_negative(
     char* last,
     const double d,
     const int precision,
-    const char grouping_char,
+    const char thousands_sep,
     const bool alt,
     const char conversion_specifier);
 

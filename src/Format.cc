@@ -349,6 +349,25 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
     return last;
 }
 
+static int InsertThousandsSep(char* buf, int buflen, char sep)
+{
+    const int nsep = (buflen - 1) / 3;
+
+    if (nsep <= 0)
+        return 0;
+
+    int shift = nsep;
+    for (int i = buflen - 1; shift > 0; --shift, i -= 3)
+    {
+        buf[i - 0 + shift] = buf[i - 0];
+        buf[i - 1 + shift] = buf[i - 1];
+        buf[i - 2 + shift] = buf[i - 2];
+        buf[i - 3 + shift] = sep;
+    }
+
+    return nsep;
+}
+
 static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
     uint64_t number = zext;
@@ -394,9 +413,14 @@ static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
 
     const bool upper = ('A' <= conv && conv <= 'Z');
 
-    char buf[64];
-    char* const l = buf + 64;
+    char buf[64 + 32];
+    char*       l = buf + 64;
     char* const f = IntToAsciiBackwards(l, number, base, upper);
+
+    if (base == 10 && spec.tsep)
+    {
+        l += InsertThousandsSep(f, static_cast<int>(l - f), spec.tsep);
+    }
 
     return WriteNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
 }
@@ -480,7 +504,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         FormatOptions options;
 
         options.use_upper_case_digits       = true;
-        options.grouping_char               = '\0';
+        options.thousands_sep               = spec.tsep;
         options.emit_trailing_dot           = false;
         options.emit_trailing_zero          = false;
         options.min_exponent_digits         = 1;
@@ -498,7 +522,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         FormatOptions options;
 
         options.use_upper_case_digits       = true;
-        options.grouping_char               = '\0';
+        options.thousands_sep               = spec.tsep;
         options.emit_trailing_dot           = false;
         options.emit_trailing_zero          = false;
         options.min_exponent_digits         = 1;
@@ -520,7 +544,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         const int kBufSize = 1500;
         char buf[kBufSize];
 
-        const auto res = Printf_non_negative(buf, buf + kBufSize, abs_x, spec.prec, /*grouping_char*/ '\0', /*alt*/ false, conv);
+        const auto res = Printf_non_negative(buf, buf + kBufSize, abs_x, spec.prec, spec.tsep, /*alt*/ false, conv);
         if (res.ec)
             return WriteRawString(fb, spec, "[[internal buffer too small]]");
 
@@ -616,6 +640,10 @@ static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, i
                 return errc::invalid_format_string; // missing '}'
         }
 
+        // XXX:
+        // The next four are flags in printf.
+        // Parse in any order??
+
         if (IsSign(*f))
         {
             spec.sign = *f++;
@@ -633,6 +661,13 @@ static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, i
         if (*f == '0')
         {
             spec.zero = *f++;
+            if (f == end)
+                return errc::invalid_format_string; // missing '}'
+        }
+
+        if (*f == '\'')
+        {
+            spec.tsep = *f++;
             if (f == end)
                 return errc::invalid_format_string; // missing '}'
         }

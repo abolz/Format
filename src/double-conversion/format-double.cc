@@ -130,7 +130,7 @@ static int ComputeFixedRepresentationLength(
     if (decpt <= 0)
         return 1 + (precision > 0 ? 1 + precision : 0);
 
-    const int extra = options.grouping_char != '\0' ? (decpt - 1) / 3 : 0;
+    const int extra = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
 
     if (decpt >= num_digits)
         return extra + decpt + (precision > 0 ? 1 + precision : 0);
@@ -138,9 +138,9 @@ static int ComputeFixedRepresentationLength(
     return extra + decpt + 1 + precision;
 }
 
-static void InsertGroupingChars(char* buf, int buflen, int decpt, const FormatOptions& options)
+static void InsertThousandsSep(char* buf, int buflen, int decpt, const FormatOptions& options)
 {
-    assert(options.grouping_char != '\0');
+    assert(options.thousands_sep != '\0');
     assert(decpt > 0);
 
     int shift = (decpt - 1) / 3;
@@ -153,11 +153,10 @@ static void InsertGroupingChars(char* buf, int buflen, int decpt, const FormatOp
 
     for (int i = decpt - 1; shift > 0; shift--, i -= 3)
     {
-        assert(i - 2 >= 0);
-        buf[i - 0 + shift    ] = buf[i - 0];
-        buf[i - 1 + shift    ] = buf[i - 1];
-        buf[i - 2 + shift    ] = buf[i - 2];
-        buf[i - 2 + shift - 1] = options.grouping_char;
+        buf[i - 0 + shift] = buf[i - 0];
+        buf[i - 1 + shift] = buf[i - 1];
+        buf[i - 2 + shift] = buf[i - 2];
+        buf[i - 3 + shift] = options.thousands_sep;
     }
 }
 
@@ -219,8 +218,8 @@ static void CreateFixedRepresentation(
         buflen = decpt + 1 + precision;
     }
 
-    if (options.grouping_char != '\0')
-        InsertGroupingChars(buf, buflen, decpt, options);
+    if (options.thousands_sep != '\0')
+        InsertThousandsSep(buf, buflen, decpt, options);
 }
 
 FormatResult fmtxx::Format_f_non_negative(
@@ -696,7 +695,7 @@ FormatResult fmtxx::Printf_non_negative(
     char*        last,
     const double d,
     const int    precision,
-    const char   grouping_char,
+    const char   thousands_sep,
     const bool   /*alt*/,
     const char   conversion_specifier)
 {
@@ -704,7 +703,7 @@ FormatResult fmtxx::Printf_non_negative(
 
     options.use_upper_case_digits       = true;          //       A
     options.normalize                   = true;          //       A
-    options.grouping_char               = grouping_char; // F   G   S
+    options.thousands_sep               = thousands_sep; // F   G   S
     options.decimal_point_char          = '.';           // F E G A S
     options.emit_trailing_dot           = false;         // F E G A S
     options.emit_trailing_zero          = false;         // F E G A S

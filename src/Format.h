@@ -66,8 +66,9 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
     char fill  = ' ';
     char align = '>';
     char sign  = '-';
-    char zero  = '\0';
     char hash  = '\0';
+    char zero  = '\0';
+    char tsep  = '\0';
     char conv  = '\0';
 };
 
@@ -110,10 +111,6 @@ errc fmtxx__FormatValue(FormatBuffer& fb, FormatSpec const& spec, T const& value
 //
 template <typename ...Args>
 errc Format(FormatBuffer& fb, std::string_view format, Args const&... args);
-
-//------------------------------------------------------------------------------
-// Extended API
-//
 
 //
 // Output buffers
@@ -163,10 +160,6 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
     FMTXX_API virtual bool Pad(char c, size_t count) override;
 };
 
-//
-// Convenience wrappers
-//
-
 // Appends the formatted arguments to the given string.
 template <typename ...Args>
 errc Format(std::string& os, std::string_view format, Args const&... args);
@@ -178,10 +171,6 @@ errc Format(std::FILE* os, std::string_view format, Args const&... args);
 // Appends the formatted arguments to the given stream.
 template <typename ...Args>
 errc Format(std::ostream& os, std::string_view format, Args const&... args);
-
-//
-// More convenience wrappers
-//
 
 // Returns a std::string containing the formatted arguments.
 template <typename ...Args>

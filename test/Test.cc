@@ -361,26 +361,26 @@ static void test_ints()
     EXPECT_EQUAL("12345",               "{:X}",   (signed long long) V);
     EXPECT_EQUAL("FFFFFFFFFFFEDCBB",    "{:X}",   (signed long long)-V);
 
-#if 0
-    EXPECT_EQUAL("1_234_567_890", "{:13_}", 1234567890);
-    EXPECT_EQUAL("  123_456_789", "{:13_}", 123456789);
-    EXPECT_EQUAL("   12_345_678", "{:13_}", 12345678);
-    EXPECT_EQUAL("    1_234_567", "{:13_}", 1234567);
-    EXPECT_EQUAL("      123_456", "{:13_}", 123456);
-    EXPECT_EQUAL("       12_345", "{:13_}", 12345);
-    EXPECT_EQUAL("        1_234", "{:13_}", 1234);
-    EXPECT_EQUAL("          123", "{:13_}", 123);
-    EXPECT_EQUAL("           12", "{:13_}", 12);
-    EXPECT_EQUAL("            1", "{:13_}", 1);
+    EXPECT_EQUAL("1'234'567'890", "{:'13}", 1234567890);
+    EXPECT_EQUAL("  123'456'789", "{:'13}", 123456789);
+    EXPECT_EQUAL("   12'345'678", "{:'13}", 12345678);
+    EXPECT_EQUAL("    1'234'567", "{:'13}", 1234567);
+    EXPECT_EQUAL("      123'456", "{:'13}", 123456);
+    EXPECT_EQUAL("       12'345", "{:'13}", 12345);
+    EXPECT_EQUAL("        1'234", "{:'13}", 1234);
+    EXPECT_EQUAL("          123", "{:'13}", 123);
+    EXPECT_EQUAL("           12", "{:'13}", 12);
+    EXPECT_EQUAL("            1", "{:'13}", 1);
 
-    EXPECT_EQUAL("1234_5678", "{:9_x}", 0x12345678);
-    EXPECT_EQUAL(" 123_4567", "{:9_x}", 0x1234567);
-    EXPECT_EQUAL("  12_3456", "{:9_x}", 0x123456);
-    EXPECT_EQUAL("   1_2345", "{:9_x}", 0x12345);
-    EXPECT_EQUAL("     1234", "{:9_x}", 0x1234);
-    EXPECT_EQUAL("      123", "{:9_x}", 0x123);
-    EXPECT_EQUAL("       12", "{:9_x}", 0x12);
-    EXPECT_EQUAL("        1", "{:9_x}", 0x1);
+#if 0
+    EXPECT_EQUAL("1234'5678", "{:'9x}", 0x12345678);
+    EXPECT_EQUAL(" 123'4567", "{:'9x}", 0x1234567);
+    EXPECT_EQUAL("  12'3456", "{:'9x}", 0x123456);
+    EXPECT_EQUAL("   1'2345", "{:'9x}", 0x12345);
+    EXPECT_EQUAL("     1234", "{:'9x}", 0x1234);
+    EXPECT_EQUAL("      123", "{:'9x}", 0x123);
+    EXPECT_EQUAL("       12", "{:'9x}", 0x12);
+    EXPECT_EQUAL("        1", "{:'9x}", 0x1);
 #endif
 
     EXPECT_EQUAL("4294966062", "{:u}", -1234);
@@ -499,13 +499,13 @@ static void test_floats()
     EXPECT_EQUAL("1.200000E+00", "{:E}",  1.2);
     EXPECT_EQUAL("1.2",          "{:g}",  1.2);
 
-    //EXPECT_EQUAL("1.234568", "{:'f}", 1.23456789);
-    //EXPECT_EQUAL("12.345679", "{:'f}", 12.3456789);
-    //EXPECT_EQUAL("123.456789", "{:'f}", 123.456789);
-    //EXPECT_EQUAL("1'234.567890", "{:'f}", 1234.56789);
-    //EXPECT_EQUAL("12'345.678900", "{:'f}", 12345.6789);
-    //EXPECT_EQUAL("123'456.789000", "{:'f}", 123456.789);
-    //EXPECT_EQUAL("1'234'567.890000", "{:'f}", 1234567.89);
+    EXPECT_EQUAL("1.234568", "{:'f}", 1.23456789);
+    EXPECT_EQUAL("12.345679", "{:'f}", 12.3456789);
+    EXPECT_EQUAL("123.456789", "{:'f}", 123.456789);
+    EXPECT_EQUAL("1'234.567890", "{:'f}", 1234.56789);
+    EXPECT_EQUAL("12'345.678900", "{:'f}", 12345.6789);
+    EXPECT_EQUAL("123'456.789000", "{:'f}", 123456.789);
+    EXPECT_EQUAL("1'234'567.890000", "{:'f}", 1234567.89);
 
     EXPECT_EQUAL("123456.789000", "{:f}",  123456.789);
     EXPECT_EQUAL("1.234568e+05",  "{:e}",  123456.789);

@@ -50,7 +50,7 @@ static void PrintAvgTimes()
 //
 //------------------------------------------------------------------------------
 
-static int printf_buffered_impl(char const* fmt, va_list args)
+inline int printf_buffered_impl(char const* fmt, va_list args)
 {
     static const size_t kStackBufSize = 500;
 
@@ -88,7 +88,7 @@ static int printf_buffered_impl(char const* fmt, va_list args)
     return n;
 }
 
-static int printf_buffered(char const* fmt, ...)
+inline int printf_buffered(char const* fmt, ...)
 {
     int n;
 
@@ -99,6 +99,9 @@ static int printf_buffered(char const* fmt, ...)
 
     return n;
 }
+
+//#define PRINTF printf
+#define PRINTF printf_buffered
 
 //------------------------------------------------------------------------------
 //
@@ -135,9 +138,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     //times.t_tiny    = 1.0;
     times.t_fmt     = 1.0;
 #else
-    //times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf(format_printf, i); });
-    //times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { fprintf(stdout, format_printf, i); });
-    times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { printf_buffered(format_printf, i); });
+    times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { PRINTF(format_printf, i); });
 	//times.t_printf  = 1.0;
 
 	//times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
@@ -147,7 +148,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 #endif
-#if 0
+#if 1
     times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(stdout, format_fmtxx, i); });
 #endif
 #if 0
@@ -162,7 +163,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
         std::fwrite(str.data(), 1, str.size(), stdout);
     });
 #endif
-#if 1
+#if 0
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArrayBuffer fb { buf };
@@ -209,16 +210,13 @@ static void TestInts(char const* format_printf, char const* format_fmtxx, char c
 }
 
 template <typename T>
-static void TestFloats(char const* format_printf, char const* format_fmtxx, char const* format_fmt = nullptr)
+static void TestFloats(T min, T max, char const* format_printf, char const* format_fmtxx, char const* format_fmt = nullptr)
 {
-    std::uniform_real_distribution<T> dist {
-        static_cast<T>(0.0),
-        std::numeric_limits<T>::max()//static_cast<T>(1.0)
-    };
+    std::uniform_real_distribution<T> dist { min, max };
 #ifndef NDEBUG
-    RunTest(25000, dist, format_printf, format_fmtxx, format_fmt);
+    RunTest(100000, dist, format_printf, format_fmtxx, format_fmt);
 #else
-    RunTest(500000, dist, format_printf, format_fmtxx, format_fmt);
+    RunTest(1000000, dist, format_printf, format_fmtxx, format_fmt);
 #endif
 }
 
@@ -293,20 +291,11 @@ int main()
 #endif
 
 #if 1
-    TestFloats<double>("%f",     "{:f}");
-    TestFloats<double>("%e",     "{:e}");
-    TestFloats<double>("%g",     "{:g}");
-    TestFloats<double>("%.17f",  "{:.17f}");
-    TestFloats<double>("%.17e",  "{:.17e}");
-    TestFloats<double>("%.17g",  "{:.17g}");
-
-    PrintAvgTimes();
-    timing_results.clear();
-#endif
-
-#if 0
-    TestFloats<double>("%.12a", "{:x}", "{:.12a}");
-    TestFloats<double>("%.17g", "{:s}", "{:.17g}");
+    TestFloats(0.0,      1.0,      "%.17f", "{:.17f}");
+    TestFloats(1.0,      1.0e+20,  "%.17f", "{:.17f}");
+    TestFloats(1.0e+20,  1.0e+40,  "%.17f", "{:.17f}");
+    TestFloats(1.0e+40,  1.0e+80,  "%.17f", "{:.17f}");
+    TestFloats(1.0e+80,  1.0e+120, "%.17f", "{:.17f}");
 
     PrintAvgTimes();
     timing_results.clear();

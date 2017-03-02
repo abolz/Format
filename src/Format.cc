@@ -482,7 +482,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         break;
     }
 
-    const Double d { x };
+    const dtoa::Double d { x };
 
     const bool neg = (d.Sign() != 0);
     const double abs_x = d.Abs();
@@ -500,7 +500,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     }
     else if (tostr)
     {
-        FormatOptions options;
+        dtoa::FormatOptions options;
 
         options.use_upper_case_digits       = true;
         options.thousands_sep               = spec.tsep;
@@ -511,14 +511,14 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         options.emit_positive_exponent_sign = true;
 
         char buf[32];
-        const auto res = Format_s_non_negative(buf, buf + 32, abs_x, FormatStyle::general, options);
+        const auto res = dtoa::Format_s_non_negative(buf, buf + 32, abs_x, dtoa::FormatStyle::general, options);
         assert(!res.ec);
 
         return WriteNumber(fb, spec, sign, nullptr, 0, buf, static_cast<size_t>(res.next - buf));
     }
     else if (tohex)
     {
-        FormatOptions options;
+        dtoa::FormatOptions options;
 
         options.use_upper_case_digits       = true;
         options.thousands_sep               = spec.tsep;
@@ -531,7 +531,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         const bool alt = (spec.hash != '\0');
 
         char buf[32];
-        const auto res = Format_a_non_negative(buf, buf + 32, abs_x, -1, options);
+        const auto res = dtoa::Format_a_non_negative(buf, buf + 32, abs_x, -1, options);
         assert(!res.ec);
 
         const size_t nprefix = alt ? 2u : 0u;
@@ -543,7 +543,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         const int kBufSize = 1500;
         char buf[kBufSize];
 
-        const auto res = Printf_non_negative(buf, buf + kBufSize, abs_x, spec.prec, spec.tsep, /*alt*/ false, conv);
+        const auto res = dtoa::Printf_non_negative(buf, buf + kBufSize, abs_x, spec.prec, spec.tsep, /*alt*/ false, conv);
         if (res.ec)
             return WriteRawString(fb, spec, "[[internal buffer too small]]");
 

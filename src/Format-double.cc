@@ -11,6 +11,7 @@
 #endif
 
 using namespace fmtxx;
+using namespace fmtxx::dtoa;
 
 template <typename T> static constexpr T Min(T const& x, T const& y) { return y < x ? y : x; }
 template <typename T> static constexpr T Max(T const& x, T const& y) { return y < x ? x : y; }
@@ -222,7 +223,7 @@ static void CreateFixedRepresentation(
         InsertThousandsSep(buf, buflen, decpt, options);
 }
 
-FormatResult fmtxx::Format_f_non_negative(
+FormatResult fmtxx::dtoa::Format_f_non_negative(
     char*                first,
     char*                last,
     const double         d,
@@ -355,7 +356,7 @@ static void CreateExponentialRepresentation(char* buf, int num_digits, int expon
     AppendExponent(buf, exponent, options);
 }
 
-FormatResult fmtxx::Format_e_non_negative(
+FormatResult fmtxx::dtoa::Format_e_non_negative(
     char*                first,
     char*                last,
     const double         d,
@@ -392,7 +393,7 @@ FormatResult fmtxx::Format_e_non_negative(
 //
 //------------------------------------------------------------------------------
 
-FormatResult fmtxx::Format_g_non_negative(
+FormatResult fmtxx::dtoa::Format_g_non_negative(
     char*                first,
     char*                last,
     const double         d,
@@ -577,7 +578,7 @@ static void HexDoubleToAscii(
     }
 }
 
-FormatResult fmtxx::Format_a_non_negative(
+FormatResult fmtxx::dtoa::Format_a_non_negative(
     char*                first,
     char*                last,
     const double         d,
@@ -628,7 +629,7 @@ static int ComputePrecisionForShortFixedRepresentation(int num_digits, int decpt
     return -decpt + num_digits;
 }
 
-FormatResult fmtxx::Format_s_non_negative(
+FormatResult fmtxx::dtoa::Format_s_non_negative(
     char*                first,
     char*                last,
     const double         d,
@@ -690,7 +691,7 @@ FormatResult fmtxx::Format_s_non_negative(
 //
 //------------------------------------------------------------------------------
 
-FormatResult fmtxx::Printf_non_negative(
+FormatResult fmtxx::dtoa::Printf_non_negative(
     char*        first,
     char*        last,
     const double d,

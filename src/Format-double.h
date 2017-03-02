@@ -3,6 +3,7 @@
 #include <cstdint>
 
 namespace fmtxx {
+namespace dtoa {
 
 struct Double
 {
@@ -224,4 +225,5 @@ FormatResult Printf_non_negative(
     const bool alt,
     const char conversion_specifier);
 
+} // namespace dtoa
 } // namespace fmtxx

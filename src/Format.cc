@@ -483,7 +483,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         options.grouping_char               = '\0';
         options.emit_trailing_dot           = false;
         options.emit_trailing_zero          = false;
-        options.min_exponent_length         = 1;
+        options.min_exponent_digits         = 1;
         options.exponent_char               = 'e';
         options.emit_positive_exponent_sign = true;
 
@@ -501,7 +501,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         options.grouping_char               = '\0';
         options.emit_trailing_dot           = false;
         options.emit_trailing_zero          = false;
-        options.min_exponent_length         = 1;
+        options.min_exponent_digits         = 1;
         options.exponent_char               = 'p';
         options.emit_positive_exponent_sign = true;
 

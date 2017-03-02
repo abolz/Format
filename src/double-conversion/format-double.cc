@@ -273,16 +273,16 @@ static int ComputeExponentLength(int exponent, const FormatOptions& options)
         len += 1;
     }
 
-    if (exponent >= 1000 || options.min_exponent_length >= 4) return len + 4;
-    if (exponent >=  100 || options.min_exponent_length >= 3) return len + 3;
-    if (exponent >=   10 || options.min_exponent_length >= 2) return len + 2;
+    if (exponent >= 1000 || options.min_exponent_digits >= 4) return len + 4;
+    if (exponent >=  100 || options.min_exponent_digits >= 3) return len + 3;
+    if (exponent >=   10 || options.min_exponent_digits >= 2) return len + 2;
     return len + 1;
 }
 
 static void AppendExponent(char*& p, int exponent, const FormatOptions& options)
 {
     assert(-10000 < exponent && exponent < 10000);
-    assert(1 <= options.min_exponent_length && options.min_exponent_length <= 4);
+    assert(1 <= options.min_exponent_digits && options.min_exponent_digits <= 4);
 
     *p++ = options.exponent_char;
 
@@ -298,9 +298,9 @@ static void AppendExponent(char*& p, int exponent, const FormatOptions& options)
 
     const int k = exponent;
 
-    if (k >= 1000 || options.min_exponent_length >= 4) { *p++ = static_cast<char>('0' + exponent / 1000); exponent %= 1000; }
-    if (k >=  100 || options.min_exponent_length >= 3) { *p++ = static_cast<char>('0' + exponent /  100); exponent %=  100; }
-    if (k >=   10 || options.min_exponent_length >= 2) { *p++ = static_cast<char>('0' + exponent /   10); exponent %=   10; }
+    if (k >= 1000 || options.min_exponent_digits >= 4) { *p++ = static_cast<char>('0' + exponent / 1000); exponent %= 1000; }
+    if (k >=  100 || options.min_exponent_digits >= 3) { *p++ = static_cast<char>('0' + exponent /  100); exponent %=  100; }
+    if (k >=   10 || options.min_exponent_digits >= 2) { *p++ = static_cast<char>('0' + exponent /   10); exponent %=   10; }
     *p++ = static_cast<char>('0' + exponent % 10);
 }
 
@@ -380,8 +380,7 @@ FormatResult fmtxx::Format_e_non_negative(
     assert(num_digits > 0);
 
     const int exponent = decpt - 1;
-    const int exponential_len
-        = ComputeExponentialRepresentationLength(num_digits, exponent, precision, options);
+    const int exponential_len = ComputeExponentialRepresentationLength(num_digits, exponent, precision, options);
 
     if (last - first < exponential_len)
         return { last, -1 };
@@ -591,7 +590,7 @@ FormatResult fmtxx::Format_a_non_negative(
     int num_digits = 0;
     int binary_exponent = 0;
 
-    const bool use_buf = (last - first < 52/4);
+    const bool use_buf = (last - first < 52/4 + 1);
     HexDoubleToAscii(d,
                      precision,
                      options.normalize,
@@ -709,7 +708,7 @@ FormatResult fmtxx::Printf_non_negative(
     options.decimal_point_char          = '.';           // F E G A S
     options.emit_trailing_dot           = false;         // F E G A S
     options.emit_trailing_zero          = false;         // F E G A S
-    options.min_exponent_length         = 2;             //   E G A S
+    options.min_exponent_digits         = 2;             //   E G A S
     options.exponent_char               = 'e';           //   E G A S
     options.emit_positive_exponent_sign = true;          //   E G A S
 
@@ -743,7 +742,7 @@ FormatResult fmtxx::Printf_non_negative(
         *first++ = '0';
         *first++ = 'x';
         options.use_upper_case_digits = false;
-        options.min_exponent_length   = 1;
+        options.min_exponent_digits   = 1;
         options.exponent_char         = 'p';
         return Format_a_non_negative(first, last, d, prec, options);
     case 'A':
@@ -752,7 +751,7 @@ FormatResult fmtxx::Printf_non_negative(
         *first++ = '0';
         *first++ = 'X';
         options.use_upper_case_digits = true;
-        options.min_exponent_length   = 1;
+        options.min_exponent_digits   = 1;
         options.exponent_char         = 'P';
         return Format_a_non_negative(first, last, d, prec, options);
     default:

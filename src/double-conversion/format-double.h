@@ -75,9 +75,9 @@ struct FormatOptions {
     bool normalize                   = true;  //       A
     char grouping_char               = '\0';  // F   G   S
     char decimal_point_char          = '.';   // F E G A S
-    bool emit_trailing_dot           = false; // F E G A S
-    bool emit_trailing_zero          = false; // F E G A S
-    int  min_exponent_length         = 2;     //   E G A S
+    bool emit_trailing_dot           = false; // F E G A S (not implemented)
+    bool emit_trailing_zero          = false; // F E G A S (not implemented)
+    int  min_exponent_digits         = 2;     //   E G A S
     char exponent_char               = 'e';   //   E G A S
     bool emit_positive_exponent_sign = true;  //   E G A S
 };

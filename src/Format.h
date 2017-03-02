@@ -92,30 +92,6 @@ struct FMTXX_VISIBILITY_DEFAULT FormatBuffer
     FMTXX_API virtual bool Write(char const* str, size_t len) = 0;
 };
 
-//
-// Formatting function for user-defined types.
-//  (Implement this in the data-type's namespace!)
-//
-// The default implementation uses std::ostringstream to convert the value into
-// a string and then writes the string to the output buffer.
-//
-// I.e., the default implementation requires:
-//      #include <sstream>
-// !!!
-//
-template <typename T>
-errc fmtxx__FormatValue(FormatBuffer& fb, FormatSpec const& spec, T const& value);
-
-//
-// Appends the formatted arguments to the given output stream.
-//
-template <typename ...Args>
-errc Format(FormatBuffer& fb, std::string_view format, Args const&... args);
-
-//
-// Output buffers
-//
-
 struct FMTXX_VISIBILITY_DEFAULT StringBuffer : public FormatBuffer
 {
     std::string& os;
@@ -159,6 +135,24 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
     FMTXX_API virtual bool Write(char const* str, size_t len) override;
     FMTXX_API virtual bool Pad(char c, size_t count) override;
 };
+
+//
+// Formatting function for user-defined types.
+//  (Implement this in the data-type's namespace!)
+//
+// The default implementation uses std::ostringstream to convert the value into
+// a string and then writes the string to the output buffer.
+//
+// I.e., the default implementation requires:
+//      #include <sstream>
+// !!!
+//
+template <typename T>
+errc fmtxx__FormatValue(FormatBuffer& fb, FormatSpec const& spec, T const& value);
+
+// Appends the formatted arguments to the given output stream.
+template <typename ...Args>
+errc Format(FormatBuffer& fb, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given string.
 template <typename ...Args>

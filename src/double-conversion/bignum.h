@@ -65,6 +65,11 @@ class Bignum {
   //  this = this % other;
   // In the worst case this function is in O(this/other).
   uint16_t DivideModuloIntBignum(const Bignum& other);
+  // Pseudocode:
+  //  int result = this / other;
+  //  this = this % other;
+  // Returns the least significant 64-bits of the quotient.
+  uint64_t Mod(const Bignum& other);
 
   bool ToHexString(char* buffer, int buffer_size) const;
 
@@ -106,6 +111,7 @@ class Bignum {
   // into two chunks, and more importantly we can use the Comba multiplication.
   static const int kBigitSize = 28;
   static const Chunk kBigitMask = (1 << kBigitSize) - 1;
+  static const DoubleChunk kBase = (DoubleChunk(1) << kBigitSize) - 1;
   // Every instance allocates kBigitLength chunks on the stack. Bignums cannot
   // grow. There are no checks if the stack-allocated space is sufficient.
   static const int kBigitCapacity = kMaxSignificantBits / kBigitSize;
@@ -127,6 +133,8 @@ class Bignum {
   int BigitLength() const { return used_digits_ + exponent_; }
   Chunk BigitAt(int index) const;
   void SubtractTimes(const Bignum& other, int factor);
+
+  uint64_t LongDiv(Bignum& u, const Bignum& v);
 
   Chunk bigits_buffer_[kBigitCapacity];
   // A vector backed by bigits_buffer_. This way accesses to the array are

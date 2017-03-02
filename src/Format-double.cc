@@ -602,7 +602,7 @@ FormatResult fmtxx::dtoa::Format_a_non_negative(
     const int output_len
         = ComputeExponentialRepresentationLength(num_digits, binary_exponent, precision, options);
 
-    if (last - first > output_len)
+    if (last - first >= output_len)
     {
         if (use_buf)
             std::memcpy(first, buf, static_cast<size_t>(num_digits));

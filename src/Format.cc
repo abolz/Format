@@ -640,34 +640,20 @@ static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, i
                 return errc::invalid_format_string; // missing '}'
         }
 
-        // XXX:
-        // The next four are flags in printf.
-        // Parse in any order??
-
-        if (IsSign(*f))
+        for (;;) // Parse flags
         {
-            spec.sign = *f++;
-            if (f == end)
-                return errc::invalid_format_string; // missing '}'
-        }
+            if (IsSign(*f))
+                spec.sign = *f;
+            else if (*f == '#')
+                spec.hash = *f;
+            else if (*f == '0')
+                spec.zero = *f;
+            else if (*f == '\'')
+                spec.tsep = *f;
+            else
+                break;
 
-        if (*f == '#')
-        {
-            spec.hash = *f++;
-            if (f == end)
-                return errc::invalid_format_string; // missing '}'
-        }
-
-        if (*f == '0')
-        {
-            spec.zero = *f++;
-            if (f == end)
-                return errc::invalid_format_string; // missing '}'
-        }
-
-        if (*f == '\'')
-        {
-            spec.tsep = *f++;
+            ++f;
             if (f == end)
                 return errc::invalid_format_string; // missing '}'
         }

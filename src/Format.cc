@@ -491,12 +491,11 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 
     if (d.IsSpecial())
     {
-        const char* s =
-            d.IsInf() ? (neg ? (upper ? "-INF" : "-inf")
-                             : (upper ?  "INF" :  "inf"))
-                      : (upper ? "NAN" : "nan");
+        if (d.IsNaN())
+            return WriteRawString(fb, spec, upper ? "NAN" : "nan");
 
-        return WriteRawString(fb, spec, s);
+        const char inf[] = { sign, upper ? 'I' : 'i', upper ? 'N' : 'n', upper ? 'F' : 'f', '\0' };
+        return WriteRawString(fb, spec, inf + (sign == '\0' ? 1 : 0));
     }
     else if (tostr)
     {

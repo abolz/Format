@@ -596,6 +596,26 @@ static void test_floats()
     EXPECT_EQUAL("-inf", "{:x}", -InvVal);
     EXPECT_EQUAL("-INF", "{:X}", -InvVal);
 
+    // infinity with sign (and fill)
+    EXPECT_EQUAL("-INF", "{:+S}", -InvVal);
+    EXPECT_EQUAL("-INF", "{:-S}", -InvVal);
+    EXPECT_EQUAL("-INF", "{: S}", -InvVal);
+    EXPECT_EQUAL("-INF", "{:.< S}", -InvVal);
+    EXPECT_EQUAL("+INF", "{:+S}", InvVal);
+    EXPECT_EQUAL("INF",  "{:-S}", InvVal);
+    EXPECT_EQUAL(" INF", "{: S}", InvVal);
+    EXPECT_EQUAL(".INF", "{:.< S}", InvVal);
+    EXPECT_EQUAL("  -INF", "{:+06S}", -InvVal);
+    EXPECT_EQUAL("  -INF", "{:-06S}", -InvVal);
+    EXPECT_EQUAL("  -INF", "{: 06S}", -InvVal);
+    EXPECT_EQUAL("-INF..", "{:.<06S}", -InvVal);
+    EXPECT_EQUAL("-INF..", "{:.< 06S}", -InvVal);
+    EXPECT_EQUAL("  +INF", "{:+06S}", InvVal);
+    EXPECT_EQUAL("   INF",  "{:-06S}", InvVal);
+    EXPECT_EQUAL("   INF", "{: 06S}", InvVal);
+    EXPECT_EQUAL("INF...", "{:.<06S}", InvVal);
+    EXPECT_EQUAL(".INF..", "{:.< 06S}", InvVal);
+
     double NanVal = std::numeric_limits<double>::quiet_NaN();
     EXPECT_EQUAL("nan", "{:s}", NanVal);
     EXPECT_EQUAL("NAN", "{:S}", NanVal);

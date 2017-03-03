@@ -54,11 +54,13 @@ static bool DoubleToAsciiFixed(
             + 1 // null
             ;
 
-    if (vec.length() < min_buffer_length)
+    if (vec.length() < min_buffer_length) {
         return false;
+    }
 
-    if (!FastFixedDtoa(v, requested_digits, vec, num_digits, decpt))
+    if (!FastFixedDtoa(v, requested_digits, vec, num_digits, decpt)) {
         BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
+    }
 
     assert(*num_digits <= min_buffer_length);
 
@@ -101,18 +103,24 @@ static bool DoubleToAscii(
 
     Vector<char> vec(buffer, buffer_length);
 
-    switch (mode) {
+    switch (mode)
+    {
     case DtoaMode::SHORTEST:
         assert(buffer_length >= 17 + 1/*null*/);
-        if (!FastDtoa(v, FAST_DTOA_SHORTEST, 0, vec, num_digits, decpt))
+        if (!FastDtoa(v, FAST_DTOA_SHORTEST, 0, vec, num_digits, decpt)) {
             BignumDtoa(v, BIGNUM_DTOA_SHORTEST, -1, vec, num_digits, decpt);
+        }
         break;
+
     case DtoaMode::PRECISION:
-        if (buffer_length < requested_digits + 1/*null*/)
+        if (buffer_length < requested_digits + 1/*null*/) {
             return false;
-        if (!FastDtoa(v, FAST_DTOA_PRECISION, requested_digits, vec, num_digits, decpt))
+        }
+        if (!FastDtoa(v, FAST_DTOA_PRECISION, requested_digits, vec, num_digits, decpt)) {
             BignumDtoa(v, BIGNUM_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
+        }
         break;
+
     case DtoaMode::FIXED:
         return DoubleToAsciiFixed(v, requested_digits, vec, num_digits, decpt);
     }
@@ -160,16 +168,23 @@ static void CreateFixedRepresentation(
     if (decpt <= 0)
     {
         // 0.[000]digits[000]
+
         assert(precision == 0 || precision >= -decpt + num_digits);
 
         if (precision > 0)
         {
+            // outlen = 1 + 1 + precision
+
             std::fill_n(buf + num_digits, 2 + (precision - num_digits), '0');
             buf[num_digits + 1] = options.decimal_point_char;
+
+            // digits0.[000][000] ---> 0.[000]digits[000]
             std::rotate(buf, buf + num_digits, buf + (num_digits + 2 + -decpt));
         }
         else
         {
+            // outlen = 1 + (alt ? 1 : 0)
+
             buf[0] = '0';
             if (options.use_alternative_form)
                 buf[1] = options.decimal_point_char;
@@ -183,29 +198,36 @@ static void CreateFixedRepresentation(
     {
         // digits[000].0
 
-        if (precision > 0)
-        {
-            std::fill_n(buf + num_digits, decpt - num_digits + 1 + precision, '0');
+        // outlen = decpt + (prec > 0 ? 1 + prec : (alt ? 1 : 0))
+        //        + tseps
+
+        const int nz = decpt - num_digits;
+        const int nextra = precision > 0 ? 1 + precision
+                                         : (options.use_alternative_form ? 1 : 0);
+        // (nextra includes the decimal point)
+
+        std::fill_n(buf + num_digits, nz + nextra, '0');
+
+        if (nextra > 0)
             buf[decpt] = options.decimal_point_char;
-            buflen = decpt + 1 + precision;
-        }
-        else
-        {
-            std::fill_n(buf + num_digits, decpt - num_digits, '0');
-            buflen = decpt;
-            if (options.use_alternative_form)
-                buf[buflen++] = options.decimal_point_char;
-        }
+
+        buflen = decpt + nextra;
     }
     else
     {
+        // outlen = decpt + 1 + prec
+        //        + tseps
+
         // 0 < decpt < num_digits
         // dig.its
-        assert(precision >= num_digits - decpt);
+        assert(precision >= num_digits - decpt); // >= 1
 
+        // digits ---> dig_its
         std::copy_backward(buf + decpt, buf + num_digits, buf + (num_digits + 1));
+        // dig.its
         buf[decpt] = options.decimal_point_char;
-        std::fill_n(buf + (num_digits + 1), precision, '0');
+        // dig.its[000]
+        std::fill_n(buf + (num_digits + 1), precision - (num_digits - decpt), '0');
 
         buflen = decpt + 1 + precision;
     }
@@ -223,23 +245,23 @@ static int ComputeFixedRepresentationLength(
     if (decpt <= 0)
     {
         if (precision > 0)
-            return num_digits + 2 + (precision - num_digits);
+            return 2 + precision;
         else
             return 1 + (options.use_alternative_form ? 1 : 0);
     }
 
-    const int extra = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
+    const int tseps = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
 
     if (decpt >= num_digits)
     {
         if (precision > 0)
-            return extra + decpt + 1 + precision;
+            return tseps + decpt + 1 + precision;
         else
-            return extra + decpt + (options.use_alternative_form ? 1 : 0);
+            return tseps + decpt + (options.use_alternative_form ? 1 : 0);
     }
 
     assert(precision >= num_digits - decpt);
-    return extra + decpt + 1 + precision;
+    return tseps + decpt + 1 + precision;
 }
 
 FormatResult fmtxx::dtoa::Format_fixed(
@@ -325,9 +347,11 @@ static void AppendExponent(char*& p, int exponent, const FormatOptions& options)
 
 static void CreateExponentialRepresentation(char* buf, int num_digits, int exponent, int precision, const FormatOptions& options)
 {
-    buf += 1;
+    buf += 1; // leading digit
     if (num_digits > 1)
     {
+        assert(precision < 0 || precision >= num_digits - 1);
+
         std::copy_backward(buf, buf + (num_digits - 1), buf + num_digits);
         buf[0] = options.decimal_point_char;
         buf += (num_digits - 1) + 1;
@@ -341,11 +365,11 @@ static void CreateExponentialRepresentation(char* buf, int num_digits, int expon
     }
     else if (precision > 0)
     {
-        std::fill_n(buf, precision + 1, '0');
+        std::fill_n(buf, 1 + precision, '0');
         buf[0] = options.decimal_point_char;
-        buf += precision + 1;
+        buf += 1 + precision;
     }
-    else
+    else // precision <= 0
     {
         if (options.use_alternative_form)
             *buf++ = options.decimal_point_char;
@@ -377,7 +401,7 @@ static int ComputeExponentialRepresentationLength(
     else
     {
         if (options.use_alternative_form)
-            len += 1;
+            len += 1; // decimal point
     }
 
     return len + ComputeExponentLength(exponent, options);
@@ -632,9 +656,7 @@ FormatResult fmtxx::dtoa::Format_hex(
                      &num_digits,
                      &binary_exponent);
 
-    const int output_len
-        = ComputeExponentialRepresentationLength(num_digits, binary_exponent, precision, options);
-
+    const int output_len = ComputeExponentialRepresentationLength(num_digits, binary_exponent, precision, options);
     if (last - first >= output_len)
     {
         if (use_buf)
@@ -737,12 +759,12 @@ FormatResult fmtxx::dtoa::Printf(
 
     options.use_upper_case_digits       = true;          //       A
     options.normalize                   = false;         //       A
-    options.thousands_sep               = thousands_sep; // F   G   S
-    options.decimal_point_char          = '.';           // F E G A S
-    options.use_alternative_form           = hash;          // F E G A S
-    options.min_exponent_digits         = 2;             //   E G A S
-    options.exponent_char               = 'e';           //   E G A S
-    options.emit_positive_exponent_sign = true;          //   E G A S
+    options.thousands_sep               = thousands_sep; // F   G
+    options.decimal_point_char          = '.';           // F E G A
+    options.use_alternative_form        = hash;          // F E G A
+    options.min_exponent_digits         = 2;             //   E G A
+    options.exponent_char               = 'e';           //   E G A
+    options.emit_positive_exponent_sign = true;          //   E G A
 
     int prec = precision;
     switch (conversion_specifier)
@@ -774,8 +796,8 @@ FormatResult fmtxx::dtoa::Printf(
         *first++ = '0';
         *first++ = 'x';
         options.use_upper_case_digits = false;
-        options.min_exponent_digits   = 1;
-        options.exponent_char         = 'p';
+        options.min_exponent_digits = 1;
+        options.exponent_char = 'p';
         return Format_hex(first, last, d, prec, options);
     case 'A':
         if (last - first < 2)
@@ -783,8 +805,8 @@ FormatResult fmtxx::dtoa::Printf(
         *first++ = '0';
         *first++ = 'X';
         options.use_upper_case_digits = true;
-        options.min_exponent_digits   = 1;
-        options.exponent_char         = 'P';
+        options.min_exponent_digits = 1;
+        options.exponent_char = 'P';
         return Format_hex(first, last, d, prec, options);
     default:
         assert(!"invalid conversion specifier");

@@ -124,23 +124,6 @@ static bool DoubleToAscii(
 //
 //------------------------------------------------------------------------------
 
-static int ComputeFixedRepresentationLength(
-    int                  num_digits,
-    int                  decpt,
-    int                  precision,
-    const FormatOptions& options)
-{
-    if (decpt <= 0)
-        return 1 + (precision > 0 ? 1 + precision : 0);
-
-    const int extra = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
-
-    if (decpt >= num_digits)
-        return extra + decpt + (precision > 0 ? 1 + precision : 0);
-
-    return extra + decpt + 1 + precision;
-}
-
 static void InsertThousandsSep(char* buf, int buflen, int decpt, const FormatOptions& options)
 {
     assert(options.thousands_sep != '\0');
@@ -170,6 +153,8 @@ static void CreateFixedRepresentation(
     int                  precision,
     const FormatOptions& options)
 {
+    assert(precision >= 0);
+
     // Create a representation that is padded with zeros if needed.
 
     if (decpt <= 0)
@@ -186,6 +171,10 @@ static void CreateFixedRepresentation(
         else
         {
             buf[0] = '0';
+            if (options.emit_trailing_dot)
+                buf[1] = options.decimal_point_char;
+            if (options.emit_trailing_zero)
+                buf[2] = '0';
         }
 
         return;
@@ -206,6 +195,10 @@ static void CreateFixedRepresentation(
         {
             std::fill_n(buf + num_digits, decpt - num_digits, '0');
             buflen = decpt;
+            if (options.emit_trailing_dot)
+                buf[buflen++] = options.decimal_point_char;
+            if (options.emit_trailing_zero)
+                buf[buflen++] = '0';
         }
     }
     else
@@ -223,6 +216,36 @@ static void CreateFixedRepresentation(
 
     if (options.thousands_sep != '\0')
         InsertThousandsSep(buf, buflen, decpt, options);
+}
+
+static int ComputeFixedRepresentationLength(
+    int                  num_digits,
+    int                  decpt,
+    int                  precision,
+    const FormatOptions& options)
+{
+    if (decpt <= 0)
+    {
+        if (precision > 0)
+            return num_digits + 2 + (precision - num_digits);
+        else
+            return 1 + (options.emit_trailing_dot ? 1 : 0)
+                     + (options.emit_trailing_zero ? 1 : 0);
+    }
+
+    const int extra = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
+
+    if (decpt >= num_digits)
+    {
+        if (precision > 0)
+            return extra + decpt + 1 + precision;
+        else
+            return extra + decpt + (options.emit_trailing_dot ? 1 : 0)
+                                 + (options.emit_trailing_zero ? 1 : 0);
+    }
+
+    assert(precision >= num_digits - decpt);
+    return extra + decpt + 1 + precision;
 }
 
 FormatResult fmtxx::dtoa::Format_f_non_negative(
@@ -306,10 +329,43 @@ static void AppendExponent(char*& p, int exponent, const FormatOptions& options)
     *p++ = static_cast<char>('0' + exponent % 10);
 }
 
+static void CreateExponentialRepresentation(char* buf, int num_digits, int exponent, int precision, const FormatOptions& options)
+{
+    buf += 1;
+    if (num_digits > 1)
+    {
+        std::copy_backward(buf, buf + (num_digits - 1), buf + num_digits);
+        buf[0] = options.decimal_point_char;
+        buf += (num_digits - 1) + 1;
+
+        const int nz = precision - (num_digits - 1);
+        if (nz > 0)
+        {
+            std::fill_n(buf, nz, '0');
+            buf += nz;
+        }
+    }
+    else if (precision > 0)
+    {
+        std::fill_n(buf, precision + 1, '0');
+        buf[0] = options.decimal_point_char;
+        buf += precision + 1;
+    }
+    else
+    {
+        if (options.emit_trailing_dot)
+            *buf++ = options.decimal_point_char;
+        if (options.emit_trailing_zero)
+            *buf++ = '0';
+    }
+
+    AppendExponent(buf, exponent, options);
+}
+
 static int ComputeExponentialRepresentationLength(
     int                  num_digits,
     int                  exponent,
-    int                  num_digits_after_point,
+    int                  precision,
     const FormatOptions& options)
 {
     int len = 0;
@@ -318,44 +374,23 @@ static int ComputeExponentialRepresentationLength(
     if (num_digits > 1)
     {
         len += 1; // decimal point
-        const int nz = num_digits_after_point - (num_digits - 1);
+        const int nz = precision - (num_digits - 1);
         if (nz > 0)
             len += nz;
     }
-    else if (num_digits_after_point > 0)
+    else if (precision > 0)
     {
-        len += 1 + num_digits_after_point;
+        len += 1 + precision;
+    }
+    else
+    {
+        if (options.emit_trailing_dot)
+            len += 1;
+        if (options.emit_trailing_zero)
+            len += 1;
     }
 
     return len + ComputeExponentLength(exponent, options);
-}
-
-static void CreateExponentialRepresentation(char* buf, int num_digits, int exponent, int num_digits_after_point, const FormatOptions& options)
-{
-    assert(num_digits > 0);
-
-    buf += 1;
-    if (num_digits > 1)
-    {
-        std::copy_backward(buf, buf + (num_digits - 1), buf + num_digits);
-        buf[0] = options.decimal_point_char;
-        buf += (num_digits - 1) + 1;
-
-        const int nz = num_digits_after_point - (num_digits - 1);
-        if (nz > 0)
-        {
-            std::fill_n(buf, nz, '0');
-            buf += nz;
-        }
-    }
-    else if (num_digits_after_point > 0)
-    {
-        std::fill_n(buf, num_digits_after_point + 1, '0');
-        buf[0] = options.decimal_point_char;
-        buf += num_digits_after_point + 1;
-    }
-
-    AppendExponent(buf, exponent, options);
 }
 
 FormatResult fmtxx::dtoa::Format_e_non_negative(
@@ -430,10 +465,11 @@ FormatResult fmtxx::dtoa::Format_g_non_negative(
     if (-4 <= X && X < P)
     {
         int prec = P - (X + 1);
-
-        // Adjust precision not to print trailing zeros.
-        if (prec > num_digits - decpt)
-            prec = num_digits - decpt;
+        if (!options.emit_trailing_dot)
+        {
+            if (prec > num_digits - decpt)
+                prec = num_digits - decpt;
+        }
 
         const int output_len = ComputeFixedRepresentationLength(num_digits, decpt, prec, options);
         if (last - first >= output_len)
@@ -444,7 +480,12 @@ FormatResult fmtxx::dtoa::Format_g_non_negative(
     }
     else
     {
-        const int prec = P - 1;
+        int prec = P - 1;
+        if (!options.emit_trailing_dot)
+        {
+            if (prec > num_digits - decpt)
+                prec = num_digits - decpt;
+        }
 
         const int output_len = ComputeExponentialRepresentationLength(num_digits, X, prec, options);
         if (last - first >= output_len)
@@ -699,16 +740,16 @@ FormatResult fmtxx::dtoa::Printf_non_negative(
     const double d,
     const int    precision,
     const char   thousands_sep,
-    const bool   /*alt*/,
+    const bool   hash,
     const char   conversion_specifier)
 {
     FormatOptions options;
 
     options.use_upper_case_digits       = true;          //       A
-    options.normalize                   = true;          //       A
+    options.normalize                   = false;         //       A
     options.thousands_sep               = thousands_sep; // F   G   S
     options.decimal_point_char          = '.';           // F E G A S
-    options.emit_trailing_dot           = false;         // F E G A S
+    options.emit_trailing_dot           = hash;          // F E G A S
     options.emit_trailing_zero          = false;         // F E G A S
     options.min_exponent_digits         = 2;             //   E G A S
     options.exponent_char               = 'e';           //   E G A S

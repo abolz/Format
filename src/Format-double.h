@@ -224,7 +224,7 @@ FormatResult Printf_non_negative(
     const double d,
     const int precision,
     const char thousands_sep,
-    const bool alt,
+    const bool hash,
     const char conversion_specifier);
 
 } // namespace dtoa

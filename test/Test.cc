@@ -541,7 +541,8 @@ static void test_floats()
     EXPECT_EQUAL("-0p+0",               "{:x}", -0.0);
     EXPECT_EQUAL("1.8p+0",              "{:x}", 1.5);
     EXPECT_EQUAL("0x1.8000p+0",           "{:.4a}", 1.5);
-    EXPECT_EQUAL("0x1p+1",                "{:.0a}", 1.5);
+    EXPECT_EQUAL("1p+1",                "{:.0x}", 1.5);
+    EXPECT_EQUAL("0x2p+0",                "{:.0a}", 1.5);
     EXPECT_EQUAL("0x1.921fb5a7ed197p+1",  "{:a}", 3.1415927);
     EXPECT_EQUAL("0X1.921FB5A7ED197P+1",  "{:A}", 3.1415927);
     EXPECT_EQUAL("0x1.922p+1",            "{:.3a}", 3.1415927);
@@ -639,6 +640,60 @@ static void test_floats()
     EXPECT_EQUAL("NAN", "{:S}", -NanVal);
     EXPECT_EQUAL("nan", "{:x}", -NanVal);
     EXPECT_EQUAL("NAN", "{:X}", -NanVal);
+
+    EXPECT_EQUAL("1.000000", "{:f}",    1.0);
+    EXPECT_EQUAL("1",        "{:.0f}",  1.0);
+    EXPECT_EQUAL("1.0",      "{:.1f}",  1.0);
+    EXPECT_EQUAL("1.00",     "{:.2f}",  1.0);
+    EXPECT_EQUAL("1.000000", "{:#f}",   1.0);
+    EXPECT_EQUAL("1.",       "{:#.0f}", 1.0);
+    EXPECT_EQUAL("1.0",      "{:#.1f}", 1.0);
+    EXPECT_EQUAL("1.00",     "{:#.2f}", 1.0);
+
+    EXPECT_EQUAL("1'234.000000", "{:'f}",    1234.0);
+    EXPECT_EQUAL("1'234",        "{:'.0f}",  1234.0);
+    EXPECT_EQUAL("1'234.0",      "{:'.1f}",  1234.0);
+    EXPECT_EQUAL("1'234.00",     "{:'.2f}",  1234.0);
+    EXPECT_EQUAL("1'234.000000", "{:'#f}",   1234.0);
+    EXPECT_EQUAL("1'234.",       "{:'#.0f}", 1234.0);
+    EXPECT_EQUAL("1'234.0",      "{:'#.1f}", 1234.0);
+    EXPECT_EQUAL("1'234.00",     "{:'#.2f}", 1234.0);
+
+    EXPECT_EQUAL("1.000000e+00", "{:e}",    1.0);
+    EXPECT_EQUAL("1e+00",        "{:.0e}",  1.0);
+    EXPECT_EQUAL("1.0e+00",      "{:.1e}",  1.0);
+    EXPECT_EQUAL("1.00e+00",     "{:.2e}",  1.0);
+    EXPECT_EQUAL("1.000000e+00", "{:#e}",   1.0);
+    EXPECT_EQUAL("1.e+00",       "{:#.0e}", 1.0);
+    EXPECT_EQUAL("1.0e+00",      "{:#.1e}", 1.0);
+    EXPECT_EQUAL("1.00e+00",     "{:#.2e}", 1.0);
+
+    EXPECT_EQUAL("1",       "{:g}", 1.0);
+    EXPECT_EQUAL("1",       "{:.0g}", 1.0);
+    EXPECT_EQUAL("1",       "{:.1g}", 1.0);
+    EXPECT_EQUAL("1",       "{:.2g}", 1.0);
+    EXPECT_EQUAL("1.00000", "{:#g}", 1.0);
+    EXPECT_EQUAL("1.",      "{:#.0g}", 1.0);
+    EXPECT_EQUAL("1.",      "{:#.1g}", 1.0);
+    EXPECT_EQUAL("1.0",     "{:#.2g}", 1.0);
+
+    EXPECT_EQUAL("1e+10",       "{:g}", 1.0e+10);
+    EXPECT_EQUAL("1e+10",       "{:.0g}", 1.0e+10);
+    EXPECT_EQUAL("1e+10",       "{:.1g}", 1.0e+10);
+    EXPECT_EQUAL("1e+10",       "{:.2g}", 1.0e+10);
+    EXPECT_EQUAL("1.00000e+10", "{:#g}", 1.0e+10);
+    EXPECT_EQUAL("1.e+10",      "{:#.0g}", 1.0e+10);
+    EXPECT_EQUAL("1.e+10",      "{:#.1g}", 1.0e+10);
+    EXPECT_EQUAL("1.0e+10",     "{:#.2g}", 1.0e+10);
+
+    EXPECT_EQUAL("0x1.fcac083126e98p+0", "{:a}", 1.987);
+    EXPECT_EQUAL("0x2p+0",               "{:.0a}", 1.987);
+    EXPECT_EQUAL("0x2.0p+0",             "{:.1a}", 1.987);
+    EXPECT_EQUAL("0x1.fdp+0",            "{:.2a}", 1.987);
+    EXPECT_EQUAL("0x1.fcac083126e98p+0", "{:#a}", 1.987);
+    EXPECT_EQUAL("0x2.p+0",              "{:#.0a}", 1.987);
+    EXPECT_EQUAL("0x2.0p+0",             "{:#.1a}", 1.987);
+    EXPECT_EQUAL("0x1.fdp+0",            "{:#.2a}", 1.987);
 #endif
 }
 

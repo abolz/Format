@@ -542,7 +542,9 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         const int kBufSize = 1500;
         char buf[kBufSize];
 
-        const auto res = dtoa::Printf_non_negative(buf, buf + kBufSize, abs_x, spec.prec, spec.tsep, /*alt*/ false, conv);
+        const bool alt = (spec.hash != '\0');
+
+        const auto res = dtoa::Printf_non_negative(buf, buf + kBufSize, abs_x, spec.prec, spec.tsep, alt, conv);
         if (res.ec)
             return WriteRawString(fb, spec, "[[internal buffer too small]]");
 

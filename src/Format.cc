@@ -646,7 +646,7 @@ static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, i
                 spec.hash = *f;
             else if (*f == '0')
                 spec.zero = *f;
-            else if (*f == '\'')
+            else if (*f == '\'' || *f == '_')
                 spec.tsep = *f;
             else
                 break;

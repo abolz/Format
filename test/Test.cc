@@ -371,6 +371,16 @@ static void test_ints()
     EXPECT_EQUAL("          123", "{:'13}", 123);
     EXPECT_EQUAL("           12", "{:'13}", 12);
     EXPECT_EQUAL("            1", "{:'13}", 1);
+    EXPECT_EQUAL("1_234_567_890", "{:_13}", 1234567890);
+    EXPECT_EQUAL("  123_456_789", "{:_13}", 123456789);
+    EXPECT_EQUAL("   12_345_678", "{:_13}", 12345678);
+    EXPECT_EQUAL("    1_234_567", "{:_13}", 1234567);
+    EXPECT_EQUAL("      123_456", "{:_13}", 123456);
+    EXPECT_EQUAL("       12_345", "{:_13}", 12345);
+    EXPECT_EQUAL("        1_234", "{:_13}", 1234);
+    EXPECT_EQUAL("          123", "{:_13}", 123);
+    EXPECT_EQUAL("           12", "{:_13}", 12);
+    EXPECT_EQUAL("            1", "{:_13}", 1);
 
 #if 0
     EXPECT_EQUAL("1234'5678", "{:'9x}", 0x12345678);

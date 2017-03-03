@@ -108,7 +108,8 @@ struct FormatOptions {
 // [277]
 //  When applied to infinite and NaN values, the -, +, and space flag characters
 //  have their usual meaning; the # and 0 flag characters have no effect.
-FormatResult Format_f_non_negative(
+
+FormatResult Format_fixed(
     char* first,
     char* last,
     const double d,
@@ -132,7 +133,8 @@ FormatResult Format_f_non_negative(
 //
 // A double argument representing an infinity or NaN is converted in the style
 // of an f or F conversion specifier.
-FormatResult Format_e_non_negative(
+
+FormatResult Format_exponential(
     char* first,
     char* last,
     const double d,
@@ -159,7 +161,8 @@ FormatResult Format_e_non_negative(
 //
 // A double argument representing an infinity or NaN is converted in the style
 // of an f or F conversion specifier.
-FormatResult Format_g_non_negative(
+
+FormatResult Format_general(
     char* first,
     char* last,
     const double d,
@@ -188,7 +191,7 @@ FormatResult Format_g_non_negative(
 //
 // A double argument representing an infinity or NaN is converted in the style
 // of an f or F conversion specifier.
-FormatResult Format_a_non_negative(
+FormatResult Format_hex(
     char* first,
     char* last,
     const double d,
@@ -211,14 +214,14 @@ FormatResult Format_a_non_negative(
 // chars_format::fixed, e if fmt is chars_format::scientific, a (without leading
 // "0x" in the result) if fmt is chars_format::hex, and g if fmt is
 // chars_format::general.
-FormatResult Format_s_non_negative(
+FormatResult Format_short(
     char* first,
     char* last,
     const double d,
     const FormatStyle style,
     const FormatOptions& options);
 
-FormatResult Printf_non_negative(
+FormatResult Printf(
     char* first,
     char* last,
     const double d,

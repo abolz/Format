@@ -510,7 +510,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         options.emit_positive_exponent_sign = true;
 
         char buf[32];
-        const auto res = dtoa::Format_s_non_negative(buf, buf + 32, abs_x, dtoa::FormatStyle::general, options);
+        const auto res = dtoa::Format_short(buf, buf + 32, abs_x, dtoa::FormatStyle::general, options);
         assert(!res.ec);
 
         return WriteNumber(fb, spec, sign, nullptr, 0, buf, static_cast<size_t>(res.next - buf));
@@ -530,7 +530,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         const bool alt = (spec.hash != '\0');
 
         char buf[32];
-        const auto res = dtoa::Format_a_non_negative(buf, buf + 32, abs_x, spec.prec, options);
+        const auto res = dtoa::Format_hex(buf, buf + 32, abs_x, spec.prec, options);
         assert(!res.ec);
 
         const size_t nprefix = alt ? 2u : 0u;
@@ -544,7 +544,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 
         const bool alt = (spec.hash != '\0');
 
-        const auto res = dtoa::Printf_non_negative(buf, buf + kBufSize, abs_x, spec.prec, spec.tsep, alt, conv);
+        const auto res = dtoa::Printf(buf, buf + kBufSize, abs_x, spec.prec, spec.tsep, alt, conv);
         if (res.ec)
             return WriteRawString(fb, spec, "[[internal buffer too small]]");
 

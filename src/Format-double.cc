@@ -248,7 +248,7 @@ static int ComputeFixedRepresentationLength(
     return extra + decpt + 1 + precision;
 }
 
-FormatResult fmtxx::dtoa::Format_f_non_negative(
+FormatResult fmtxx::dtoa::Format_fixed(
     char*                first,
     char*                last,
     const double         d,
@@ -393,7 +393,7 @@ static int ComputeExponentialRepresentationLength(
     return len + ComputeExponentLength(exponent, options);
 }
 
-FormatResult fmtxx::dtoa::Format_e_non_negative(
+FormatResult fmtxx::dtoa::Format_exponential(
     char*                first,
     char*                last,
     const double         d,
@@ -430,7 +430,7 @@ FormatResult fmtxx::dtoa::Format_e_non_negative(
 //
 //------------------------------------------------------------------------------
 
-FormatResult fmtxx::dtoa::Format_g_non_negative(
+FormatResult fmtxx::dtoa::Format_general(
     char*                first,
     char*                last,
     const double         d,
@@ -621,7 +621,7 @@ static void HexDoubleToAscii(
     }
 }
 
-FormatResult fmtxx::dtoa::Format_a_non_negative(
+FormatResult fmtxx::dtoa::Format_hex(
     char*                first,
     char*                last,
     const double         d,
@@ -672,7 +672,7 @@ static int ComputePrecisionForShortFixedRepresentation(int num_digits, int decpt
     return -decpt + num_digits;
 }
 
-FormatResult fmtxx::dtoa::Format_s_non_negative(
+FormatResult fmtxx::dtoa::Format_short(
     char*                first,
     char*                last,
     const double         d,
@@ -734,7 +734,7 @@ FormatResult fmtxx::dtoa::Format_s_non_negative(
 //
 //------------------------------------------------------------------------------
 
-FormatResult fmtxx::dtoa::Printf_non_negative(
+FormatResult fmtxx::dtoa::Printf(
     char*        first,
     char*        last,
     const double d,
@@ -762,23 +762,23 @@ FormatResult fmtxx::dtoa::Printf_non_negative(
     case 'F':
         if (prec < 0)
             prec = 6;
-        return Format_f_non_negative(first, last, d, prec, options);
+        return Format_fixed(first, last, d, prec, options);
     case 'e':
     case 'E':
         if (prec < 0)
             prec = 6;
         options.exponent_char = conversion_specifier;
-        return Format_e_non_negative(first, last, d, prec, options);
+        return Format_exponential(first, last, d, prec, options);
     case 'g':
         if (prec < 0)
             prec = 6;
         options.exponent_char = 'e';
-        return Format_g_non_negative(first, last, d, prec, options);
+        return Format_general(first, last, d, prec, options);
     case 'G':
         if (prec < 0)
             prec = 6;
         options.exponent_char = 'E';
-        return Format_g_non_negative(first, last, d, prec, options);
+        return Format_general(first, last, d, prec, options);
     case 'a':
         if (last - first < 2)
             return { last, -1 };
@@ -787,7 +787,7 @@ FormatResult fmtxx::dtoa::Printf_non_negative(
         options.use_upper_case_digits = false;
         options.min_exponent_digits   = 1;
         options.exponent_char         = 'p';
-        return Format_a_non_negative(first, last, d, prec, options);
+        return Format_hex(first, last, d, prec, options);
     case 'A':
         if (last - first < 2)
             return { last, -1 };
@@ -796,7 +796,7 @@ FormatResult fmtxx::dtoa::Printf_non_negative(
         options.use_upper_case_digits = true;
         options.min_exponent_digits   = 1;
         options.exponent_char         = 'P';
-        return Format_a_non_negative(first, last, d, prec, options);
+        return Format_hex(first, last, d, prec, options);
     default:
         assert(!"invalid conversion specifier");
         return { last, -1 };

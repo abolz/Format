@@ -503,7 +503,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 
         options.use_upper_case_digits       = true;
         options.thousands_sep               = spec.tsep;
-        options.emit_trailing_dot           = false;
+        options.use_alternative_form        = false;
         options.min_exponent_digits         = 1;
         options.exponent_char               = 'e';
         options.emit_positive_exponent_sign = true;
@@ -520,7 +520,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 
         options.use_upper_case_digits       = upper;
         options.thousands_sep               = spec.tsep;
-        options.emit_trailing_dot           = false;
+        options.use_alternative_form        = false;
         options.min_exponent_digits         = 1;
         options.exponent_char               = 'p';
         options.emit_positive_exponent_sign = true;

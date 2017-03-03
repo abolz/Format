@@ -171,7 +171,7 @@ static void CreateFixedRepresentation(
         else
         {
             buf[0] = '0';
-            if (options.emit_trailing_dot)
+            if (options.use_alternative_form)
                 buf[1] = options.decimal_point_char;
         }
 
@@ -193,7 +193,7 @@ static void CreateFixedRepresentation(
         {
             std::fill_n(buf + num_digits, decpt - num_digits, '0');
             buflen = decpt;
-            if (options.emit_trailing_dot)
+            if (options.use_alternative_form)
                 buf[buflen++] = options.decimal_point_char;
         }
     }
@@ -225,7 +225,7 @@ static int ComputeFixedRepresentationLength(
         if (precision > 0)
             return num_digits + 2 + (precision - num_digits);
         else
-            return 1 + (options.emit_trailing_dot ? 1 : 0);
+            return 1 + (options.use_alternative_form ? 1 : 0);
     }
 
     const int extra = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
@@ -235,7 +235,7 @@ static int ComputeFixedRepresentationLength(
         if (precision > 0)
             return extra + decpt + 1 + precision;
         else
-            return extra + decpt + (options.emit_trailing_dot ? 1 : 0);
+            return extra + decpt + (options.use_alternative_form ? 1 : 0);
     }
 
     assert(precision >= num_digits - decpt);
@@ -347,7 +347,7 @@ static void CreateExponentialRepresentation(char* buf, int num_digits, int expon
     }
     else
     {
-        if (options.emit_trailing_dot)
+        if (options.use_alternative_form)
             *buf++ = options.decimal_point_char;
     }
 
@@ -376,7 +376,7 @@ static int ComputeExponentialRepresentationLength(
     }
     else
     {
-        if (options.emit_trailing_dot)
+        if (options.use_alternative_form)
             len += 1;
     }
 
@@ -455,7 +455,7 @@ FormatResult fmtxx::dtoa::Format_general(
     if (-4 <= X && X < P)
     {
         int prec = P - (X + 1);
-        if (!options.emit_trailing_dot)
+        if (!options.use_alternative_form)
         {
             if (prec > num_digits - decpt)
                 prec = num_digits - decpt;
@@ -471,7 +471,7 @@ FormatResult fmtxx::dtoa::Format_general(
     else
     {
         int prec = P - 1;
-        if (!options.emit_trailing_dot)
+        if (!options.use_alternative_form)
         {
             if (prec > num_digits - decpt)
                 prec = num_digits - decpt;
@@ -739,7 +739,7 @@ FormatResult fmtxx::dtoa::Printf(
     options.normalize                   = false;         //       A
     options.thousands_sep               = thousands_sep; // F   G   S
     options.decimal_point_char          = '.';           // F E G A S
-    options.emit_trailing_dot           = hash;          // F E G A S
+    options.use_alternative_form           = hash;          // F E G A S
     options.min_exponent_digits         = 2;             //   E G A S
     options.exponent_char               = 'e';           //   E G A S
     options.emit_positive_exponent_sign = true;          //   E G A S

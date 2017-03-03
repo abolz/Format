@@ -577,6 +577,20 @@ static void test_floats()
     EXPECT_EQUAL("0x0p+0",  "{:#x}",  0.0);
     EXPECT_EQUAL("-0x0p+0", "{:#x}",  -0.0);
 
+    EXPECT_EQUAL("1.0p+0",  "{:.1x}",   1.0);
+    EXPECT_EQUAL("1.00p+0", "{:.2x}",   1.0);
+    EXPECT_EQUAL("0x1.0p+0",  "{:#.1x}",   1.0);
+    EXPECT_EQUAL("0x1.00p+0", "{:#.2x}",   1.0);
+    // 0x and p are always lower-case for x/X
+    EXPECT_EQUAL("0x1.0p+0",  "{:#.1X}",   1.0);
+    EXPECT_EQUAL("0x1.00p+0", "{:#.2X}",   1.0);
+    EXPECT_EQUAL("1.badp+1",   "{:.3x}", 3.4597);
+    EXPECT_EQUAL("1.bad7p+1",  "{:.4x}", 3.4597);
+    EXPECT_EQUAL("1.bad77p+1", "{:.5x}", 3.4597);
+    EXPECT_EQUAL("0x1.BADp+1",   "{:#.3X}", 3.4597);
+    EXPECT_EQUAL("0x1.BAD7p+1",  "{:#.4X}", 3.4597);
+    EXPECT_EQUAL("0x1.BAD77p+1", "{:#.5X}", 3.4597);
+
     EXPECT_EQUAL("0x1p+0",    "{:a}",     1.0);
     EXPECT_EQUAL("0x1p+0",    "{:.0a}",   1.0);
     EXPECT_EQUAL("0x1.0p+0",  "{:.1a}",   1.0);

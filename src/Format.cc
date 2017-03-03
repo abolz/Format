@@ -519,7 +519,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     {
         dtoa::FormatOptions options;
 
-        options.use_upper_case_digits       = true;
+        options.use_upper_case_digits       = upper;
         options.thousands_sep               = spec.tsep;
         options.emit_trailing_dot           = false;
         options.emit_trailing_zero          = false;
@@ -530,7 +530,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         const bool alt = (spec.hash != '\0');
 
         char buf[32];
-        const auto res = dtoa::Format_a_non_negative(buf, buf + 32, abs_x, -1, options);
+        const auto res = dtoa::Format_a_non_negative(buf, buf + 32, abs_x, spec.prec, options);
         assert(!res.ec);
 
         const size_t nprefix = alt ? 2u : 0u;

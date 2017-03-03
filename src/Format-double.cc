@@ -173,8 +173,6 @@ static void CreateFixedRepresentation(
             buf[0] = '0';
             if (options.emit_trailing_dot)
                 buf[1] = options.decimal_point_char;
-            if (options.emit_trailing_zero)
-                buf[2] = '0';
         }
 
         return;
@@ -197,8 +195,6 @@ static void CreateFixedRepresentation(
             buflen = decpt;
             if (options.emit_trailing_dot)
                 buf[buflen++] = options.decimal_point_char;
-            if (options.emit_trailing_zero)
-                buf[buflen++] = '0';
         }
     }
     else
@@ -229,8 +225,7 @@ static int ComputeFixedRepresentationLength(
         if (precision > 0)
             return num_digits + 2 + (precision - num_digits);
         else
-            return 1 + (options.emit_trailing_dot ? 1 : 0)
-                     + (options.emit_trailing_zero ? 1 : 0);
+            return 1 + (options.emit_trailing_dot ? 1 : 0);
     }
 
     const int extra = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
@@ -240,8 +235,7 @@ static int ComputeFixedRepresentationLength(
         if (precision > 0)
             return extra + decpt + 1 + precision;
         else
-            return extra + decpt + (options.emit_trailing_dot ? 1 : 0)
-                                 + (options.emit_trailing_zero ? 1 : 0);
+            return extra + decpt + (options.emit_trailing_dot ? 1 : 0);
     }
 
     assert(precision >= num_digits - decpt);
@@ -355,8 +349,6 @@ static void CreateExponentialRepresentation(char* buf, int num_digits, int expon
     {
         if (options.emit_trailing_dot)
             *buf++ = options.decimal_point_char;
-        if (options.emit_trailing_zero)
-            *buf++ = '0';
     }
 
     AppendExponent(buf, exponent, options);
@@ -385,8 +377,6 @@ static int ComputeExponentialRepresentationLength(
     else
     {
         if (options.emit_trailing_dot)
-            len += 1;
-        if (options.emit_trailing_zero)
             len += 1;
     }
 
@@ -750,7 +740,6 @@ FormatResult fmtxx::dtoa::Printf(
     options.thousands_sep               = thousands_sep; // F   G   S
     options.decimal_point_char          = '.';           // F E G A S
     options.emit_trailing_dot           = hash;          // F E G A S
-    options.emit_trailing_zero          = false;         // F E G A S
     options.min_exponent_digits         = 2;             //   E G A S
     options.exponent_char               = 'e';           //   E G A S
     options.emit_positive_exponent_sign = true;          //   E G A S

@@ -28,6 +28,10 @@
 #ifndef DOUBLE_CONVERSION_UTILS_H_
 #define DOUBLE_CONVERSION_UTILS_H_
 
+#ifdef _MSC_VER
+#include <iterator>
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -214,6 +218,67 @@ class Vector {
   T& first() { return start_[0]; }
 
   T& last() { return start_[length_ - 1]; }
+
+#ifdef _MSC_VER
+#ifndef NDEBUG
+  using iterator = stdext::checked_array_iterator<T*>;
+  using const_iterator = stdext::checked_array_iterator<const T*>;
+
+  iterator begin() {
+    return iterator(start_, static_cast<size_t>(length_), 0);
+  }
+
+  iterator end() {
+    return iterator(start_, static_cast<size_t>(length_), static_cast<size_t>(length_));
+  }
+
+  const_iterator begin() const {
+    return const_iterator(start_, static_cast<size_t>(length_), 0);
+  }
+
+  const_iterator end() const {
+    return const_iterator(start_, static_cast<size_t>(length_), static_cast<size_t>(length_));
+  }
+#else
+  using iterator = stdext::unchecked_array_iterator<T*>;
+  using const_iterator = stdext::unchecked_array_iterator<const T*>;
+
+  iterator begin() {
+    return iterator(start_);
+  }
+
+  iterator end() {
+    return iterator(start_ + length_);
+  }
+
+  const_iterator begin() const {
+    return const_iterator(start_);
+  }
+
+  const_iterator end() const {
+    return const_iterator(start_ + length_);
+  }
+#endif
+#else
+  using iterator = T*;
+  using const_iterator = const T*;
+
+  iterator begin() {
+    return start_;
+  }
+
+  iterator end() {
+    return start_ + length_;
+  }
+
+  const_iterator begin() const {
+    return start_;
+  }
+
+  const_iterator end() const {
+    return start_ + length_;
+  }
+#endif
 
  private:
   T* start_;

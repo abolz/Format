@@ -382,7 +382,6 @@ static void test_ints()
     EXPECT_EQUAL("           12", "{:_13}", 12);
     EXPECT_EQUAL("            1", "{:_13}", 1);
 
-#if 0
     EXPECT_EQUAL("1234'5678", "{:'9x}", 0x12345678);
     EXPECT_EQUAL(" 123'4567", "{:'9x}", 0x1234567);
     EXPECT_EQUAL("  12'3456", "{:'9x}", 0x123456);
@@ -391,7 +390,26 @@ static void test_ints()
     EXPECT_EQUAL("      123", "{:'9x}", 0x123);
     EXPECT_EQUAL("       12", "{:'9x}", 0x12);
     EXPECT_EQUAL("        1", "{:'9x}", 0x1);
-#endif
+
+    EXPECT_EQUAL("7777_7777", "{:_9o}", 077777777);
+    EXPECT_EQUAL(" 777_7777", "{:_9o}", 07777777);
+    EXPECT_EQUAL("  77_7777", "{:_9o}", 0777777);
+    EXPECT_EQUAL("   7_7777", "{:_9o}", 077777);
+    EXPECT_EQUAL("     7777", "{:_9o}", 07777);
+    EXPECT_EQUAL("      777", "{:_9o}", 0777);
+    EXPECT_EQUAL("       77", "{:_9o}", 077);
+    EXPECT_EQUAL("        7", "{:_9o}", 07);
+    EXPECT_EQUAL("        0", "{:_9o}", 0);
+
+    EXPECT_EQUAL("1111_1111", "{:_9b}", 0xFF);
+    EXPECT_EQUAL(" 111_1111", "{:_9b}", 0x7F);
+    EXPECT_EQUAL("  11_1111", "{:_9b}", 0x3F);
+    EXPECT_EQUAL("   1_1111", "{:_9b}", 0x1F);
+    EXPECT_EQUAL("     1111", "{:_9b}", 0x0F);
+    EXPECT_EQUAL("      111", "{:_9b}", 0x07);
+    EXPECT_EQUAL("       11", "{:_9b}", 0x03);
+    EXPECT_EQUAL("        1", "{:_9b}", 0x01);
+    EXPECT_EQUAL("        0", "{:_9b}", 0x00);
 
     EXPECT_EQUAL("4294966062", "{:u}", -1234);
     EXPECT_EQUAL("4294966062", "{: u}", -1234);

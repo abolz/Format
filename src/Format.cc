@@ -348,20 +348,20 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
     return last;
 }
 
-static int InsertThousandsSep(char* buf, int buflen, char sep)
+static int InsertThousandsSep(char* buf, int pos, char sep, int group_len)
 {
-    const int nsep = (buflen - 1) / 3;
+    const int nsep = (pos - 1) / group_len;
 
     if (nsep <= 0)
         return 0;
 
     int shift = nsep;
-    for (int i = buflen - 1; shift > 0; --shift, i -= 3)
+    for (int i = pos - 1; shift > 0; --shift, i -= group_len)
     {
-        buf[i - 0 + shift] = buf[i - 0];
-        buf[i - 1 + shift] = buf[i - 1];
-        buf[i - 2 + shift] = buf[i - 2];
-        buf[i - 3 + shift] = sep;
+        for (int j = 0; j < group_len; ++j)
+            buf[i - j + shift] = buf[i - j];
+
+        buf[i - group_len + shift] = sep;
     }
 
     return nsep;
@@ -416,9 +416,10 @@ static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
     char*       l = buf + 64;
     char* const f = IntToAsciiBackwards(l, number, base, upper);
 
-    if (base == 10 && spec.tsep)
+    if (spec.tsep)
     {
-        l += InsertThousandsSep(f, static_cast<int>(l - f), spec.tsep);
+        const int group_len = (base == 10) ? 3 : 4;
+        l += InsertThousandsSep(f, static_cast<int>(l - f), spec.tsep, group_len);
     }
 
     return WriteNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));

@@ -80,8 +80,6 @@ project "fmtxx"
     files {
         "src/Format.h",
         "src/Format.cc",
-        "src/Format-double.h",
-        "src/Format-double.cc",
         "src/double-conversion/*.h",
         "src/double-conversion/*.cc",
     }

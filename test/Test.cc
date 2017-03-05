@@ -257,6 +257,17 @@ static void test_strings()
 
     std::string spad = std::string(128, ' ');
     EXPECT_EQUAL(spad.c_str(), "{:128}", ' ');
+
+    EXPECT_EQUAL(R"(Hello)",            "{:x}",     "Hello");
+    EXPECT_EQUAL(R"(Hello)",            "{:X}",     "Hello");
+    EXPECT_EQUAL(R"(He\x09\x0allo)",    "{:x}",     "He\t\nllo");
+    EXPECT_EQUAL(R"(He\x09\x0Allo)",    "{:X}",     "He\t\nllo");
+    EXPECT_EQUAL(R"(He\x09)",           "{:.3x}",   "He\t\nllo");
+    EXPECT_EQUAL(R"(He\x09)",           "{:.3X}",   "He\t\nllo");
+    EXPECT_EQUAL(R"(He\x09\x0a)",       "{:.4x}",   "He\t\nllo");
+    EXPECT_EQUAL(R"(He\x09\x0A)",       "{:.4X}",   "He\t\nllo");
+    EXPECT_EQUAL(R"(He\x09\x0allo)",    "{:.17x}",  "He\t\nllo");
+    EXPECT_EQUAL(R"(He\x09\x0Allo)",    "{:.17X}",  "He\t\nllo");
 }
 
 template <typename Formatter>

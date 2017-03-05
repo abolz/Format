@@ -168,6 +168,7 @@ bool fmtxx::CharArrayBuffer::Pad(char c, size_t count)
 static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
 static bool IsAlign(char ch) { return ch == '<' || ch == '>' || ch == '^' || ch == '='; }
 static bool IsSign (char ch) { return ch == ' ' || ch == '-' || ch == '+'; }
+static bool IsPrint(char ch) { return 0x20 <= ch && ch <= 0x7E; }
 
 static char ComputeSignChar(bool neg, char sign, char fill)
 {
@@ -231,6 +232,84 @@ static errc WriteRawString(FormatBuffer& fb, FormatSpec const& spec, std::string
     return WriteRawString(fb, spec, str.data(), str.size());
 }
 
+static size_t ComputeEscapedStringLength(char const* first, char const* last)
+{
+    size_t n = 0;
+    for (; first != last; ++first)
+    {
+        if (IsPrint(*first))
+            n += 1;
+        else
+            n += 4; // "\xFF"
+    }
+    return n;
+}
+
+// TODO:
+// Escape using octal digits ???
+// Print escaped chars as escaped chars ('\t' --> "\\t") ???
+static bool PutEscapedString(FormatBuffer& fb, char const* str, size_t len, bool upper)
+{
+    const char* const xdigits = upper
+        ? "0123456789ABCDEF"
+        : "0123456789abcdef";
+
+    char const* f = str;
+    char const* l = str + len;
+    char const* s = f;
+    for (;;)
+    {
+        while (f != l && IsPrint(*f))
+            ++f;
+        if (f != s && !fb.Write(s, static_cast<size_t>(f - s)))
+            return false;
+
+        if (f == l) // done.
+            break;
+
+        const char buf[] = {
+            '\\',
+            'x',
+            xdigits[ static_cast<unsigned char>(*f) >> 4   ],
+            xdigits[ static_cast<unsigned char>(*f) &  0xF ],
+        };
+
+//      if (!fb.Write(buf, 4))
+//          return false;
+        if (!fb.Put(buf[0]) || !fb.Put(buf[1]) || !fb.Put(buf[2]) || !fb.Put(buf[3]))
+            return false;
+
+        s = ++f;
+    }
+
+    return true;
+}
+
+static errc WriteEscapedString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len, bool upper)
+{
+    const size_t ascii_len = ComputeEscapedStringLength(str, str + len);
+
+    if (ascii_len == len) {
+        // The string only contains printable characters.
+        return WriteRawString(fb, spec, str, len);
+    }
+
+    size_t lpad = 0;
+    size_t spad = 0;
+    size_t rpad = 0;
+
+    ComputePadding(ascii_len, spec.align, spec.width, lpad, spad, rpad);
+
+    if (lpad > 0 && !fb.Pad(spec.fill, lpad))
+        return errc::io_error;
+    if (len > 0  && !PutEscapedString(fb, str, len, upper))
+        return errc::io_error;
+    if (rpad > 0 && !fb.Pad(spec.fill, rpad))
+        return errc::io_error;
+
+    return errc::success;
+}
+
 static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t n = len;
@@ -240,7 +319,14 @@ static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* st
             n = static_cast<size_t>(spec.prec);
     }
 
-    return WriteRawString(fb, spec, str, n);
+    switch (spec.conv) {
+    default:
+        return WriteRawString(fb, spec, str, n);
+    case 'x':
+        return WriteEscapedString(fb, spec, str, n, /*upper*/ false);
+    case 'X':
+        return WriteEscapedString(fb, spec, str, n, /*upper*/ true);
+    }
 }
 
 static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* str)
@@ -256,7 +342,14 @@ static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* st
     else
         len = ::strlen(str);
 
-    return WriteRawString(fb, spec, str, len);
+    switch (spec.conv) {
+    default:
+        return WriteRawString(fb, spec, str, len);
+    case 'x':
+        return WriteEscapedString(fb, spec, str, len, /*upper*/ false);
+    case 'X':
+        return WriteEscapedString(fb, spec, str, len, /*upper*/ true);
+    }
 }
 
 static errc WriteNumber(FormatBuffer& fb, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)

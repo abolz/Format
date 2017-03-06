@@ -27,7 +27,8 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <string_view>
+#include <iostream>
+#include <type_traits>
 
 #include "../src/double-conversion/bignum.h"
 #include "../src/double-conversion/utils.h"
@@ -67,63 +68,32 @@ static inline void CheckEqualsHelper(const char* file, int line,
   }
 }
 
+template <
+  typename T1,
+  typename T2,
+  typename = std::enable_if_t<
+    std::is_integral<T1>::value && std::is_integral<T2>::value
+  >
+>
 static inline void CheckEqualsHelper(const char* file, int line,
                                      const char* expected_source,
-                                     int expected,
+                                     T1 const& expected,
                                      const char* value_source,
-                                     int value) {
-  if (expected != value) {
-    printf("%s:%d:\n CHECK_EQ(%s, %s) failed\n"
-           "#  Expected: %d\n"
-           "#  Found:    %d\n",
-           file, line, expected_source, value_source, expected, value);
+                                     T2 const& value) {
+  using T = std::common_type_t<T1, T2>;
+
+  T t_expected = static_cast<T>(expected);
+  T t_value    = static_cast<T>(value);
+
+  if (t_expected != t_value) {
+    std::cout << file << ":" << line << "\n";
+    std::cout << " CHECK_EQ(" << expected_source << ", "
+                              << value_source << ") failed\n";
+    std::cout << "#  Expected: " << t_expected << "\n";
+    std::cout << "#  Found:    " << t_value << "\n";
     abort();
   }
 }
-
-static inline void CheckEqualsHelper(const char* file, int line,
-                                     const char* expected_source,
-                                     int expected,
-                                     const char* value_source,
-                                     uint64_t value) {
-  if (expected != value) {
-    printf("%s:%d:\n CHECK_EQ(%s, %s) failed\n"
-           "#  Expected: %d\n"
-           "#  Found:    %llu\n",
-           file, line, expected_source, value_source, expected, value);
-    abort();
-  }
-}
-
-static inline void CheckEqualsHelper(const char* file, int line,
-                                     const char* expected_source,
-                                     uint64_t expected,
-                                     const char* value_source,
-                                     uint64_t value) {
-  if (expected != value) {
-    printf("%s:%d:\n CHECK_EQ(%s, %s) failed\n"
-           "#  Expected: %llu\n"
-           "#  Found:    %llu\n",
-           file, line, expected_source, value_source, expected, value);
-    abort();
-  }
-}
-
-static inline void CheckEqualsHelper(const char* file, int line,
-                                     const char* expected_source,
-                                     double expected,
-                                     const char* value_source,
-                                     double value) {
-  // If expected and value are NaNs then expected != value.
-  if (expected != value && (expected == expected || value == value)) {
-    printf("%s:%d:\n CHECK_EQ(%s, %s) failed\n"
-           "#  Expected: %.30e\n"
-           "#  Found:    %.30e\n",
-           file, line, expected_source, value_source, expected, value);
-    abort();
-  }
-}
-
 
 static const int kBufferSize = 1024;
 

@@ -28,9 +28,7 @@
 #ifndef DOUBLE_CONVERSION_UTILS_H_
 #define DOUBLE_CONVERSION_UTILS_H_
 
-#ifdef _MSC_VER
 #include <iterator>
-#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -176,6 +174,140 @@ static T Min(T a, T b) {
 }
 
 
+template <typename Ptr>
+class CheckedArrayIterator {
+  Ptr ptr_;
+  intptr_t size_;
+  intptr_t pos_;
+
+public:
+  using iterator_category
+    = typename std::iterator_traits<Ptr>::iterator_category;
+  using value_type
+    = typename std::iterator_traits<Ptr>::value_type;
+  using difference_type
+    = typename std::iterator_traits<Ptr>::difference_type;
+  using pointer
+    = typename std::iterator_traits<Ptr>::pointer;
+  using reference
+    = typename std::iterator_traits<Ptr>::reference;
+
+public:
+  CheckedArrayIterator() : ptr_(nullptr), size_(0), pos_(0) {}
+  CheckedArrayIterator(Ptr ptr, intptr_t size, intptr_t pos = 0)
+    : ptr_(ptr)
+    , size_(size)
+    , pos_(pos)
+  {
+    assert(pos_ <= size_);
+  }
+
+  reference operator*() const {
+    assert(ptr_ != nullptr);
+    assert(pos_ < size_);
+    return ptr_[pos_];
+  }
+
+  pointer operator->() const {
+    assert(ptr_ != nullptr);
+    assert(pos_ < size_);
+    return ptr_ + pos_;
+  }
+
+  CheckedArrayIterator& operator++() {
+    assert(ptr_ != nullptr);
+    assert(pos_ < size_);
+    ++pos_;
+    return *this;
+  }
+
+  CheckedArrayIterator operator++(int) {
+    auto t = *this;
+    ++(*this);
+    return t;
+  }
+
+  CheckedArrayIterator& operator--() {
+    assert(ptr_ != nullptr);
+    assert(pos_ > 0);
+    --pos_;
+    return *this;
+  }
+
+  CheckedArrayIterator operator--(int) {
+    auto t = *this;
+    --(*this);
+    return t;
+  }
+
+  CheckedArrayIterator& operator+=(difference_type n) {
+    assert(ptr_ != nullptr);
+    assert(pos_ + n >= 0);
+    assert(pos_ + n <= size_);
+    pos_ += n;
+    return *this;
+  }
+
+  CheckedArrayIterator operator+(difference_type n) const {
+    auto t = *this;
+    t += n;
+    return t;
+  }
+
+  CheckedArrayIterator& operator-=(difference_type n) {
+    assert(ptr_ != nullptr);
+    assert(pos_ - n >= 0);
+    assert(pos_ - n <= size_);
+    pos_ -= n;
+    return *this;
+  }
+
+  CheckedArrayIterator operator-(difference_type n) const {
+    auto t = *this;
+    t -= n;
+    return t;
+  }
+
+  difference_type operator-(CheckedArrayIterator const& rhs) const {
+    assert(ptr_ == rhs.ptr_);
+    return pos_ - rhs.pos_;
+  }
+
+  reference operator[](difference_type index) const {
+    assert(ptr_ != nullptr);
+    assert(ptr_ + index >= 0);
+    assert(ptr_ + index < size_);
+    return ptr_[index];
+  }
+
+  bool operator==(CheckedArrayIterator const& rhs) const {
+    assert(ptr_ == rhs.ptr_);
+    return pos_ == rhs.pos_;
+  }
+
+  bool operator!=(CheckedArrayIterator const& rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator<(CheckedArrayIterator const& rhs) const {
+    assert(ptr_ == rhs.ptr_);
+    return pos_ < rhs.pos_;
+  }
+
+  bool operator>(CheckedArrayIterator const& rhs) const {
+    return rhs < *this;
+  }
+
+  bool operator<=(CheckedArrayIterator const& rhs) const {
+    return !(rhs < *this);
+  }
+
+  bool operator>=(CheckedArrayIterator const& rhs) const {
+    return !(*this < rhs);
+  }
+};
+
+
 inline int StrLength(const char* string) {
   size_t length = strlen(string);
   ASSERT(length == static_cast<size_t>(static_cast<int>(length)));
@@ -219,65 +351,16 @@ class Vector {
 
   T& last() { return start_[length_ - 1]; }
 
-#ifdef _MSC_VER
 #ifndef NDEBUG
-  using iterator = stdext::checked_array_iterator<T*>;
-  using const_iterator = stdext::checked_array_iterator<const T*>;
+  using iterator = CheckedArrayIterator<T*>;
 
-  iterator begin() {
-    return iterator(start_, static_cast<size_t>(length_), 0);
-  }
-
-  iterator end() {
-    return iterator(start_, static_cast<size_t>(length_), static_cast<size_t>(length_));
-  }
-
-  const_iterator begin() const {
-    return const_iterator(start_, static_cast<size_t>(length_), 0);
-  }
-
-  const_iterator end() const {
-    return const_iterator(start_, static_cast<size_t>(length_), static_cast<size_t>(length_));
-  }
-#else
-  using iterator = stdext::unchecked_array_iterator<T*>;
-  using const_iterator = stdext::unchecked_array_iterator<const T*>;
-
-  iterator begin() {
-    return iterator(start_);
-  }
-
-  iterator end() {
-    return iterator(start_ + length_);
-  }
-
-  const_iterator begin() const {
-    return const_iterator(start_);
-  }
-
-  const_iterator end() const {
-    return const_iterator(start_ + length_);
-  }
-#endif
+  iterator begin() { return iterator(start_, length_, 0); }
+  iterator end() { return iterator(start_, length_, length_); }
 #else
   using iterator = T*;
-  using const_iterator = const T*;
 
-  iterator begin() {
-    return start_;
-  }
-
-  iterator end() {
-    return start_ + length_;
-  }
-
-  const_iterator begin() const {
-    return start_;
-  }
-
-  const_iterator end() const {
-    return start_ + length_;
-  }
+  iterator begin() { return start_; }
+  iterator end() { return start_ + length_; }
 #endif
 
  private:

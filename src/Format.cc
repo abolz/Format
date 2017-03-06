@@ -721,7 +721,7 @@ static int ComputeFixedRepresentationLength(int num_digits, int decpt, int preci
 // Produce a fixed number of digits after the decimal point.
 // For instance fixed(0.1, 4) becomes 0.1000
 // If the input number is big, the output will be big.
-static bool DoubleToAscii_fixed(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
+static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
 {
     assert(vec.length() >= 1);
 
@@ -787,14 +787,14 @@ static bool DoubleToAscii_fixed(double v, int requested_digits, Vector vec, int*
 //  When applied to infinite and NaN values, the -, +, and space flag characters
 //  have their usual meaning; the # and 0 flag characters have no effect.
 //
-static DtoaResult Dtoa_fixed(char* first, char* last, double d, int precision, DtoaOptions const& options)
+static DtoaResult DtoaFixed(char* first, char* last, double d, int precision, DtoaOptions const& options)
 {
     Vector buf(first, static_cast<int>(last - first));
 
     int num_digits = 0;
     int decpt = 0;
 
-    if (!DoubleToAscii_fixed(d, precision, buf, &num_digits, &decpt))
+    if (!GenerateFixedDigits(d, precision, buf, &num_digits, &decpt))
         return { last, -1 };
 
     assert(num_digits >= 0);
@@ -916,7 +916,7 @@ static int ComputeExponentialRepresentationLength(int num_digits, int exponent, 
 // v = buf * 10^(decpt - num_digits)
 //
 // Fixed number of digits (independent of the decimal point).
-static bool DoubleToAscii_precision(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
+static bool GeneratePrecisionDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
 {
     assert(vec.length() >= 1);
 
@@ -971,14 +971,14 @@ static bool DoubleToAscii_precision(double v, int requested_digits, Vector vec, 
 // A double argument representing an infinity or NaN is converted in the style
 // of an f or F conversion specifier.
 //
-static DtoaResult Dtoa_exponential(char* first, char* last, double d, int precision, DtoaOptions const& options)
+static DtoaResult DtoaExponential(char* first, char* last, double d, int precision, DtoaOptions const& options)
 {
     Vector buf(first, static_cast<int>(last - first));
 
     int num_digits = 0;
     int decpt = 0;
 
-    if (!DoubleToAscii_precision(d, precision + 1, buf, &num_digits, &decpt))
+    if (!GeneratePrecisionDigits(d, precision + 1, buf, &num_digits, &decpt))
         return { last, -1 };
 
     assert(num_digits > 0);
@@ -1014,7 +1014,7 @@ static DtoaResult Dtoa_exponential(char* first, char* last, double d, int precis
 // A double argument representing an infinity or NaN is converted in the style
 // of an f or F conversion specifier.
 //
-static DtoaResult Dtoa_general(char* first, char* last, double d, int precision, DtoaOptions const& options)
+static DtoaResult DtoaGeneral(char* first, char* last, double d, int precision, DtoaOptions const& options)
 {
     Vector buf(first, static_cast<int>(last - first));
 
@@ -1023,7 +1023,7 @@ static DtoaResult Dtoa_general(char* first, char* last, double d, int precision,
 
     const int P = precision == 0 ? 1 : precision;
 
-    if (!DoubleToAscii_precision(d, P, buf, &num_digits, &decpt))
+    if (!GeneratePrecisionDigits(d, P, buf, &num_digits, &decpt))
         return { last, -1 };
 
     assert(num_digits > 0);
@@ -1100,7 +1100,7 @@ static int CountLeadingZeros64(uint64_t n)
 #endif
 }
 
-static void DoubleToAscii_hex(double v, int precision, bool normalize, bool upper, Vector buffer, int* num_digits, int* binary_exponent)
+static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, Vector buffer, int* num_digits, int* binary_exponent)
 {
     const char* const kHexDigits = upper
         ? "0123456789ABCDEF"
@@ -1209,7 +1209,7 @@ static void DoubleToAscii_hex(double v, int precision, bool normalize, bool uppe
 // A double argument representing an infinity or NaN is converted in the style
 // of an f or F conversion specifier.
 //
-static DtoaResult Dtoa_hex(char* first, char* last, double d, int precision, DtoaOptions const& options)
+static DtoaResult DtoaHex(char* first, char* last, double d, int precision, DtoaOptions const& options)
 {
     char buf[32];
 
@@ -1217,7 +1217,7 @@ static DtoaResult Dtoa_hex(char* first, char* last, double d, int precision, Dto
     int binary_exponent = 0;
 
     const bool use_buf = (last - first < 52/4 + 1);
-    DoubleToAscii_hex(
+    GenerateHexDigits(
             d,
             precision,
             options.normalize,
@@ -1260,7 +1260,7 @@ static int ComputePrecisionForShortFixedRepresentation(int num_digits, int decpt
 //
 // Produce the shortest correct representation.
 // For example the output of 0.299999999999999988897 is (the less accurate but correct) 0.3.
-static void DoubleToAscii_shortest(double v, Vector vec, int* num_digits, int* decpt)
+static void GenerateShortestDigits(double v, Vector vec, int* num_digits, int* decpt)
 {
     assert(vec.length() >= 17 + 1/*null*/);
 
@@ -1284,7 +1284,7 @@ static void DoubleToAscii_shortest(double v, Vector vec, int* num_digits, int* d
         BignumDtoa(v, BIGNUM_DTOA_SHORTEST, -1, vec, num_digits, decpt);
 }
 
-static DtoaResult Dtoa_short(char* first, char* last, double d, DtoaShortStyle style, DtoaOptions const& options)
+static DtoaResult DtoaShortest(char* first, char* last, double d, DtoaShortStyle style, DtoaOptions const& options)
 {
     char buf[17 + 1];
 
@@ -1292,7 +1292,7 @@ static DtoaResult Dtoa_short(char* first, char* last, double d, DtoaShortStyle s
     int decpt = 0;
 
     const bool use_buf = (last - first < 17 + 1);
-    DoubleToAscii_shortest(d, Vector(use_buf ? buf : first, 17 + 1), &num_digits, &decpt);
+    GenerateShortestDigits(d, Vector(use_buf ? buf : first, 17 + 1), &num_digits, &decpt);
 
     assert(num_digits > 0);
 
@@ -1331,7 +1331,7 @@ static DtoaResult Dtoa_short(char* first, char* last, double d, DtoaShortStyle s
     return { last, -1 };
 }
 
-static DtoaResult Printf_double(char* first, char* last, double d, int precision, char thousands_sep, bool hash, char conv)
+static DtoaResult PrintfDouble(char* first, char* last, double d, int precision, char thousands_sep, bool hash, char conv)
 {
     DtoaOptions options;
 
@@ -1351,25 +1351,25 @@ static DtoaResult Printf_double(char* first, char* last, double d, int precision
     case 'F':
         if (prec < 0)
             prec = 6;
-        return Dtoa_fixed(first, last, d, prec, options);
+        return DtoaFixed(first, last, d, prec, options);
     case 'e':
     case 'E':
         if (prec < 0)
             prec = 6;
         options.exponent_char = conv;
-        return Dtoa_exponential(first, last, d, prec, options);
+        return DtoaExponential(first, last, d, prec, options);
     case 'g':
     case 'G':
         if (prec < 0)
             prec = 6;
         options.exponent_char = conv == 'G' ? 'E' : 'e';
-        return Dtoa_general(first, last, d, prec, options);
+        return DtoaGeneral(first, last, d, prec, options);
     case 'a':
     case 'A':
         options.use_upper_case_digits = conv == 'A';
         options.min_exponent_digits   = 1;
         options.exponent_char         = conv == 'A' ? 'P' : 'p';
-        return Dtoa_hex(first, last, d, prec, options);
+        return DtoaHex(first, last, d, prec, options);
     default:
         assert(!"invalid conversion specifier");
         return { last, -1 };
@@ -1442,7 +1442,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         options.emit_positive_exponent_sign = true;
 
         char buf[32];
-        const auto res = Dtoa_short(buf, buf + 32, abs_x, DtoaShortStyle::general, options);
+        const auto res = DtoaShortest(buf, buf + 32, abs_x, DtoaShortStyle::general, options);
         assert(!res.ec);
 
         return WriteNumber(fb, spec, sign, nullptr, 0, buf, static_cast<size_t>(res.next - buf));
@@ -1463,7 +1463,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         const bool alt = (spec.hash != '\0');
 
         char buf[32];
-        const auto res = Dtoa_hex(buf, buf + 32, abs_x, spec.prec, options);
+        const auto res = DtoaHex(buf, buf + 32, abs_x, spec.prec, options);
         assert(!res.ec);
 
         const size_t nprefix = alt ? 2u : 0u;
@@ -1477,7 +1477,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 
         const bool alt = (spec.hash != '\0');
 
-        const auto res = Printf_double(buf, buf + kBufSize, abs_x, spec.prec, spec.tsep, alt, conv);
+        const auto res = PrintfDouble(buf, buf + kBufSize, abs_x, spec.prec, spec.tsep, alt, conv);
         if (res.ec)
             return WriteRawString(fb, spec, "[[internal buffer too small]]");
 

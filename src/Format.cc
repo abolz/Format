@@ -437,15 +437,33 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
     return last;
 }
 
-static int InsertThousandsSep(char* buf, int pos, char sep, int group_len)
+// Inserts thousands separators into [buf, +pt).
+// Returns the number of separators inserted.
+//
+// Example:
+//  "12345.6789" ---> "12'345.6789"
+//   ^    ^    ^
+//   0    pt   last
+//  Returns 1.
+//
+static int InsertThousandsSep(Vector buf, int pt, int last, char sep, int group_len)
 {
-    const int nsep = (pos - 1) / group_len;
+    assert(pt >= 0);
+    assert(pt <= last);
+    assert(sep != '\0');
+    assert(group_len > 0);
+
+    const int nsep = (pt - 1) / group_len;
 
     if (nsep <= 0)
         return 0;
 
     int shift = nsep;
-    for (int i = pos - 1; shift > 0; --shift, i -= group_len)
+
+    for (int i = last - 1; i >= pt; --i)
+        buf[i + shift] = buf[i];
+
+    for (int i = pt - 1; shift > 0; --shift, i -= group_len)
     {
         for (int j = 0; j < group_len; ++j)
             buf[i - j + shift] = buf[i - j];
@@ -501,14 +519,20 @@ static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
 
     const bool upper = ('A' <= conv && conv <= 'Z');
 
-    char buf[64 + 32];
+    // Generate digits backwards at buf+64. (64 is the number of digits of UINT64_MAX in base 2)
+    // Then insert thousands-separators - if any. (15 = (64 - 1) / 3)
+    char buf[64 + 15];
     char*       l = buf + 64;
     char* const f = IntToAsciiBackwards(l, number, base, upper);
 
     if (spec.tsep)
     {
         const int group_len = (base == 10) ? 3 : 4;
-        l += InsertThousandsSep(f, static_cast<int>(l - f), spec.tsep, group_len);
+        const int pos       = static_cast<int>(l - f);
+        const int last      = pos;
+
+        Vector vec(f, pos + 15);
+        l += InsertThousandsSep(vec, pos, last, spec.tsep, group_len);
     }
 
     return WriteNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
@@ -606,28 +630,6 @@ struct DtoaOptions {
     bool emit_positive_exponent_sign = true;  //   E G A
 };
 
-static void InsertThousandsSep(Vector buf, int buflen, int decpt, DtoaOptions const& options)
-{
-    assert(options.thousands_sep != '\0');
-    assert(decpt > 0);
-
-    int shift = (decpt - 1) / 3;
-
-    if (shift <= 0)
-        return;
-
-    for (int i = buflen - 1; i >= decpt; --i)
-        buf[i + shift] = buf[i];
-
-    for (int i = decpt - 1; shift > 0; shift--, i -= 3)
-    {
-        buf[i - 0 + shift] = buf[i - 0];
-        buf[i - 1 + shift] = buf[i - 1];
-        buf[i - 2 + shift] = buf[i - 2];
-        buf[i - 3 + shift] = options.thousands_sep;
-    }
-}
-
 static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int precision, DtoaOptions const& options)
 {
     assert(precision >= 0);
@@ -687,7 +689,7 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
     }
 
     if (options.thousands_sep != '\0')
-        InsertThousandsSep(buf, buflen, decpt, options);
+        InsertThousandsSep(buf, decpt, buflen, options.thousands_sep, 3);
 }
 
 static int ComputeFixedRepresentationLength(int num_digits, int decpt, int precision, DtoaOptions const& options)

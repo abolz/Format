@@ -87,9 +87,9 @@ struct FMTXX_VISIBILITY_DEFAULT FormatBuffer
 {
     FMTXX_API virtual ~FormatBuffer();
 
-    FMTXX_API virtual bool Put(char c) = 0;
-    FMTXX_API virtual bool Pad(char c, size_t count) = 0;
-    FMTXX_API virtual bool Write(char const* str, size_t len) = 0;
+    virtual bool Put(char c) = 0;
+    virtual bool Pad(char c, size_t count) = 0;
+    virtual bool Write(char const* str, size_t len) = 0;
 };
 
 struct FMTXX_VISIBILITY_DEFAULT StringBuffer : public FormatBuffer

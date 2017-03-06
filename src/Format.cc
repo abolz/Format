@@ -2,8 +2,6 @@
 
 #include "Format.h"
 
-// TODO:
-// Make double-conversion opt-in/opt-out?
 #include "double-conversion/bignum-dtoa.h"
 #include "double-conversion/fast-dtoa.h"
 #include "double-conversion/fixed-dtoa.h"
@@ -22,45 +20,42 @@ using Vector = double_conversion::Vector<char>;
 template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
 template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
 
-// API
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
 fmtxx::FormatBuffer::~FormatBuffer()
 {
 }
 
-// API
 bool fmtxx::StringBuffer::Put(char c)
 {
     os.push_back(c);
     return true;
 }
 
-// API
 bool fmtxx::StringBuffer::Write(char const* str, size_t len)
 {
     os.append(str, len);
     return true;
 }
 
-// API
 bool fmtxx::StringBuffer::Pad(char c, size_t count)
 {
     os.append(count, c);
     return true;
 }
 
-// API
 bool fmtxx::FILEBuffer::Put(char c)
 {
     return EOF != std::fputc(c, os);
 }
 
-// API
 bool fmtxx::FILEBuffer::Write(char const* str, size_t len)
 {
     return len == std::fwrite(str, 1, len, os);
 }
 
-// API
 bool fmtxx::FILEBuffer::Pad(char c, size_t count)
 {
     const size_t kBlockSize = 32;
@@ -81,7 +76,6 @@ bool fmtxx::FILEBuffer::Pad(char c, size_t count)
     return true;
 }
 
-// API
 bool fmtxx::StreamBuffer::Put(char c)
 {
     using traits_type = std::ostream::traits_type;
@@ -94,7 +88,6 @@ bool fmtxx::StreamBuffer::Put(char c)
     return true;
 }
 
-// API
 bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
 {
     const auto kMaxLen = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
@@ -116,7 +109,6 @@ bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
     return true;
 }
 
-// API
 bool fmtxx::StreamBuffer::Pad(char c, size_t count)
 {
     const size_t kBlockSize = 32;
@@ -140,7 +132,6 @@ bool fmtxx::StreamBuffer::Pad(char c, size_t count)
     return true;
 }
 
-// API
 bool fmtxx::CharArrayBuffer::Put(char c)
 {
     if (next >= last)
@@ -150,7 +141,6 @@ bool fmtxx::CharArrayBuffer::Put(char c)
     return true;
 }
 
-// API
 bool fmtxx::CharArrayBuffer::Write(char const* str, size_t len)
 {
     if (static_cast<size_t>(last - next) < len)
@@ -161,7 +151,6 @@ bool fmtxx::CharArrayBuffer::Write(char const* str, size_t len)
     return true;
 }
 
-// API
 bool fmtxx::CharArrayBuffer::Pad(char c, size_t count)
 {
     if (static_cast<size_t>(last - next) < count)
@@ -256,9 +245,6 @@ static size_t ComputeEscapedStringLength(char const* first, char const* last)
     return n;
 }
 
-// TODO:
-// Escape using octal digits ???
-// Print escaped chars as escaped chars ('\t' --> "\\t") ???
 static bool PutEscapedString(FormatBuffer& fb, char const* str, size_t len, bool upper)
 {
     const char* const xdigits = upper
@@ -272,6 +258,7 @@ static bool PutEscapedString(FormatBuffer& fb, char const* str, size_t len, bool
     {
         while (f != l && IsPrint(*f))
             ++f;
+
         if (f != s && !fb.Write(s, static_cast<size_t>(f - s)))
             return false;
 
@@ -285,9 +272,7 @@ static bool PutEscapedString(FormatBuffer& fb, char const* str, size_t len, bool
             xdigits[ static_cast<unsigned char>(*f) &  0xF ],
         };
 
-//      if (!fb.Write(buf, 4))
-//          return false;
-        if (!fb.Put(buf[0]) || !fb.Put(buf[1]) || !fb.Put(buf[2]) || !fb.Put(buf[3]))
+        if (!fb.Write(buf, 4))
             return false;
 
         s = ++f;
@@ -489,7 +474,7 @@ static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
         sign = ComputeSignChar(sext < 0, spec.sign, spec.fill);
         if (sext < 0)
             number = 0 - static_cast<uint64_t>(sext);
-        // [[fall_through]]
+        //[[fallthrough]];
     case 'u':
         base = 10;
         break;
@@ -1420,6 +1405,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         break;
     case 'X':
         upper = true;
+        //[[fallthrough]];
     case 'x':
         tohex = true;
         break;

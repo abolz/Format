@@ -392,6 +392,7 @@ static void test_ints()
     EXPECT_EQUAL("          123", "{:_13}", 123);
     EXPECT_EQUAL("           12", "{:_13}", 12);
     EXPECT_EQUAL("            1", "{:_13}", 1);
+    EXPECT_EQUAL("18_446_744_073_709_551_615", "{:_}", UINT64_MAX);
 
     EXPECT_EQUAL("1234'5678", "{:'9x}", 0x12345678);
     EXPECT_EQUAL(" 123'4567", "{:'9x}", 0x1234567);
@@ -421,6 +422,7 @@ static void test_ints()
     EXPECT_EQUAL("       11", "{:_9b}", 0x03);
     EXPECT_EQUAL("        1", "{:_9b}", 0x01);
     EXPECT_EQUAL("        0", "{:_9b}", 0x00);
+    EXPECT_EQUAL("1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111", "{:_b}", UINT64_MAX);
 
     EXPECT_EQUAL("4294966062", "{:u}", -1234);
     EXPECT_EQUAL("4294966062", "{: u}", -1234);
@@ -587,6 +589,18 @@ static void test_floats()
     EXPECT_EQUAL("0x1.922p+1",            "{:.3a}", 3.1415927);
     EXPECT_EQUAL("0x1.9220p+1",           "{:.4a}", 3.1415927);
     EXPECT_EQUAL("0x1.921fbp+1",          "{:.5a}", 3.1415927);
+    EXPECT_EQUAL("      0x1.922p+1",            "{:16.3a}", 3.1415927);
+    EXPECT_EQUAL("     0x1.9220p+1",           "{:16.4a}", 3.1415927);
+    EXPECT_EQUAL("    0x1.921fbp+1",          "{:16.5a}", 3.1415927);
+    EXPECT_EQUAL("0x0000001.922p+1",            "{:016.3a}", 3.1415927);
+    EXPECT_EQUAL("0x000001.9220p+1",           "{:016.4a}", 3.1415927);
+    EXPECT_EQUAL("0x00001.921fbp+1",          "{:016.5a}", 3.1415927);
+    EXPECT_EQUAL("     -0x1.500p+5", "{:16.3a}", -42.0);
+    EXPECT_EQUAL("    -0x1.5000p+5", "{:16.4a}", -42.0);
+    EXPECT_EQUAL("   -0x1.50000p+5", "{:16.5a}", -42.0);
+    EXPECT_EQUAL("-0x000001.500p+5", "{:016.3a}", -42.0);
+    EXPECT_EQUAL("-0x00001.5000p+5", "{:016.4a}", -42.0);
+    EXPECT_EQUAL("-0x0001.50000p+5", "{:016.5a}", -42.0);
 
     EXPECT_EQUAL("1p-1022",               "{:x}", std::numeric_limits<double>::min());
     EXPECT_EQUAL("1p-1074",               "{:x}", std::numeric_limits<double>::denorm_min());

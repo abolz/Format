@@ -74,14 +74,24 @@ solution "Libs"
 --------------------------------------------------------------------------------
 group "Libs"
 
+project "double-conversion"
+    language "C++"
+    kind "StaticLib"
+    files {
+        "src/double-conversion/*.cc",
+        "src/double-conversion/*.h",
+    }
+    configuration { "gmake" }
+        buildoptions {
+            "-fPIC",
+        }
+
 project "fmtxx"
     language "C++"
     kind "SharedLib"
     files {
         "src/Format.h",
         "src/Format.cc",
-        "src/double-conversion/*.h",
-        "src/double-conversion/*.cc",
     }
     defines {
         "FMTXX_SHARED",
@@ -89,6 +99,9 @@ project "fmtxx"
     }
     includedirs {
         "src/",
+    }
+    links {
+        "double-conversion",
     }
     configuration { "gmake" }
         buildoptions {
@@ -132,6 +145,16 @@ project "Test"
         "fmtxx",
     }
 
+project "TestBignum"
+    language "C++"
+    kind "ConsoleApp"
+    files {
+        "test/TestBignum.cc",
+    }
+    links {
+        "double-conversion",
+    }
+
 project "TestPerf"
     language "C++"
     kind "ConsoleApp"
@@ -144,6 +167,7 @@ project "TestPerf"
     }
     includedirs {
         "src/",
+        "test/ext/",
         "test/ext/fmt/",
     }
     links {

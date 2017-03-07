@@ -28,8 +28,8 @@
     struct FormatBuffer {
         virtual ~FormatBuffer();
         virtual bool Put(char c);
-        virtual bool Put(char c, size_t count);
         virtual bool Write(char const* str, size_t len);
+        virtual bool Pad(char c, size_t count);
     };
 
     // Formatting function for user-defined types.
@@ -63,11 +63,13 @@
                          '}'
     argument_index    := integer
     format_spec_index := integer
-    format_spec       := [[fill] align] [sign] ['#'] ['''] ['0'] [width] ['.' precision] [conv]
+    format_spec       := [[fill] align] [flags] [width] ['.' precision] [conv]
     style             := character*
     fill              := character
     align             := '<' | '^' | '>' | '='
+    flags             := [sign] ['#'] [thousands_sep] ['0']
     sign              := ' ' | '-' | '+'
+    thousands_sep     := ''' | '_'
     width             := integer
     precision         := integer
     conv              := character
@@ -84,25 +86,45 @@ Value | Meaning
 `^`	| Centered within the available space.
 `=`	| For numbers: Padding is placed after the sign (if any) but before the digits.
 
-The `conv` option specifies how the data should be represented. For built-in
-types and strings, the valid values are:
+The `flags` may be specified in any order.
 
-Value |  Meaning
-------|----------
-None | The same as 's'.
-`s` | For ints: Same as `d`. For floats: a short representation which is guaranteed to round-trip.
-`i`	| For ints: Same as `d`.
-`d`	| For ints: Display in base 10.
-`u` | For ints: Display in base 10.
-`b`	| For ints: Display in base 2.
-`o`	| For ints: Display in base 8.
-`x` | For ints: Display in base 16. For floats: Normalized hexadecimal format, guaranteed to round-trip.
-`X` | For ints: Display in base 16. For floats: Normalized hexadecimal format, guaranteed to round-trip.
-`f` | For floats: Same as printf `%f`.
-`F` | For floats: Same as printf `%F`.
-`e` | For floats: Same as printf `%e`.
-`E` | For floats: Same as printf `%E`.
-`g` | For floats: Same as printf `%g`.
-`G` | For floats: Same as printf `%G`.
-`a` | For floats: Same as printf `%a`.
-`A` | For floats: Same as printf `%A`.
+The `conv` option specifies how the data should be presented. For built-in
+types the valid values are:
+
+For strings:
+
+Value | Meaning
+------|--------
+`s`   | Nothing special.
+`x`   | Prints non-printable (ASCII) characters as a hexadecimal number in the form `\xff`.
+`X`   | Prints non-printable (ASCII) characters as a hexadecimal number in the form `\xFF`.
+
+For ints:
+
+Value | Meaning
+------|--------
+`s`   | Same as `d`
+`i`	  | Same as `d`.
+`d`	  | Display as a signed decimal integer.
+`u`   | Unsigned; base 10.
+`b`	  | Unsigned; base 2, prefixed with `0b` if `#` is specified.
+`B`   | Unsigned; base 2, prefixed with `0B` if `#` is specified.
+`o`	  | Unsigned; base 8, prefixed with `0` if `#` is specified (and value is non-zero).
+`x`   | Unsigned; base 16, using lower-case digits, prefixed with `0x` if `#` is specified.
+`X`   | Unsigned; base 16. using upper-case digits, prefixed with `0X` if `#` is specified.
+
+For floats:
+
+Value | Meaning
+------|--------
+`s`   | Short decimal representation (either fixed- or exponential-form) which is guaranteed to round-trip (`prec` is ignored).
+`f`   | Same as printf `%f`.
+`F`   | Same as printf `%F`.
+`e`   | Same as printf `%e`.
+`E`   | Same as printf `%E`.
+`g`   | Same as printf `%g`.
+`G`   | Same as printf `%G`.
+`a`   | Same as printf `%a`.
+`A`   | Same as printf `%A`.
+`x`   | Normalized hexadecimal form, i.e. the leading digit is always `1`, which is guaranteed to round-trip (`prec` is ignored), exponent-char is `p`, prefixed with `0x` the `#` is specified.
+`X`   | Normalized hexadecimal form, i.e. the leading digit is always `1`, which is guaranteed to round-trip (`prec` is ignored), exponent-char is `p`, prefixed with `0x` the `#` is specified.

@@ -240,7 +240,7 @@ static size_t ComputeEscapedStringLength(char const* first, char const* last)
         if (IsPrint(*first))
             n += 1;
         else
-            n += 4; // "\xFF"
+            n += 4; // "\xFF" or "\377"
     }
     return n;
 }
@@ -265,15 +265,12 @@ static bool PutEscapedString(FormatBuffer& fb, char const* str, size_t len, bool
         if (f == l) // done.
             break;
 
-        const char buf[] = {
-            '\\',
-            'x',
-            xdigits[ static_cast<unsigned char>(*f) >> 4   ],
-            xdigits[ static_cast<unsigned char>(*f) &  0xF ],
-        };
-
-        if (!fb.Write(buf, 4))
+        if (!fb.Put('\\'))
             return false;
+        if (!fb.Put('x'))
+            return false;
+        if (!fb.Put( xdigits[static_cast<unsigned char>(*f) >> 4       ])) return false;
+        if (!fb.Put( xdigits[static_cast<unsigned char>(*f)      & 0xF ])) return false;
 
         s = ++f;
     }
@@ -281,11 +278,42 @@ static bool PutEscapedString(FormatBuffer& fb, char const* str, size_t len, bool
     return true;
 }
 
+#if 0
+static bool PutEscapedStringOctal(FormatBuffer& fb, char const* str, size_t len)
+{
+    char const* f = str;
+    char const* l = str + len;
+    char const* s = f;
+    for (;;)
+    {
+        while (f != l && IsPrint(*f))
+            ++f;
+
+        if (f != s && !fb.Write(s, static_cast<size_t>(f - s)))
+            return false;
+
+        if (f == l) // done.
+            break;
+
+        if (!fb.Put('\\'))
+            return false;
+        if (!fb.Put( "01234567"[static_cast<unsigned char>(*f) >> 6      ] )) return false;
+        if (!fb.Put( "01234567"[static_cast<unsigned char>(*f) >> 3 & 0x7] )) return false;
+        if (!fb.Put( "01234567"[static_cast<unsigned char>(*f)      & 0x7] )) return false;
+
+        s = ++f;
+    }
+
+    return true;
+}
+#endif
+
 static errc WriteEscapedString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len, bool upper)
 {
     const size_t ascii_len = ComputeEscapedStringLength(str, str + len);
 
-    if (ascii_len == len) {
+    if (ascii_len == len)
+    {
         // The string only contains printable characters.
         return WriteRawString(fb, spec, str, len);
     }

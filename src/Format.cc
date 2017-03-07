@@ -632,7 +632,7 @@ struct DtoaOptions {
 
 static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int precision, DtoaOptions const& options)
 {
-    assert(precision >= 0);
+    assert(options.decimal_point_char != '\0');
 
     if (decpt <= 0)
     {
@@ -694,6 +694,8 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
 
 static int ComputeFixedRepresentationLength(int num_digits, int decpt, int precision, DtoaOptions const& options)
 {
+    assert(num_digits >= 0);
+
     if (decpt <= 0)
     {
         if (precision > 0)
@@ -830,8 +832,11 @@ static int ComputeExponentLength(int exponent, DtoaOptions const& options)
 
 static void AppendExponent(Vector buf, int pos, int exponent, DtoaOptions const& options)
 {
-    assert(-10000 < exponent && exponent < 10000);
-    assert(1 <= options.min_exponent_digits && options.min_exponent_digits <= 4);
+    assert(exponent > -10000);
+    assert(exponent <  10000);
+    assert(options.exponent_char != '\0');
+    assert(options.min_exponent_digits >= 1);
+    assert(options.min_exponent_digits <= 4);
 
     buf[pos++] = options.exponent_char;
 
@@ -855,20 +860,20 @@ static void AppendExponent(Vector buf, int pos, int exponent, DtoaOptions const&
 
 static void CreateExponentialRepresentation(Vector buf, int num_digits, int exponent, int precision, DtoaOptions const& options)
 {
+    assert(options.decimal_point_char != '\0');
+
     int pos = 0;
 
     pos += 1; // leading digit
     if (num_digits > 1)
     {
-        assert(precision < 0 || precision >= num_digits - 1);
-
         std::copy_backward(buf.begin() + pos, buf.begin() + (pos + num_digits - 1), buf.begin() + (pos + num_digits));
         buf[pos] = options.decimal_point_char;
         pos += 1 + (num_digits - 1);
 
-        const int nz = precision - (num_digits - 1);
-        if (nz > 0)
+        if (precision > num_digits - 1)
         {
+            const int nz = precision - (num_digits - 1);
             std::fill_n(buf.begin() + pos, nz, '0');
             pos += nz;
         }
@@ -890,21 +895,25 @@ static void CreateExponentialRepresentation(Vector buf, int num_digits, int expo
 
 static int ComputeExponentialRepresentationLength(int num_digits, int exponent, int precision, DtoaOptions const& options)
 {
+    assert(num_digits > 0);
+    assert(exponent > -10000);
+    assert(exponent <  10000);
+    assert(precision < 0 || precision >= num_digits - 1);
+
     int len = 0;
 
     len += num_digits;
     if (num_digits > 1)
     {
         len += 1; // decimal point
-        const int nz = precision - (num_digits - 1);
-        if (nz > 0)
-            len += nz;
+        if (precision > num_digits - 1)
+            len += precision - (num_digits - 1);
     }
     else if (precision > 0)
     {
         len += 1 + precision;
     }
-    else
+    else // precision <= 0
     {
         if (options.use_alternative_form)
             len += 1; // decimal point
@@ -1016,6 +1025,8 @@ static DtoaResult DtoaExponential(char* first, char* last, double d, int precisi
 //
 static DtoaResult DtoaGeneral(char* first, char* last, double d, int precision, DtoaOptions const& options)
 {
+    assert(precision >= 0);
+
     Vector buf(first, static_cast<int>(last - first));
 
     int num_digits = 0;
@@ -1057,8 +1068,8 @@ static DtoaResult DtoaGeneral(char* first, char* last, double d, int precision, 
         int prec = P - 1;
         if (!options.use_alternative_form)
         {
-            if (prec > num_digits - decpt)
-                prec = num_digits - decpt;
+            if (prec > num_digits - 1)
+                prec = num_digits - 1;
         }
 
         const int output_len = ComputeExponentialRepresentationLength(num_digits, X, prec, options);
@@ -1102,11 +1113,14 @@ static int CountLeadingZeros64(uint64_t n)
 
 static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, Vector buffer, int* num_digits, int* binary_exponent)
 {
-    const char* const kHexDigits = upper
+    const char* const xdigits = upper
         ? "0123456789ABCDEF"
         : "0123456789abcdef";
 
     const Double d { v };
+
+    assert(!d.IsSpecial()); // NaN or infinity?
+    assert(d.Abs() >= 0);
 
     if (d.IsZero())
     {
@@ -1173,7 +1187,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
 
     *binary_exponent = e;
 
-    buffer[(*num_digits)++] = kHexDigits[normalize ? 1 : (sig >> 52)];
+    buffer[(*num_digits)++] = xdigits[normalize ? 1 : (sig >> 52)];
 
     // Ignore everything but the significand.
     // Shift everything to the left; makes the loop below slightly simpler.
@@ -1181,7 +1195,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
 
     while (sig != 0)
     {
-        buffer[(*num_digits)++] = kHexDigits[sig >> (64 - 4)];
+        buffer[(*num_digits)++] = xdigits[sig >> (64 - 4)];
         sig <<= 4;
     }
 }
@@ -1211,27 +1225,25 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
 //
 static DtoaResult DtoaHex(char* first, char* last, double d, int precision, DtoaOptions const& options)
 {
-    char buf[32];
+    assert(static_cast<size_t>(last - first) >= 52/4 + 1);
 
     int num_digits = 0;
     int binary_exponent = 0;
 
-    const bool use_buf = (last - first < 52/4 + 1);
     GenerateHexDigits(
             d,
             precision,
             options.normalize,
             options.use_upper_case_digits,
-            Vector(use_buf ? buf : first, 52/4 + 1),
+            Vector(first, 52/4 + 1),
             &num_digits,
             &binary_exponent);
+
+    assert(num_digits > 0);
 
     const int output_len = ComputeExponentialRepresentationLength(num_digits, binary_exponent, precision, options);
     if (last - first >= output_len)
     {
-        if (use_buf)
-            std::memcpy(first, buf, static_cast<size_t>(num_digits));
-
         CreateExponentialRepresentation(Vector(first, output_len), num_digits, binary_exponent, precision, options);
         return { first + output_len, 0 };
     }
@@ -1286,13 +1298,12 @@ static void GenerateShortestDigits(double v, Vector vec, int* num_digits, int* d
 
 static DtoaResult DtoaShortest(char* first, char* last, double d, DtoaShortStyle style, DtoaOptions const& options)
 {
-    char buf[17 + 1];
+    assert(static_cast<size_t>(last - first) >= 17 + 1);
 
     int num_digits = 0;
     int decpt = 0;
 
-    const bool use_buf = (last - first < 17 + 1);
-    GenerateShortestDigits(d, Vector(use_buf ? buf : first, 17 + 1), &num_digits, &decpt);
+    GenerateShortestDigits(d, Vector(first, 17 + 1), &num_digits, &decpt);
 
     assert(num_digits > 0);
 
@@ -1309,9 +1320,6 @@ static DtoaResult DtoaShortest(char* first, char* last, double d, DtoaShortStyle
     {
         if (last - first >= fixed_len)
         {
-            if (use_buf)
-                std::memcpy(first, buf, static_cast<size_t>(num_digits));
-
             CreateFixedRepresentation(Vector(first, fixed_len), num_digits, decpt, fixed_precision, options);
             return { first + fixed_len, 0 };
         }
@@ -1320,10 +1328,7 @@ static DtoaResult DtoaShortest(char* first, char* last, double d, DtoaShortStyle
     {
         if (last - first >= exponential_len)
         {
-            if (use_buf)
-                std::memcpy(first, buf, static_cast<size_t>(num_digits));
-
-            CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, /*num_digits_after_point*/ num_digits - 1, options);
+            CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, num_digits - 1, options);
             return { first + exponential_len, 0 };
         }
     }
@@ -1331,160 +1336,130 @@ static DtoaResult DtoaShortest(char* first, char* last, double d, DtoaShortStyle
     return { last, -1 };
 }
 
-static DtoaResult PrintfDouble(char* first, char* last, double d, int precision, char thousands_sep, bool hash, char conv)
+static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 {
     DtoaOptions options;
 
-    options.use_upper_case_digits       = true;
+    options.use_upper_case_digits       = false;
     options.normalize                   = false;
-    options.thousands_sep               = thousands_sep;
+    options.thousands_sep               = spec.tsep;
     options.decimal_point_char          = '.';
-    options.use_alternative_form        = hash;
+    options.use_alternative_form        = spec.hash != '\0';
     options.min_exponent_digits         = 2;
-    options.exponent_char               = 'e';
+    options.exponent_char               = '\0';
     options.emit_positive_exponent_sign = true;
 
-    int prec = precision;
-    switch (conv)
-    {
-    case 'f':
-    case 'F':
-        if (prec < 0)
-            prec = 6;
-        return DtoaFixed(first, last, d, prec, options);
-    case 'e':
-    case 'E':
-        if (prec < 0)
-            prec = 6;
-        options.exponent_char = conv;
-        return DtoaExponential(first, last, d, prec, options);
-    case 'g':
-    case 'G':
-        if (prec < 0)
-            prec = 6;
-        options.exponent_char = conv == 'G' ? 'E' : 'e';
-        return DtoaGeneral(first, last, d, prec, options);
-    case 'a':
-    case 'A':
-        options.use_upper_case_digits = conv == 'A';
-        options.min_exponent_digits   = 1;
-        options.exponent_char         = conv == 'A' ? 'P' : 'p';
-        return DtoaHex(first, last, d, prec, options);
-    default:
-        assert(!"invalid conversion specifier");
-        return { last, -1 };
-    }
-}
+    char        conv = spec.conv;
+    int         prec = spec.prec;
+    char const* prefix = nullptr;
+    size_t      nprefix = 0;
 
-static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
-{
-    char conv = spec.conv;
-    bool upper = false;
-    bool tostr = false;
-    bool tohex = false;
     switch (conv)
     {
     default:
         // I'm sorry Dave, I'm afraid I can't do that.
     case '\0':
         conv = 's';
-        tostr = true;
-        break;
     case 'S':
-        upper = true;
-        tostr = true;
+    case 's':
+        options.use_alternative_form = false;
+        options.exponent_char = 'e';
+        options.min_exponent_digits = 1;
         break;
-    case 'f':
+    case 'E':
     case 'e':
-    case 'g':
-    case 'a':
+        options.exponent_char = conv;
+        if (prec < 0)
+            prec = 6;
         break;
     case 'F':
-    case 'E':
+    case 'f':
+        if (prec < 0)
+            prec = 6;
+        break;
     case 'G':
+    case 'g':
+        options.exponent_char = (conv == 'g') ? 'e' : 'E';
+        if (prec < 0)
+            prec = 6;
+        break;
     case 'A':
-        upper = true;
+        options.use_upper_case_digits = true;
+        options.exponent_char = 'P';
+        options.min_exponent_digits = 1;
+        prefix = "0X";
+        nprefix = 2; // Always add a prefix. Like printf.
+        break;
+    case 'a':
+        options.exponent_char = 'p';
+        options.min_exponent_digits = 1;
+        prefix = "0x";
+        nprefix = 2; // Always add a prefix. Like printf.
         break;
     case 'X':
-        upper = true;
-        //[[fallthrough]];
+        options.use_upper_case_digits = true;
     case 'x':
-        tohex = true;
+        options.normalize = true;
+        options.use_alternative_form = false;
+        options.exponent_char = 'p';
+        options.min_exponent_digits = 1;
+        prefix = "0x";
+        nprefix = (spec.hash != '\0') ? 2u : 0u; // Add a prefix only if '#' was specified. As with integers.
         break;
     }
 
     const Double d { x };
 
-    const bool neg = (d.Sign() != 0);
+    const bool   neg = (d.Sign() != 0);
     const double abs_x = d.Abs();
-
-    const char sign = ComputeSignChar(neg, spec.sign, spec.fill);
+    const char   sign = ComputeSignChar(neg, spec.sign, spec.fill);
 
     if (d.IsSpecial())
     {
+        const bool upper = ('A' <= conv && conv <= 'Z');
+
         if (d.IsNaN())
             return WriteRawString(fb, spec, upper ? "NAN" : "nan");
 
         const char inf[] = { sign, upper ? 'I' : 'i', upper ? 'N' : 'n', upper ? 'F' : 'f', '\0' };
         return WriteRawString(fb, spec, inf + (sign == '\0' ? 1 : 0));
     }
-    else if (tostr)
+
+    const int kBufSize = 1500;
+    char buf[kBufSize];
+
+    DtoaResult res;
+    switch (conv)
     {
-        DtoaOptions options;
-
-        options.use_upper_case_digits       = true;
-        options.normalize                   = true;
-        options.thousands_sep               = spec.tsep;
-        options.decimal_point_char          = '.';
-        options.use_alternative_form        = false;
-        options.min_exponent_digits         = 1;
-        options.exponent_char               = 'e';
-        options.emit_positive_exponent_sign = true;
-
-        char buf[32];
-        const auto res = DtoaShortest(buf, buf + 32, abs_x, DtoaShortStyle::general, options);
-        assert(!res.ec);
-
-        return WriteNumber(fb, spec, sign, nullptr, 0, buf, static_cast<size_t>(res.next - buf));
+    case 's':
+    case 'S':
+        res = DtoaShortest(buf, buf + kBufSize, abs_x, DtoaShortStyle::general, options);
+        break;
+    case 'f':
+    case 'F':
+        res = DtoaFixed(buf, buf + kBufSize, abs_x, prec, options);
+        break;
+    case 'e':
+    case 'E':
+        res = DtoaExponential(buf, buf + kBufSize, abs_x, prec, options);
+        break;
+    case 'g':
+    case 'G':
+        res = DtoaGeneral(buf, buf + kBufSize, abs_x, prec, options);
+        break;
+    case 'a':
+    case 'A':
+    case 'x':
+    case 'X':
+        res = DtoaHex(buf, buf + kBufSize, abs_x, prec, options);
+        break;
     }
-    else if (tohex)
-    {
-        DtoaOptions options;
 
-        options.use_upper_case_digits       = upper;
-        options.normalize                   = true;
-        options.thousands_sep               = spec.tsep;
-        options.decimal_point_char          = '.';
-        options.use_alternative_form        = false;
-        options.min_exponent_digits         = 1;
-        options.exponent_char               = 'p';
-        options.emit_positive_exponent_sign = true;
+    if (res.ec)
+        return WriteRawString(fb, spec, "[[internal buffer too small]]");
 
-        const bool alt = (spec.hash != '\0');
-
-        char buf[32];
-        const auto res = DtoaHex(buf, buf + 32, abs_x, spec.prec, options);
-        assert(!res.ec);
-
-        const size_t nprefix = alt ? 2u : 0u;
-
-        return WriteNumber(fb, spec, sign, "0x", nprefix, buf, static_cast<size_t>(res.next - buf));
-    }
-    else
-    {
-        const int kBufSize = 1500;
-        char buf[kBufSize];
-
-        const bool alt = (spec.hash != '\0');
-
-        const auto res = PrintfDouble(buf, buf + kBufSize, abs_x, spec.prec, spec.tsep, alt, conv);
-        if (res.ec)
-            return WriteRawString(fb, spec, "[[internal buffer too small]]");
-
-        const size_t nprefix = (conv == 'a' || conv == 'A') ? 2u : 0u;
-
-        return WriteNumber(fb, spec, sign, upper ? "0X" : "0x", nprefix, buf, static_cast<size_t>(res.next - buf));
-    }
+    const size_t ndigits = static_cast<size_t>(res.next - buf);
+    return WriteNumber(fb, spec, sign, prefix, nprefix, buf, ndigits);
 }
 
 //

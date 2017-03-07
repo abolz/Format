@@ -347,9 +347,8 @@ static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* st
     default:
         return WriteRawString(fb, spec, str, n);
     case 'x':
-        return WriteEscapedString(fb, spec, str, n, /*upper*/ false);
     case 'X':
-        return WriteEscapedString(fb, spec, str, n, /*upper*/ true);
+        return WriteEscapedString(fb, spec, str, n, /*upper*/ spec.conv == 'X');
     }
 }
 
@@ -370,9 +369,8 @@ static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* st
     default:
         return WriteRawString(fb, spec, str, len);
     case 'x':
-        return WriteEscapedString(fb, spec, str, len, /*upper*/ false);
     case 'X':
-        return WriteEscapedString(fb, spec, str, len, /*upper*/ true);
+        return WriteEscapedString(fb, spec, str, len, /*upper*/ spec.conv == 'X');
     }
 }
 
@@ -754,6 +752,7 @@ static int ComputeFixedRepresentationLength(int num_digits, int decpt, int preci
 static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
 {
     assert(vec.length() >= 1);
+    assert(vec.length() >= 40); // For FastFixedDtoa
 
     using namespace double_conversion;
 
@@ -771,24 +770,12 @@ static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int*
         return true;
     }
 
-    const int e = d.UnbiasedExponent();
-
-    const double log2_of_10 = 3.32192809488736235;
-    const int min_buffer_length
-        = requested_digits
-            + (e <= 0 ? 0
-                      : static_cast<int>((e + 1) / log2_of_10))
-            + 1 // null
-            ;
-
-    if (vec.length() < min_buffer_length)
-        return false;
-
     const bool fast_worked = FastFixedDtoa(v, requested_digits, vec, num_digits, decpt);
     if (!fast_worked)
-        BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
-
-    assert(*num_digits <= min_buffer_length);
+    {
+        if (!BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt))
+            return false; // buffer not large enough.
+    }
 
     return true;
 }
@@ -985,7 +972,11 @@ static bool GeneratePrecisionDigits(double v, int requested_digits, Vector vec, 
 
     const bool fast_worked = FastDtoa(v, FAST_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
     if (!fast_worked)
-        BignumDtoa(v, BIGNUM_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
+    {
+        const bool bignum_worked = BignumDtoa(v, BIGNUM_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
+        assert(bignum_worked);
+        static_cast<void>(bignum_worked); // fix warning
+    }
 
     return true;
 }
@@ -1321,7 +1312,11 @@ static void GenerateShortestDigits(double v, Vector vec, int* num_digits, int* d
 
     const bool fast_worked = FastDtoa(v, FAST_DTOA_SHORTEST, 0, vec, num_digits, decpt);
     if (!fast_worked)
-        BignumDtoa(v, BIGNUM_DTOA_SHORTEST, -1, vec, num_digits, decpt);
+    {
+        const bool bignum_worked = BignumDtoa(v, BIGNUM_DTOA_SHORTEST, -1, vec, num_digits, decpt);
+        assert(bignum_worked);
+        static_cast<void>(bignum_worked); // fix warning
+    }
 }
 
 static DtoaResult DtoaShortest(char* first, char* last, double d, DtoaShortStyle style, DtoaOptions const& options)
@@ -1480,6 +1475,10 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     case 'x':
     case 'X':
         res = DtoaHex(buf, buf + kBufSize, abs_x, prec, options);
+        break;
+    default:
+        res = { buf + kBufSize, -1 };
+        assert(!"internal error");
         break;
     }
 

@@ -16,8 +16,8 @@
 #include <vector>
 
 #define NO_COMP             0 //1:profile
-#define NO_SYNC_WITH_STDIO  0
-#define NO_IOBUF            0
+#define NO_SYNC_WITH_STDIO  1
+#define NO_IOBUF            1
 
 using Clock = std::chrono::steady_clock;
 
@@ -164,7 +164,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 #endif
-#if 0
+#if 1
     times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(stdout, format_fmtxx, i); });
 #endif
 #if 0
@@ -179,7 +179,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
         std::fwrite(str.data(), 1, str.size(), stdout);
     });
 #endif
-#if 1
+#if 0
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArrayBuffer fb { buf };
@@ -283,7 +283,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestInts<int64_t>("%lld",     "{}");
     TestInts<int64_t>("%8lld",    "{:8d}");
     TestInts<int64_t>("%24lld",   "{:24d}");
@@ -306,7 +306,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0
+#if 1
     TestFloats(0.0,      1.0,      "%.17f", "{:.17f}");
     TestFloats(1.0,      1.0e+20,  "%.17f", "{:.17f}");
     TestFloats(1.0e+20,  1.0e+40,  "%.17f", "{:.17f}");
@@ -316,7 +316,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0
+#if 1
     TestFloats(0.0,      1.0,      "%.17e", "{:.17e}");
     TestFloats(1.0,      1.0e+20,  "%.17e", "{:.17e}");
     TestFloats(1.0e+20,  1.0e+40,  "%.17e", "{:.17e}");
@@ -326,11 +326,31 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0
+#if 1
     TestFloats(0.0,      1.0,      "%.17g", "{:.17g}");
     TestFloats(1.0,      1.0e+20,  "%.17g", "{:.17g}");
     TestFloats(1.0e+20,  1.0e+40,  "%.17g", "{:.17g}");
     TestFloats(1.0e+40,  1.0e+60,  "%.17g", "{:.17g}");
+
+    PrintAvgTimes();
+    timing_results.clear();
+#endif
+
+#if 0
+    TestFloats(0.0,      1.0,      "%.17g", "{}", "{:.17g}");
+    TestFloats(1.0,      1.0e+20,  "%.17g", "{}", "{:.17g}");
+    TestFloats(1.0e+20,  1.0e+40,  "%.17g", "{}", "{:.17g}");
+    TestFloats(1.0e+40,  1.0e+60,  "%.17g", "{}", "{:.17g}");
+
+    PrintAvgTimes();
+    timing_results.clear();
+#endif
+
+#if 1
+    TestFloats(0.0,      1.0,      "%a", "{:a}");
+    TestFloats(1.0,      1.0e+20,  "%a", "{:a}");
+    TestFloats(1.0e+20,  1.0e+40,  "%a", "{:a}");
+    TestFloats(1.0e+40,  1.0e+60,  "%a", "{:a}");
 
     PrintAvgTimes();
     timing_results.clear();

@@ -268,6 +268,7 @@ static void test_strings()
     EXPECT_EQUAL(R"(He\x09\x0A)",       "{:.4X}",   "He\t\nllo");
     EXPECT_EQUAL(R"(He\x09\x0allo)",    "{:.17x}",  "He\t\nllo");
     EXPECT_EQUAL(R"(He\x09\x0Allo)",    "{:.17X}",  "He\t\nllo");
+    EXPECT_EQUAL(R"(He\011\012llo)", "{:o}", "He\t\nllo");
 }
 
 template <typename Formatter>

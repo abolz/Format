@@ -245,29 +245,40 @@ static size_t ComputeEscapedStringLength(char const* first, char const* last)
     return n;
 }
 
-static bool PutHexChar(FormatBuffer& fb, char const* const xdigits, unsigned char ch)
+static bool PutHexChar(FormatBuffer& fb, char const* const digits, unsigned char ch)
 {
     if (!fb.Put('\\'))
         return false;
     if (!fb.Put('x'))
         return false;
-    if (!fb.Put(xdigits[ch >> 4]))
+    if (!fb.Put(digits[ch >> 4]))
         return false;
-    if (!fb.Put(xdigits[ch & 0xF]))
+    if (!fb.Put(digits[ch & 0xF]))
         return false;
 
     return true;
 }
 
-static bool PrintAndPadEscapedString(FormatBuffer& fb, char const* str, size_t len, bool upper)
+static bool PutOctalChar(FormatBuffer& fb, char const* const digits, unsigned char ch)
 {
-    const char* const xdigits = upper
-        ? "0123456789ABCDEF"
-        : "0123456789abcdef";
+    if (!fb.Put('\\'))
+        return false;
+    if (!fb.Put(digits[ch >> 6]))
+        return false;
+    if (!fb.Put(digits[ch >> 3 & 0x7]))
+        return false;
+    if (!fb.Put(digits[ch & 0x7]))
+        return false;
 
-    char const* f = str;
-    char const* l = str + len;
-    char const* s = f;
+    return true;
+}
+
+template <typename PutChar>
+static bool PrintAndPadEscapedString(FormatBuffer& fb, char const* str, size_t len, PutChar put_char)
+{
+    auto f = str;
+    auto l = str + len;
+    auto s = f;
     for (;;)
     {
         while (f != l && IsPrint(*f))
@@ -279,7 +290,7 @@ static bool PrintAndPadEscapedString(FormatBuffer& fb, char const* str, size_t l
         if (f == l) // done.
             break;
 
-        if (!PutHexChar(fb, xdigits, static_cast<unsigned char>(*f)))
+        if (!put_char(fb, static_cast<unsigned char>(*f)))
             return false;
 
         s = ++f;
@@ -288,10 +299,10 @@ static bool PrintAndPadEscapedString(FormatBuffer& fb, char const* str, size_t l
     return true;
 }
 
-static errc PrintAndPadEscaped(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len, bool upper)
+template <typename PutChar>
+static errc PrintAndPadEscapedString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len, PutChar put_char)
 {
     const size_t ascii_len = ComputeEscapedStringLength(str, str + len);
-
     if (ascii_len == len)
     {
         // The string only contains printable characters.
@@ -306,12 +317,27 @@ static errc PrintAndPadEscaped(FormatBuffer& fb, FormatSpec const& spec, char co
 
     if (lpad > 0 && !fb.Pad(spec.fill, lpad))
         return errc::io_error;
-    if (len > 0  && !PrintAndPadEscapedString(fb, str, len, upper))
+    if (len > 0  && !PrintAndPadEscapedString(fb, str, len, put_char))
         return errc::io_error;
     if (rpad > 0 && !fb.Pad(spec.fill, rpad))
         return errc::io_error;
 
     return errc::success;
+}
+
+static errc DoPrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
+{
+    switch (spec.conv)
+    {
+    case 'x':
+        return PrintAndPadEscapedString(fb, spec, str, len, [](FormatBuffer& fb, unsigned char ch) { return PutHexChar(fb, "0123456789abcdef", ch); });
+    case 'X':
+        return PrintAndPadEscapedString(fb, spec, str, len, [](FormatBuffer& fb, unsigned char ch) { return PutHexChar(fb, "0123456789ABCDEF", ch); });
+    case 'o':
+        return PrintAndPadEscapedString(fb, spec, str, len, [](FormatBuffer& fb, unsigned char ch) { return PutOctalChar(fb, "01234567", ch); });
+    default:
+        return PrintAndPadString(fb, spec, str, len);
+    }
 }
 
 static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
@@ -323,13 +349,7 @@ static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* st
             n = static_cast<size_t>(spec.prec);
     }
 
-    switch (spec.conv) {
-    default:
-        return PrintAndPadString(fb, spec, str, n);
-    case 'x':
-    case 'X':
-        return PrintAndPadEscaped(fb, spec, str, n, /*upper*/ spec.conv == 'X');
-    }
+    return DoPrintAndPadString(fb, spec, str, n);
 }
 
 static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* str)
@@ -345,13 +365,7 @@ static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* st
     else
         len = ::strlen(str);
 
-    switch (spec.conv) {
-    default:
-        return PrintAndPadString(fb, spec, str, len);
-    case 'x':
-    case 'X':
-        return PrintAndPadEscaped(fb, spec, str, len, /*upper*/ spec.conv == 'X');
-    }
+    return DoPrintAndPadString(fb, spec, str, len);
 }
 
 static errc PrintAndPadNumber(FormatBuffer& fb, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
@@ -1021,7 +1035,7 @@ static DtoaResult DtoaExponential(char* first, char* last, double d, int precisi
 
     const int actual_len = CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, precision, options);
     assert(actual_len == exponential_len);
-    return { first + exponential_len, 0 };
+    return { first + actual_len, 0 };
 }
 
 // %g
@@ -1099,7 +1113,7 @@ static DtoaResult DtoaGeneral(char* first, char* last, double d, int precision, 
         {
             const int actual_len = CreateExponentialRepresentation(Vector(first, output_len), num_digits, X, prec, options);
             assert(actual_len == output_len);
-            return { first + output_len, 0 };
+            return { first + actual_len, 0 };
         }
     }
 
@@ -1269,7 +1283,7 @@ static DtoaResult DtoaHex(char* first, char* last, double d, int precision, Dtoa
     {
         const int actual_len = CreateExponentialRepresentation(Vector(first, output_len), num_digits, binary_exponent, precision, options);
         assert(actual_len == output_len);
-        return { first + output_len, 0 };
+        return { first + actual_len, 0 };
     }
 
     return { last, -1 };
@@ -1359,7 +1373,7 @@ static DtoaResult DtoaShortest(char* first, char* last, double d, DtoaShortStyle
         {
             const int actual_len = CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, exponential_precision, options);
             assert(actual_len == exponential_len);
-            return { first + exponential_len, 0 };
+            return { first + actual_len, 0 };
         }
     }
 

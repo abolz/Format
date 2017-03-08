@@ -209,7 +209,7 @@ static void ComputePadding(size_t len, char align, int width, size_t& lpad, size
     }
 }
 
-static errc WriteRawString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
+static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t lpad = 0;
     size_t spad = 0;
@@ -227,9 +227,9 @@ static errc WriteRawString(FormatBuffer& fb, FormatSpec const& spec, char const*
     return errc::success;
 }
 
-static errc WriteRawString(FormatBuffer& fb, FormatSpec const& spec, std::string_view str)
+static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, std::string_view str)
 {
-    return WriteRawString(fb, spec, str.data(), str.size());
+    return PrintAndPadString(fb, spec, str.data(), str.size());
 }
 
 static size_t ComputeEscapedStringLength(char const* first, char const* last)
@@ -245,7 +245,21 @@ static size_t ComputeEscapedStringLength(char const* first, char const* last)
     return n;
 }
 
-static bool PutEscapedString(FormatBuffer& fb, char const* str, size_t len, bool upper)
+static bool PutHexChar(FormatBuffer& fb, char const* const xdigits, unsigned char ch)
+{
+    if (!fb.Put('\\'))
+        return false;
+    if (!fb.Put('x'))
+        return false;
+    if (!fb.Put(xdigits[ch >> 4]))
+        return false;
+    if (!fb.Put(xdigits[ch & 0xF]))
+        return false;
+
+    return true;
+}
+
+static bool PrintAndPadEscapedString(FormatBuffer& fb, char const* str, size_t len, bool upper)
 {
     const char* const xdigits = upper
         ? "0123456789ABCDEF"
@@ -265,12 +279,8 @@ static bool PutEscapedString(FormatBuffer& fb, char const* str, size_t len, bool
         if (f == l) // done.
             break;
 
-        if (!fb.Put('\\'))
+        if (!PutHexChar(fb, xdigits, static_cast<unsigned char>(*f)))
             return false;
-        if (!fb.Put('x'))
-            return false;
-        if (!fb.Put( xdigits[static_cast<unsigned char>(*f) >> 4       ])) return false;
-        if (!fb.Put( xdigits[static_cast<unsigned char>(*f)      & 0xF ])) return false;
 
         s = ++f;
     }
@@ -278,44 +288,14 @@ static bool PutEscapedString(FormatBuffer& fb, char const* str, size_t len, bool
     return true;
 }
 
-#if 0
-static bool PutEscapedStringOctal(FormatBuffer& fb, char const* str, size_t len)
-{
-    char const* f = str;
-    char const* l = str + len;
-    char const* s = f;
-    for (;;)
-    {
-        while (f != l && IsPrint(*f))
-            ++f;
-
-        if (f != s && !fb.Write(s, static_cast<size_t>(f - s)))
-            return false;
-
-        if (f == l) // done.
-            break;
-
-        if (!fb.Put('\\'))
-            return false;
-        if (!fb.Put( "01234567"[static_cast<unsigned char>(*f) >> 6      ] )) return false;
-        if (!fb.Put( "01234567"[static_cast<unsigned char>(*f) >> 3 & 0x7] )) return false;
-        if (!fb.Put( "01234567"[static_cast<unsigned char>(*f)      & 0x7] )) return false;
-
-        s = ++f;
-    }
-
-    return true;
-}
-#endif
-
-static errc WriteEscapedString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len, bool upper)
+static errc PrintAndPadEscaped(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len, bool upper)
 {
     const size_t ascii_len = ComputeEscapedStringLength(str, str + len);
 
     if (ascii_len == len)
     {
         // The string only contains printable characters.
-        return WriteRawString(fb, spec, str, len);
+        return PrintAndPadString(fb, spec, str, len);
     }
 
     size_t lpad = 0;
@@ -326,7 +306,7 @@ static errc WriteEscapedString(FormatBuffer& fb, FormatSpec const& spec, char co
 
     if (lpad > 0 && !fb.Pad(spec.fill, lpad))
         return errc::io_error;
-    if (len > 0  && !PutEscapedString(fb, str, len, upper))
+    if (len > 0  && !PrintAndPadEscapedString(fb, str, len, upper))
         return errc::io_error;
     if (rpad > 0 && !fb.Pad(spec.fill, rpad))
         return errc::io_error;
@@ -345,17 +325,17 @@ static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* st
 
     switch (spec.conv) {
     default:
-        return WriteRawString(fb, spec, str, n);
+        return PrintAndPadString(fb, spec, str, n);
     case 'x':
     case 'X':
-        return WriteEscapedString(fb, spec, str, n, /*upper*/ spec.conv == 'X');
+        return PrintAndPadEscaped(fb, spec, str, n, /*upper*/ spec.conv == 'X');
     }
 }
 
 static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* str)
 {
     if (str == nullptr)
-        return WriteRawString(fb, spec, "(null)");
+        return PrintAndPadString(fb, spec, "(null)");
 
     // Use strnlen if a precision was specified.
     // The string may not be null-terminated!
@@ -367,14 +347,14 @@ static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* st
 
     switch (spec.conv) {
     default:
-        return WriteRawString(fb, spec, str, len);
+        return PrintAndPadString(fb, spec, str, len);
     case 'x':
     case 'X':
-        return WriteEscapedString(fb, spec, str, len, /*upper*/ spec.conv == 'X');
+        return PrintAndPadEscaped(fb, spec, str, len, /*upper*/ spec.conv == 'X');
     }
 }
 
-static errc WriteNumber(FormatBuffer& fb, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
+static errc PrintAndPadNumber(FormatBuffer& fb, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
 {
     const size_t len = (sign ? 1u : 0u) + nprefix + ndigits;
 
@@ -545,7 +525,8 @@ static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
 
     const bool upper = ('A' <= conv && conv <= 'Z');
 
-    // Generate digits backwards at buf+64. (64 is the number of digits of UINT64_MAX in base 2)
+    // Generate digits backwards at buf+64. (64 is the number of digits of
+    // UINT64_MAX in base 2.)
     // Then insert thousands-separators - if any. (15 = (64 - 1) / 3)
     char buf[64 + 15];
     char*       l = buf + 64;
@@ -561,12 +542,12 @@ static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
         l += InsertThousandsSep(vec, pos, last, spec.tsep, group_len);
     }
 
-    return WriteNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
+    return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
 }
 
 static errc WriteBool(FormatBuffer& fb, FormatSpec const& spec, bool val)
 {
-    return WriteRawString(fb, spec, val ? "true" : "false");
+    return PrintAndPadString(fb, spec, val ? "true" : "false");
 }
 
 static errc WriteChar(FormatBuffer& fb, FormatSpec const& spec, char ch)
@@ -577,7 +558,7 @@ static errc WriteChar(FormatBuffer& fb, FormatSpec const& spec, char ch)
 static errc WritePointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer)
 {
     if (pointer == nullptr)
-        return WriteRawString(fb, spec, "(nil)");
+        return PrintAndPadString(fb, spec, "(nil)");
 
     FormatSpec f = spec;
     f.hash = '#';
@@ -668,10 +649,14 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
 
         if (precision > 0)
         {
-            std::fill_n(buf.begin() + num_digits, 2 + (precision - num_digits), '0');
+            // digits --> digits0.[000][000]
+            const int nfill = 2 + (precision - num_digits);
+            std::fill_n(buf.begin() + num_digits, nfill, '0');
             buf[num_digits + 1] = options.decimal_point_char;
-            // digits0.[000][000] ---> 0.[000]digits[000]
-            std::rotate(buf.begin(), buf.begin() + num_digits, buf.begin() + (num_digits + 2 + -decpt));
+
+            // digits0.[000][000] --> 0.[000]digits[000]
+            const int first_trailing_zero = num_digits + 2 + -decpt;
+            std::rotate(buf.begin(), buf.begin() + num_digits, buf.begin() + first_trailing_zero);
         }
         else
         {
@@ -683,39 +668,39 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
         return;
     }
 
-    int buflen = 0;
+    int last = 0;
     if (decpt >= num_digits)
     {
-        // digits[000].0
+        // digits[000][.000]
 
         const int nz = decpt - num_digits;
-        const int nextra = precision > 0 ? 1 + precision
-                                         : (options.use_alternative_form ? 1 : 0);
+        const int nextra = precision > 0
+            ? 1 + precision
+            : (options.use_alternative_form ? 1 : 0);
         // (nextra includes the decimal point)
 
         std::fill_n(buf.begin() + num_digits, nz + nextra, '0');
         if (nextra > 0)
             buf[decpt] = options.decimal_point_char;
-        buflen = decpt + nextra;
+
+        last = decpt + nextra;
     }
     else
     {
-        // 0 < decpt < num_digits
-        // dig.its
+        // dig.its[000]
         assert(precision >= num_digits - decpt); // >= 1
 
-        // digits ---> dig_its
+        // digits --> dig.its
         std::copy_backward(buf.begin() + decpt, buf.begin() + num_digits, buf.begin() + (num_digits + 1));
-        // dig.its
         buf[decpt] = options.decimal_point_char;
-        // dig.its[000]
+        // dig.its --> dig.its[000]
         std::fill_n(buf.begin() + (num_digits + 1), precision - (num_digits - decpt), '0');
 
-        buflen = decpt + 1 + precision;
+        last = decpt + 1 + precision;
     }
 
     if (options.thousands_sep != '\0')
-        InsertThousandsSep(buf, decpt, buflen, options.thousands_sep, 3);
+        InsertThousandsSep(buf, decpt, last, options.thousands_sep, 3);
 }
 
 static int ComputeFixedRepresentationLength(int num_digits, int decpt, int precision, DtoaOptions const& options)
@@ -724,24 +709,33 @@ static int ComputeFixedRepresentationLength(int num_digits, int decpt, int preci
 
     if (decpt <= 0)
     {
+        // 0.[000]digits[000]
+
         if (precision > 0)
             return 2 + precision;
         else
-            return 1 + (options.use_alternative_form ? 1 : 0);
+            return 1/*leading zero*/ + (options.use_alternative_form ? 1 : 0);
     }
 
     const int tseps = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
+    const int digits_before_point = decpt + tseps;
 
     if (decpt >= num_digits)
     {
-        if (precision > 0)
-            return tseps + decpt + 1 + precision;
-        else
-            return tseps + decpt + (options.use_alternative_form ? 1 : 0);
-    }
+        // digits[000][.000]
 
-    assert(precision >= num_digits - decpt);
-    return tseps + decpt + 1 + precision;
+        if (precision > 0)
+            return digits_before_point + 1 + precision;
+        else
+            return digits_before_point + (options.use_alternative_form ? 1 : 0);
+    }
+    else
+    {
+        // dig.its[000]
+        assert(precision >= num_digits - decpt);
+
+        return digits_before_point + 1 + precision;
+    }
 }
 
 // v = buf * 10^(decpt - num_digits)
@@ -774,7 +768,7 @@ static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int*
     if (!fast_worked)
     {
         if (!BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt))
-            return false; // buffer not large enough.
+            return false; // buffer too small.
     }
 
     return true;
@@ -845,7 +839,7 @@ static int ComputeExponentLength(int exponent, DtoaOptions const& options)
     return len + 1;
 }
 
-static void AppendExponent(Vector buf, int pos, int exponent, DtoaOptions const& options)
+static int AppendExponent(Vector buf, int pos, int exponent, DtoaOptions const& options)
 {
     assert(exponent > -10000);
     assert(exponent <  10000);
@@ -871,9 +865,11 @@ static void AppendExponent(Vector buf, int pos, int exponent, DtoaOptions const&
     if (k >=  100 || options.min_exponent_digits >= 3) { buf[pos++] = static_cast<char>('0' + exponent /  100); exponent %=  100; }
     if (k >=   10 || options.min_exponent_digits >= 2) { buf[pos++] = static_cast<char>('0' + exponent /   10); exponent %=   10; }
     buf[pos++] = static_cast<char>('0' + exponent % 10);
+
+    return pos;
 }
 
-static void CreateExponentialRepresentation(Vector buf, int num_digits, int exponent, int precision, DtoaOptions const& options)
+static int CreateExponentialRepresentation(Vector buf, int num_digits, int exponent, int precision, DtoaOptions const& options)
 {
     assert(options.decimal_point_char != '\0');
 
@@ -882,6 +878,8 @@ static void CreateExponentialRepresentation(Vector buf, int num_digits, int expo
     pos += 1; // leading digit
     if (num_digits > 1)
     {
+        // d.igits[000]e+123
+
         std::copy_backward(buf.begin() + pos, buf.begin() + (pos + num_digits - 1), buf.begin() + (pos + num_digits));
         buf[pos] = options.decimal_point_char;
         pos += 1 + (num_digits - 1);
@@ -895,17 +893,21 @@ static void CreateExponentialRepresentation(Vector buf, int num_digits, int expo
     }
     else if (precision > 0)
     {
+        // d.0[00]e+123
+
         std::fill_n(buf.begin() + pos, 1 + precision, '0');
         buf[pos] = options.decimal_point_char;
         pos += 1 + precision;
     }
     else // precision <= 0
     {
+        // d[.]e+123
+
         if (options.use_alternative_form)
             buf[pos++] = options.decimal_point_char;
     }
 
-    AppendExponent(buf, pos, exponent, options);
+    return AppendExponent(buf, pos, exponent, options);
 }
 
 static int ComputeExponentialRepresentationLength(int num_digits, int exponent, int precision, DtoaOptions const& options)
@@ -1017,7 +1019,8 @@ static DtoaResult DtoaExponential(char* first, char* last, double d, int precisi
     if (last - first < exponential_len)
         return { last, -1 };
 
-    CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, precision, options);
+    const int actual_len = CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, precision, options);
+    assert(actual_len == exponential_len);
     return { first + exponential_len, 0 };
 }
 
@@ -1094,7 +1097,8 @@ static DtoaResult DtoaGeneral(char* first, char* last, double d, int precision, 
         const int output_len = ComputeExponentialRepresentationLength(num_digits, X, prec, options);
         if (last - first >= output_len)
         {
-            CreateExponentialRepresentation(Vector(first, output_len), num_digits, X, prec, options);
+            const int actual_len = CreateExponentialRepresentation(Vector(first, output_len), num_digits, X, prec, options);
+            assert(actual_len == output_len);
             return { first + output_len, 0 };
         }
     }
@@ -1263,7 +1267,8 @@ static DtoaResult DtoaHex(char* first, char* last, double d, int precision, Dtoa
     const int output_len = ComputeExponentialRepresentationLength(num_digits, binary_exponent, precision, options);
     if (last - first >= output_len)
     {
-        CreateExponentialRepresentation(Vector(first, output_len), num_digits, binary_exponent, precision, options);
+        const int actual_len = CreateExponentialRepresentation(Vector(first, output_len), num_digits, binary_exponent, precision, options);
+        assert(actual_len == output_len);
         return { first + output_len, 0 };
     }
 
@@ -1330,10 +1335,11 @@ static DtoaResult DtoaShortest(char* first, char* last, double d, DtoaShortStyle
 
     assert(num_digits > 0);
 
-    const int fixed_precision = ComputePrecisionForShortFixedRepresentation(num_digits, decpt);
-    const int fixed_len       = ComputeFixedRepresentationLength(num_digits, decpt, fixed_precision, options);
-    const int exponent        = decpt - 1;
-    const int exponential_len = ComputeExponentialRepresentationLength(num_digits, exponent, num_digits - 1, options);
+    const int fixed_precision       = ComputePrecisionForShortFixedRepresentation(num_digits, decpt);
+    const int fixed_len             = ComputeFixedRepresentationLength(num_digits, decpt, fixed_precision, options);
+    const int exponent              = decpt - 1;
+    const int exponential_precision = num_digits - 1;
+    const int exponential_len       = ComputeExponentialRepresentationLength(num_digits, exponent, exponential_precision, options);
 
     const bool use_fixed
         = (style == DtoaShortStyle::fixed) ||
@@ -1351,7 +1357,8 @@ static DtoaResult DtoaShortest(char* first, char* last, double d, DtoaShortStyle
     {
         if (last - first >= exponential_len)
         {
-            CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, num_digits - 1, options);
+            const int actual_len = CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, exponential_precision, options);
+            assert(actual_len == exponential_len);
             return { first + exponential_len, 0 };
         }
     }
@@ -1442,10 +1449,10 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         const bool upper = ('A' <= conv && conv <= 'Z');
 
         if (d.IsNaN())
-            return WriteRawString(fb, spec, upper ? "NAN" : "nan");
+            return PrintAndPadString(fb, spec, upper ? "NAN" : "nan");
 
         const char inf[] = { sign, upper ? 'I' : 'i', upper ? 'N' : 'n', upper ? 'F' : 'f', '\0' };
-        return WriteRawString(fb, spec, inf + (sign == '\0' ? 1 : 0));
+        return PrintAndPadString(fb, spec, inf + (sign == '\0' ? 1 : 0));
     }
 
     const int kBufSize = 1500;
@@ -1483,10 +1490,10 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     }
 
     if (res.ec)
-        return WriteRawString(fb, spec, "[[internal buffer too small]]");
+        return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
 
-    const size_t ndigits = static_cast<size_t>(res.next - buf);
-    return WriteNumber(fb, spec, sign, prefix, nprefix, buf, ndigits);
+    const size_t buflen = static_cast<size_t>(res.next - buf);
+    return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, buf, buflen);
 }
 
 //
@@ -1680,7 +1687,7 @@ static errc CallFormatFunc(FormatBuffer& fb, FormatSpec const& spec, int index, 
     case Types::T_DOUBLE:
         return WriteDouble(fb, spec, arg.double_);
     case Types::T_FORMATSPEC:
-        return WriteRawString(fb, spec, "[[error]]");
+        return PrintAndPadString(fb, spec, "[[error]]");
     }
 
     return errc::success; // unreachable -- fix warning

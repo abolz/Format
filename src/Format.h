@@ -66,8 +66,8 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
     char fill  = ' ';
     char align = '>';
     char sign  = '-';
-    char hash  = '\0';
-    char zero  = '\0';
+    bool hash  = false;
+    bool zero  = false;
     char tsep  = '\0';
     char conv  = '\0';
 };

@@ -519,18 +519,18 @@ static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
     case 'x':
     case 'X':
         base = 16;
-        if (spec.hash != '\0')
+        if (spec.hash)
             nprefix = 2;
         break;
     case 'b':
     case 'B':
         base = 2;
-        if (spec.hash != '\0')
+        if (spec.hash)
             nprefix = 2;
         break;
     case 'o':
         base = 8;
-        if (spec.hash != '\0' && number != 0)
+        if (spec.hash && number != 0)
             nprefix = 1;
         break;
     }
@@ -575,7 +575,7 @@ static errc WritePointer(FormatBuffer& fb, FormatSpec const& spec, void const* p
         return PrintAndPadString(fb, spec, "(nil)");
 
     FormatSpec f = spec;
-    f.hash = '#';
+    f.hash = true;
     f.conv = 'x';
 
     return WriteInt(fb, f, 0, reinterpret_cast<uintptr_t>(pointer));
@@ -1388,7 +1388,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     options.normalize                   = false;
     options.thousands_sep               = spec.tsep;
     options.decimal_point_char          = '.';
-    options.use_alternative_form        = spec.hash != '\0';
+    options.use_alternative_form        = spec.hash;
     options.min_exponent_digits         = 2;
     options.exponent_char               = '\0';
     options.emit_positive_exponent_sign = true;
@@ -1448,7 +1448,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         options.exponent_char = 'p';
         options.min_exponent_digits = 1;
         prefix = "0x";
-        nprefix = (spec.hash != '\0') ? 2u : 0u; // Add a prefix only if '#' was specified. As with integers.
+        nprefix = spec.hash ? 2u : 0u; // Add a prefix only if '#' was specified. As with integers.
         break;
     }
 
@@ -1603,9 +1603,9 @@ static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, i
             if (IsSign(*f))
                 spec.sign = *f;
             else if (*f == '#')
-                spec.hash = *f;
+                spec.hash = true;
             else if (*f == '0')
-                spec.zero = *f;
+                spec.zero = true;
             else if (*f == '\'' || *f == '_')
                 spec.tsep = *f;
             else

@@ -787,7 +787,7 @@ static void test_dynamic()
     spec.fill   = '.';
     spec.align  = '>';
     spec.sign   = ' ';
-    spec.zero   = '\0';
+    spec.zero   = false;
     spec.conv   = 'd';
 
     EXPECT_EQUAL(".......123", "{*}", spec, 123);

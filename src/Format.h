@@ -95,7 +95,7 @@ struct FMTXX_VISIBILITY_DEFAULT FormatBuffer
 struct FMTXX_VISIBILITY_DEFAULT StringBuffer : public FormatBuffer
 {
     std::string& os;
-    StringBuffer(std::string& v) : os(v) {}
+    explicit StringBuffer(std::string& v) : os(v) {}
 
     FMTXX_API virtual bool Put(char c) override;
     FMTXX_API virtual bool Write(char const* str, size_t len) override;
@@ -115,7 +115,7 @@ struct FMTXX_VISIBILITY_DEFAULT FILEBuffer : public FormatBuffer
 struct FMTXX_VISIBILITY_DEFAULT StreamBuffer : public FormatBuffer
 {
     std::ostream& os;
-    StreamBuffer(std::ostream& v) : os(v) {}
+    explicit StreamBuffer(std::ostream& v) : os(v) {}
 
     FMTXX_API virtual bool Put(char c) override;
     FMTXX_API virtual bool Write(char const* str, size_t len) override;

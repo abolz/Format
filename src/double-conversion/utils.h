@@ -275,8 +275,8 @@ public:
 
   reference operator[](difference_type index) const {
     assert(ptr_ != nullptr);
-    assert(ptr_ + index >= 0);
-    assert(ptr_ + index < size_);
+    assert(index >= 0);
+    assert(index < size_);
     return ptr_[index];
   }
 

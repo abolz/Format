@@ -5,8 +5,10 @@
 #include "double-conversion/bignum-dtoa.h"
 #include "double-conversion/fast-dtoa.h"
 #include "double-conversion/fixed-dtoa.h"
+#include "double-conversion/ieee.h"
 
 #include <algorithm>
+#include <cmath> // ceil
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
@@ -14,7 +16,7 @@
 using namespace dtoa;
 using Vector = double_conversion::Vector<char>;
 
-struct Double
+struct IEEEDouble // FIXME: Use double_conversion::Double
 {
     static const uint64_t kSignMask        = 0x8000000000000000;
     static const uint64_t kExponentMask    = 0x7FF0000000000000;
@@ -28,8 +30,8 @@ struct Double
         const uint64_t bits;
     };
 
-    explicit Double(double d) : d(d) {}
-    explicit Double(uint64_t bits) : bits(bits) {}
+    explicit IEEEDouble(double d) : d(d) {}
+    explicit IEEEDouble(uint64_t bits) : bits(bits) {}
 
     uint64_t Sign()        const { return (bits & kSignMask       ) >> 63; }
     uint64_t Exponent()    const { return (bits & kExponentMask   ) >> 52; }
@@ -44,7 +46,7 @@ struct Double
     }
 
     double Abs() const {
-        return Double{bits & ~kSignMask}.d;
+        return IEEEDouble{bits & ~kSignMask}.d;
     }
 };
 
@@ -175,6 +177,26 @@ static int ComputeFixedRepresentationLength(int num_digits, int decpt, int preci
     }
 }
 
+// From double-conversion/bignum-dtoa.cc
+static int NormalizedExponent(uint64_t significand, int exponent)
+{
+    assert(significand != 0);
+    while ((significand & double_conversion::Double::kHiddenBit) == 0) {
+        significand = significand << 1;
+        exponent = exponent - 1;
+    }
+    return exponent;
+}
+
+// From double-conversion/bignum-dtoa.cc
+static int EstimatePower(int exponent)
+{
+    const double k1Log10 = 0.30102999566398114;  // 1/lg(10)
+    const int kSignificandSize = double_conversion::Double::kSignificandSize;
+    double estimate = ceil((exponent + kSignificandSize - 1) * k1Log10 - 1e-10);
+    return static_cast<int>(estimate);
+}
+
 static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int *num_digits, int *decpt)
 {
     assert(vec.length() >= 1);
@@ -182,7 +204,7 @@ static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int 
 
     using namespace double_conversion;
 
-    const Double d{v};
+    const IEEEDouble d{v};
 
     assert(!d.IsSpecial());
     assert(d.Abs() >= 0);
@@ -199,9 +221,25 @@ static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int 
     const bool fast_worked = FastFixedDtoa(v, requested_digits, vec, num_digits, decpt);
     if (!fast_worked)
     {
-        const bool slow_worked = BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
-        if (!slow_worked)
-            return false; // buffer too small.
+        const auto significand = double_conversion::Double(v).Significand();
+        const auto exponent    = double_conversion::Double(v).Exponent();
+
+        // From double-conversion/bignum-dtoa.cc:
+
+        int normalized_exponent = NormalizedExponent(significand, exponent);
+        // estimated_power might be too low by 1.
+        int estimated_power = EstimatePower(normalized_exponent);
+
+        // needed_digits might be too large by 1.
+        // But it doesn't really matter: A decimal-point will be added in
+        // CreateFixedRepresentation so we will eventually need at least one
+        // more digit.
+        const int needed_digits = estimated_power + requested_digits + 1;
+
+        if (vec.length() < needed_digits)
+            return false;
+
+        BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
     }
 
     return true;
@@ -355,7 +393,7 @@ static bool GeneratePrecisionDigits(double v, int requested_digits, Vector vec, 
     assert(vec.length() >= 1);
     assert(requested_digits >= 0);
 
-    const Double d{v};
+    const IEEEDouble d{v};
 
     assert(!d.IsSpecial());
     assert(d.Abs() >= 0);
@@ -501,7 +539,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
 {
     const char *const xdigits = upper ? "0123456789ABCDEF" : "0123456789abcdef";
 
-    const Double d{v};
+    const IEEEDouble d{v};
 
     assert(!d.IsSpecial()); // NaN or infinity?
     assert(d.Abs() >= 0);
@@ -516,7 +554,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
     uint64_t exp = d.Exponent();
     uint64_t sig = d.Significand();
 
-    int e = static_cast<int>(exp) - Double::kExponentBias;
+    int e = static_cast<int>(exp) - IEEEDouble::kExponentBias;
     if (normalize)
     {
         if (exp == 0)
@@ -534,7 +572,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
             // Clear out the hidden-bit.
             // This is not used any more and must be cleared to detect overflow
             // when rounding below.
-            sig &= Double::kSignificandMask;
+            sig &= IEEEDouble::kSignificandMask;
         }
     }
     else
@@ -542,7 +580,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
         if (exp == 0)
             e++; // denormal exponent = 1 - bias
         else
-            sig |= Double::kHiddenBit;
+            sig |= IEEEDouble::kHiddenBit;
     }
 
     // Round?
@@ -551,7 +589,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
         const uint64_t digit = sig         >> (52 - 4 * precision - 4);
         const uint64_t r     = uint64_t{1} << (52 - 4 * precision    );
 
-        assert(!normalize || (sig & Double::kHiddenBit) == 0);
+        assert(!normalize || (sig & IEEEDouble::kHiddenBit) == 0);
 
         if (digit & 0x8) // Digit >= 8
         {
@@ -559,7 +597,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
             if (normalize)
             {
                 assert((sig >> 52) <= 1);
-                if (sig & Double::kHiddenBit) // 0ff... was rounded to 100...
+                if (sig & IEEEDouble::kHiddenBit) // 0ff... was rounded to 100...
                     e++;
             }
         }
@@ -622,7 +660,7 @@ static void GenerateShortestDigits(double v, Vector vec, int *num_digits, int *d
 
     assert(vec.length() >= 17 + 1 /*null*/);
 
-    const Double d{v};
+    const IEEEDouble d{v};
 
     assert(!d.IsSpecial());
     assert(d.Abs() >= 0);

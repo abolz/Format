@@ -5,10 +5,8 @@
 #include "double-conversion/bignum-dtoa.h"
 #include "double-conversion/fast-dtoa.h"
 #include "double-conversion/fixed-dtoa.h"
-#include "double-conversion/ieee.h"
 
 #include <algorithm>
-#include <cmath> // ceil
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
@@ -177,26 +175,6 @@ static int ComputeFixedRepresentationLength(int num_digits, int decpt, int preci
     }
 }
 
-// From double-conversion/bignum-dtoa.cc
-static int NormalizedExponent(uint64_t significand, int exponent)
-{
-    assert(significand != 0);
-    while ((significand & double_conversion::Double::kHiddenBit) == 0) {
-        significand = significand << 1;
-        exponent = exponent - 1;
-    }
-    return exponent;
-}
-
-// From double-conversion/bignum-dtoa.cc
-static int EstimatePower(int exponent)
-{
-    const double k1Log10 = 0.30102999566398114;  // 1/lg(10)
-    const int kSignificandSize = double_conversion::Double::kSignificandSize;
-    double estimate = ceil((exponent + kSignificandSize - 1) * k1Log10 - 1e-10);
-    return static_cast<int>(estimate);
-}
-
 static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int *num_digits, int *decpt)
 {
     assert(vec.length() >= 1);
@@ -221,25 +199,9 @@ static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int 
     const bool fast_worked = FastFixedDtoa(v, requested_digits, vec, num_digits, decpt);
     if (!fast_worked)
     {
-        const auto significand = double_conversion::Double(v).Significand();
-        const auto exponent    = double_conversion::Double(v).Exponent();
-
-        // From double-conversion/bignum-dtoa.cc:
-
-        int normalized_exponent = NormalizedExponent(significand, exponent);
-        // estimated_power might be too low by 1.
-        int estimated_power = EstimatePower(normalized_exponent);
-
-        // needed_digits might be too large by 1.
-        // But it doesn't really matter: A decimal-point will be added in
-        // CreateFixedRepresentation so we will eventually need at least one
-        // more digit.
-        const int needed_digits = estimated_power + requested_digits + 1;
-
-        if (vec.length() < needed_digits)
-            return false;
-
-        BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
+        const bool slow_worked = BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
+        if (!slow_worked)
+            return false; // buffer too small.
     }
 
     return true;

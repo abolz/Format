@@ -338,8 +338,15 @@ class Vector {
   // Returns whether or not the vector is empty.
   bool is_empty() const { return length_ == 0; }
 
+#if defined(_DEBUG) || !defined(NDEBUG)
+  // Returns a checked iterator pointing to the start of the data of the vector.
+  CheckedArrayIterator<T*> start() const {
+    return CheckedArrayIterator<T*>(start_, length_, 0);
+  }
+#else
   // Returns the pointer to the start of the data in the vector.
   T* start() const { return start_; }
+#endif
 
   // Access individual vector elements - checks bounds in debug mode.
   T& operator[](int index) const {
@@ -350,18 +357,6 @@ class Vector {
   T& first() { return start_[0]; }
 
   T& last() { return start_[length_ - 1]; }
-
-#ifndef NDEBUG
-  using iterator = CheckedArrayIterator<T*>;
-
-  iterator begin() { return iterator(start_, length_, 0); }
-  iterator end() { return iterator(start_, length_, length_); }
-#else
-  using iterator = T*;
-
-  iterator begin() { return start_; }
-  iterator end() { return start_ + length_; }
-#endif
 
  private:
   T* start_;
@@ -430,10 +425,10 @@ class StringBuilder {
     buffer_[position_] = '\0';
     // Make sure nobody managed to add a 0-character to the
     // buffer while building the string.
-    ASSERT(strlen(buffer_.start()) == static_cast<size_t>(position_));
+    ASSERT(strlen(&*buffer_.start()) == static_cast<size_t>(position_));
     position_ = -1;
     ASSERT(is_finalized());
-    return buffer_.start();
+    return &*buffer_.start();
   }
 
  private:

@@ -59,7 +59,7 @@ static int InsertThousandsSep(Vector buf, int pt, int last, char sep)
     if (nsep <= 0)
         return 0;
 
-    std::copy_backward(buf.begin() + pt, buf.begin() + last, buf.begin() + (last + nsep));
+    std::copy_backward(buf.start() + pt, buf.start() + last, buf.start() + (last + nsep));
 
     for (int l = pt - 1, shift = nsep; shift > 0; --shift, l -= 3)
     {
@@ -88,11 +88,11 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
 
             const int nextra = 2 + (precision - num_digits);
             // nextra includes the decimal point.
-            std::fill_n(buf.begin() + num_digits, nextra, '0');
+            std::fill_n(buf.start() + num_digits, nextra, '0');
             buf[num_digits + 1] = options.decimal_point_char;
 
             // digits0.[000][000] --> 0.[000]digits[000]
-            std::rotate(buf.begin(), buf.begin() + num_digits, buf.begin() + (num_digits + 2 + -decpt));
+            std::rotate(buf.start(), buf.start() + num_digits, buf.start() + (num_digits + 2 + -decpt));
         }
         else
         {
@@ -113,7 +113,7 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
         const int nextra = precision > 0 ? 1 + precision : (options.use_alternative_form ? 1 : 0);
         // nextra includes the decimal point -- if any.
 
-        std::fill_n(buf.begin() + num_digits, nzeros + nextra, '0');
+        std::fill_n(buf.start() + num_digits, nzeros + nextra, '0');
         if (nextra > 0)
         {
             buf[decpt] = options.decimal_point_char;
@@ -127,10 +127,10 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
         assert(precision >= num_digits - decpt); // >= 1
 
         // digits --> dig.its
-        std::copy_backward(buf.begin() + decpt, buf.begin() + num_digits, buf.begin() + (num_digits + 1));
+        std::copy_backward(buf.start() + decpt, buf.start() + num_digits, buf.start() + (num_digits + 1));
         buf[decpt] = options.decimal_point_char;
         // dig.its --> dig.its[000]
-        std::fill_n(buf.begin() + (num_digits + 1), precision - (num_digits - decpt), '0');
+        std::fill_n(buf.start() + (num_digits + 1), precision - (num_digits - decpt), '0');
 
         last = decpt + 1 + precision;
     }
@@ -289,14 +289,14 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
     {
         // d.igits[000]e+123
 
-        std::copy_backward(buf.begin() + pos, buf.begin() + (pos + num_digits - 1), buf.begin() + (pos + num_digits));
+        std::copy_backward(buf.start() + pos, buf.start() + (pos + num_digits - 1), buf.start() + (pos + num_digits));
         buf[pos] = options.decimal_point_char;
         pos += 1 + (num_digits - 1);
 
         if (precision > num_digits - 1)
         {
             const int nzeros = precision - (num_digits - 1);
-            std::fill_n(buf.begin() + pos, nzeros, '0');
+            std::fill_n(buf.start() + pos, nzeros, '0');
             pos += nzeros;
         }
     }
@@ -304,7 +304,7 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
     {
         // d.0[000]e+123
 
-        std::fill_n(buf.begin() + pos, 1 + precision, '0');
+        std::fill_n(buf.start() + pos, 1 + precision, '0');
         buf[pos] = options.decimal_point_char;
         pos += 1 + precision;
     }
@@ -704,14 +704,14 @@ Result dtoa::ToECMAScript(char *first, char *last, double d)
     if (k <= n && n <= 21)
     {
         // digits[000]
-        std::fill_n(buf.begin() + k, n - k, '0');
+        std::fill_n(buf.start() + k, n - k, '0');
         return {first + n, 0};
     }
 
     if (0 < n && n <= 21)
     {
         // dig.its
-        std::copy_backward(buf.begin() + n, buf.begin() + k, buf.begin() + (k + 1));
+        std::copy_backward(buf.start() + n, buf.start() + k, buf.start() + (k + 1));
         buf[n] = '.';
         return {first + (k + 1), 0};
     }
@@ -719,10 +719,10 @@ Result dtoa::ToECMAScript(char *first, char *last, double d)
     if (-6 < n && n <= 0)
     {
         // 0.[000]digits
-        std::copy_backward(buf.begin(), buf.begin() + k, buf.begin() + (2 + -n + k));
+        std::copy_backward(buf.start(), buf.start() + k, buf.start() + (2 + -n + k));
         buf[0] = '0';
         buf[1] = '.';
-        std::fill_n(buf.begin() + 2, -n, '0');
+        std::fill_n(buf.start() + 2, -n, '0');
         return {first + (2 + -n + k), 0};
     }
 
@@ -743,7 +743,7 @@ Result dtoa::ToECMAScript(char *first, char *last, double d)
     else
     {
         // d.igitsE+123
-        std::copy_backward(buf.begin() + 1, buf.begin() + k, buf.begin() + (k + 1));
+        std::copy_backward(buf.start() + 1, buf.start() + k, buf.start() + (k + 1));
         buf[1] = '.';
         const int endpos = AppendExponent(buf, /*pos*/ k + 1, n - 1, options);
         return {first + endpos, 0};

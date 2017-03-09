@@ -164,7 +164,6 @@ bool fmtxx::CharArrayBuffer::Pad(char c, size_t count)
 static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
 static bool IsAlign(char ch) { return ch == '<' || ch == '>' || ch == '^' || ch == '='; }
 static bool IsSign (char ch) { return ch == ' ' || ch == '-' || ch == '+'; }
-static bool IsPrint(char ch) { return 0x20 <= ch && ch <= 0x7E; }
 
 static char ComputeSignChar(bool neg, char sign, char fill)
 {
@@ -230,114 +229,6 @@ static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, std::str
     return PrintAndPadString(fb, spec, str.data(), str.size());
 }
 
-static size_t ComputeEscapedStringLength(char const* first, char const* last)
-{
-    size_t n = 0;
-    for (; first != last; ++first)
-    {
-        if (IsPrint(*first))
-            n += 1;
-        else
-            n += 4; // "\xFF" or "\377"
-    }
-    return n;
-}
-
-static bool PutHexChar(FormatBuffer& fb, char const* const digits, unsigned char ch)
-{
-    if (!fb.Put('\\'))
-        return false;
-    if (!fb.Put('x'))
-        return false;
-    if (!fb.Put(digits[ch >> 4]))
-        return false;
-    if (!fb.Put(digits[ch & 0xF]))
-        return false;
-
-    return true;
-}
-
-static bool PutOctalChar(FormatBuffer& fb, char const* const digits, unsigned char ch)
-{
-    if (!fb.Put('\\'))
-        return false;
-    if (!fb.Put(digits[ch >> 6]))
-        return false;
-    if (!fb.Put(digits[ch >> 3 & 0x7]))
-        return false;
-    if (!fb.Put(digits[ch & 0x7]))
-        return false;
-
-    return true;
-}
-
-template <typename PutChar>
-static bool PrintAndPadEscapedString(FormatBuffer& fb, char const* str, size_t len, PutChar put_char)
-{
-    auto f = str;
-    auto l = str + len;
-    auto s = f;
-    for (;;)
-    {
-        while (f != l && IsPrint(*f))
-            ++f;
-
-        if (f != s && !fb.Write(s, static_cast<size_t>(f - s)))
-            return false;
-
-        if (f == l) // done.
-            break;
-
-        if (!put_char(fb, static_cast<unsigned char>(*f)))
-            return false;
-
-        s = ++f;
-    }
-
-    return true;
-}
-
-template <typename PutChar>
-static errc PrintAndPadEscapedString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len, PutChar put_char)
-{
-    const size_t ascii_len = ComputeEscapedStringLength(str, str + len);
-    if (ascii_len == len)
-    {
-        // The string only contains printable characters.
-        return PrintAndPadString(fb, spec, str, len);
-    }
-
-    size_t lpad = 0;
-    size_t spad = 0;
-    size_t rpad = 0;
-
-    ComputePadding(ascii_len, spec.align, spec.width, lpad, spad, rpad);
-
-    if (lpad > 0 && !fb.Pad(spec.fill, lpad))
-        return errc::io_error;
-    if (len > 0  && !PrintAndPadEscapedString(fb, str, len, put_char))
-        return errc::io_error;
-    if (rpad > 0 && !fb.Pad(spec.fill, rpad))
-        return errc::io_error;
-
-    return errc::success;
-}
-
-static errc DoPrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
-{
-    switch (spec.conv)
-    {
-    case 'x':
-        return PrintAndPadEscapedString(fb, spec, str, len, [](FormatBuffer& fb, unsigned char ch) { return PutHexChar(fb, "0123456789abcdef", ch); });
-    case 'X':
-        return PrintAndPadEscapedString(fb, spec, str, len, [](FormatBuffer& fb, unsigned char ch) { return PutHexChar(fb, "0123456789ABCDEF", ch); });
-    case 'o':
-        return PrintAndPadEscapedString(fb, spec, str, len, [](FormatBuffer& fb, unsigned char ch) { return PutOctalChar(fb, "01234567", ch); });
-    default:
-        return PrintAndPadString(fb, spec, str, len);
-    }
-}
-
 static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t n = len;
@@ -347,7 +238,7 @@ static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* st
             n = static_cast<size_t>(spec.prec);
     }
 
-    return DoPrintAndPadString(fb, spec, str, n);
+    return PrintAndPadString(fb, spec, str, n);
 }
 
 static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* str)
@@ -363,7 +254,7 @@ static errc WriteString(FormatBuffer& fb, FormatSpec const& spec, char const* st
     else
         len = ::strlen(str);
 
-    return DoPrintAndPadString(fb, spec, str, len);
+    return PrintAndPadString(fb, spec, str, len);
 }
 
 static errc PrintAndPadNumber(FormatBuffer& fb, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)

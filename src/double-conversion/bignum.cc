@@ -99,7 +99,7 @@ static uint64_t ReadUInt64(Vector<const char> buffer,
   for (int i = from; i < from + digits_to_read; ++i) {
     int digit = buffer[i] - '0';
     ASSERT(0 <= digit && digit <= 9);
-    result = result * 10 + digit;
+    result = result * 10 + static_cast<uint64_t>(digit);
   }
   return result;
 }
@@ -110,7 +110,7 @@ void Bignum::AssignDecimalString(Vector<const char> value) {
   const int kMaxUint64DecimalDigits = 19;
   Zero();
   int length = value.length();
-  unsigned int pos = 0;
+  int pos = 0;
   // Let's just say that each digit needs 4 bits.
   while (length >= kMaxUint64DecimalDigits) {
     uint64_t digits = ReadUInt64(value, pos, kMaxUint64DecimalDigits);
@@ -145,7 +145,7 @@ void Bignum::AssignHexString(Vector<const char> value) {
     // These bigits are guaranteed to be "full".
     Chunk current_bigit = 0;
     for (int j = 0; j < kBigitSize / 4; j++) {
-      current_bigit += HexCharValue(value[string_index--]) << (j * 4);
+      current_bigit += static_cast<Chunk>(HexCharValue(value[string_index--])) << (j * 4);
     }
     bigits_[i] = current_bigit;
   }
@@ -154,7 +154,7 @@ void Bignum::AssignHexString(Vector<const char> value) {
   Chunk most_significant_bigit = 0;  // Could be = 0;
   for (int j = 0; j <= string_index; ++j) {
     most_significant_bigit <<= 4;
-    most_significant_bigit += HexCharValue(value[j]);
+    most_significant_bigit += static_cast<Chunk>(HexCharValue(value[j]));
   }
   if (most_significant_bigit != 0) {
     bigits_[used_digits_] = most_significant_bigit;
@@ -515,7 +515,7 @@ uint16_t Bignum::DivideModuloIntBignum(const Bignum& other) {
     // Remove the multiples of the first digit.
     // Example this = 23 and other equals 9. -> Remove 2 multiples.
     result += static_cast<uint16_t>(bigits_[used_digits_ - 1]);
-    SubtractTimes(other, bigits_[used_digits_ - 1]);
+    SubtractTimes(other, static_cast<int>(bigits_[used_digits_ - 1]));
   }
 
   ASSERT(BigitLength() == other.BigitLength());
@@ -528,7 +528,7 @@ uint16_t Bignum::DivideModuloIntBignum(const Bignum& other) {
 
   if (other.used_digits_ == 1) {
     // Shortcut for easy (and common) case.
-    int quotient = this_bigit / other_bigit;
+    Chunk quotient = this_bigit / other_bigit;
     bigits_[used_digits_ - 1] = this_bigit - other_bigit * quotient;
     ASSERT(quotient < 0x10000);
     result += static_cast<uint16_t>(quotient);
@@ -536,10 +536,10 @@ uint16_t Bignum::DivideModuloIntBignum(const Bignum& other) {
     return result;
   }
 
-  int division_estimate = this_bigit / (other_bigit + 1);
+  Chunk division_estimate = this_bigit / (other_bigit + 1);
   ASSERT(division_estimate < 0x10000);
   result += static_cast<uint16_t>(division_estimate);
-  SubtractTimes(other, division_estimate);
+  SubtractTimes(other, static_cast<int>(division_estimate));
 
   if (other_bigit * (division_estimate + 1) > this_bigit) {
     // No need to even try to subtract. Even if other's remaining digits were 0

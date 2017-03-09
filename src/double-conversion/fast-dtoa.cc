@@ -346,7 +346,7 @@ static bool DigitGen(DiyFp low,
   // with the divisor exponent + 1. And the divisor is the biggest power of ten
   // that is smaller than integrals.
   while (*kappa > 0) {
-    int digit = integrals / divisor;
+    int digit = static_cast<int>(integrals / divisor);
     ASSERT(digit <= 9);
     buffer[*length] = static_cast<char>('0' + digit);
     (*length)++;
@@ -457,7 +457,7 @@ static bool DigitGenCounted(DiyFp w,
   // with the divisor exponent + 1. And the divisor is the biggest power of ten
   // that is smaller than 'integrals'.
   while (*kappa > 0) {
-    int digit = integrals / divisor;
+    int digit = static_cast<int>(integrals / divisor);
     ASSERT(digit <= 9);
     buffer[*length] = static_cast<char>('0' + digit);
     (*length)++;

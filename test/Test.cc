@@ -613,11 +613,11 @@ static void test_floats()
     //EXPECT_EQUAL("1.0p-1074",               "{:#X}", std::numeric_limits<double>::denorm_min());
 
     EXPECT_EQUAL("1.7976931348623157e+308",     "{:s}",  std::numeric_limits<double>::max());
-    EXPECT_EQUAL("1.7976931348623157e+308",     "{:S}",  std::numeric_limits<double>::max());
+    EXPECT_EQUAL("1.7976931348623157E+308",     "{:S}",  std::numeric_limits<double>::max());
     EXPECT_EQUAL("-1.7976931348623157e+308",    "{:s}", -std::numeric_limits<double>::max());
     EXPECT_EQUAL("2.2250738585072014e-308",     "{:s}",  std::numeric_limits<double>::min());
     EXPECT_EQUAL("-2.2250738585072014e-308",    "{:s}", -std::numeric_limits<double>::min());
-    EXPECT_EQUAL("-2.2250738585072014e-308",    "{:S}", -std::numeric_limits<double>::min());
+    EXPECT_EQUAL("-2.2250738585072014E-308",    "{:S}", -std::numeric_limits<double>::min());
     EXPECT_EQUAL("5e-324",                    "{:s}",  std::numeric_limits<double>::denorm_min());
     EXPECT_EQUAL("-5e-324",                   "{:s}", -std::numeric_limits<double>::denorm_min());
     EXPECT_EQUAL("                  5e-324",    "{:>24s}",  std::numeric_limits<double>::denorm_min());

@@ -179,6 +179,7 @@ static char ComputeSignChar(bool neg, char sign, char fill)
 
 static void ComputePadding(size_t len, char align, int width, size_t& lpad, size_t& spad, size_t& rpad)
 {
+    assert(IsAlign(align) && "internal error");
     assert(width >= 0 && "internal error");
 
     const size_t w = static_cast<size_t>(width);
@@ -204,7 +205,7 @@ static void ComputePadding(size_t len, char align, int width, size_t& lpad, size
     }
 }
 
-// Prints out exactly LEN characters starting at STR,
+// Prints out exactly LEN characters (including '\0's) starting at STR,
 // possibly padding on the left and/or right.
 static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
 {
@@ -231,12 +232,9 @@ static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, std::str
 
 static errc FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
 {
-    size_t n = len;
-    if (spec.prec >= 0)
-    {
-        if (n > static_cast<size_t>(spec.prec))
-            n = static_cast<size_t>(spec.prec);
-    }
+    const size_t n = (spec.prec >= 0)
+        ? Min(len, static_cast<size_t>(spec.prec))
+        : len;
 
     return PrintAndPadString(fb, spec, str, n);
 }
@@ -248,11 +246,9 @@ static errc FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* s
 
     // Use strnlen if a precision was specified.
     // The string may not be null-terminated!
-    size_t len;
-    if (spec.prec >= 0)
-        len = ::strnlen(str, static_cast<size_t>(spec.prec));
-    else
-        len = ::strlen(str);
+    const size_t len = (spec.prec >= 0)
+        ? ::strnlen(str, static_cast<size_t>(spec.prec))
+        : ::strlen(str);
 
     return PrintAndPadString(fb, spec, str, len);
 }
@@ -421,9 +417,8 @@ static errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, ui
 
     const bool upper = ('A' <= conv && conv <= 'Z');
 
-    // Generate digits backwards at buf+64. (64 is the number of digits of
-    // UINT64_MAX in base 2.)
-    // Then insert thousands-separators - if any. (15 = (64 - 1) / 3)
+    // 64: Max. length of integer in base 2.
+    // 15: Max. number of grouping chars.
     char buf[64 + 15];
     char*       l = buf + 64;
     char* const f = IntToAsciiBackwards(l, number, base, upper);
@@ -544,7 +539,7 @@ static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     case 'S':
     case 's':
         options.use_alternative_form = false;
-        options.exponent_char = 'e';
+        options.exponent_char = (conv == 's') ? 'e' : 'E';
         options.min_exponent_digits = 1;
         break;
     case 'E':
@@ -846,7 +841,6 @@ static errc CallFormatFunc(FormatBuffer& fb, FormatSpec const& spec, int index, 
     return errc::success; // unreachable -- fix warning
 }
 
-// Internal API
 errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types types, Arg const* args)
 {
     if (format.empty())
@@ -915,21 +909,18 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
     return errc::success;
 }
 
-// Internal API
 errc fmtxx::impl::DoFormat(std::string& os, std::string_view format, Types types, Arg const* args)
 {
     StringBuffer fb { os };
     return DoFormat(fb, format, types, args);
 }
 
-// Internal API
 errc fmtxx::impl::DoFormat(std::FILE* os, std::string_view format, Types types, Arg const* args)
 {
     FILEBuffer fb { os };
     return DoFormat(fb, format, types, args);
 }
 
-// Internal API
 errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args)
 {
     const std::ostream::sentry se(os);

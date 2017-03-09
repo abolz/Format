@@ -1,3 +1,5 @@
+// Distributed under the MIT license. See the end of the file for details.
+
 #pragma once
 
 namespace dtoa {
@@ -5,8 +7,8 @@ namespace dtoa {
 //------------------------------------------------------------------------------
 // NOTE:
 //
-// All the conversion functions defined require a non-negative finite IEEE-754
-// double precision value!!!
+// All the conversion functions defined here require a non-negative finite
+// IEEE-754 double precision value!!!
 //
 // No infinity, no NaN, no negative zero!!!
 //------------------------------------------------------------------------------
@@ -16,8 +18,6 @@ enum struct Style {
     scientific,
     general,
     hex,
-    shortest,
-    ecma_script,
 };
 
 struct Result {
@@ -47,7 +47,8 @@ struct Options {
 // flag is not specified, no decimal-point character appears. If a decimal-point
 // character appears, at least one digit appears before it. The value is rounded
 // to the appropriate number of digits.
-//
+
+// PRE: last - first >= 1
 Result ToFixed(
     char*          first,
     char*          last,
@@ -69,7 +70,8 @@ Result ToFixed(
 // of e introducing the exponent. The exponent always contains at least two
 // digits, and only as many more digits as necessary to represent the exponent.
 // If the value is zero, the exponent is zero.
-//
+
+// PRE: last - first >= 1
 Result ToExponential(
     char*          first,
     char*          last,
@@ -94,7 +96,8 @@ Result ToExponential(
 // Finally, unless the # flag is used, any trailing zeros are removed from the
 // fractional portion of the result and the decimal-point character is removed
 // if there is no fractional portion remaining.
-//
+
+// PRE: last - first >= 1
 Result ToGeneral(
     char*          first,
     char*          last,
@@ -121,9 +124,12 @@ Result ToGeneral(
 // with X and P instead of x and p. The exponent always contains at least one
 // digit, and only as many more digits as necessary to represent the decimal
 // exponent of 2. If the value is zero, the exponent is zero.
+
+// NOTE: This function *never* adds any prefix!
 //
-// NOTE: This function *never* adds an prefix!
-//
+// PRE: last - first >= 14 (style == hex)
+//      last - first >= 18 (otherwise)
+//  (Even if the actual result is shorter!)
 Result ToHex(
     char*          first,
     char*          last,
@@ -156,7 +162,10 @@ Result ToHex(
 // chars_format::fixed, e if fmt is chars_format::scientific, a (without leading
 // "0x" in the result) if fmt is chars_format::hex, and g if fmt is
 // chars_format::general.
-//
+
+// PRE: last - first >= 14 (style == hex)
+//      last - first >= 18 (otherwise)
+//  (Even if the actual result is shorter!)
 Result ToShortest(
     char*          first,
     char*          last,
@@ -204,7 +213,30 @@ Result ToShortest(
 //     lowercase character 'e', followed by a plus sign '+' or minus sign '-'
 //     according to whether n-1 is positive or negative, followed by the decimal
 //     representation of the integer abs(n-1) (with no leading zeros).
-//
+
+// PRE: last - first >= 24.
+//  (Even if the actual result is shorter!)
 Result ToECMAScript(char* first, char* last, double d);
 
 } // namespace dtoa
+
+//------------------------------------------------------------------------------
+// Copyright (c) 2017 A. Bolz
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

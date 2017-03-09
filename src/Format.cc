@@ -2,9 +2,7 @@
 
 #include "Format.h"
 
-#include "double-conversion/bignum-dtoa.h"
-#include "double-conversion/fast-dtoa.h"
-#include "double-conversion/fixed-dtoa.h"
+#include "Dtoa.h"
 
 #include <algorithm>
 #include <ostream>
@@ -14,8 +12,6 @@
 
 using namespace fmtxx;
 using namespace fmtxx::impl;
-
-using Vector = double_conversion::Vector<char>;
 
 template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
 template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
@@ -209,6 +205,8 @@ static void ComputePadding(size_t len, char align, int width, size_t& lpad, size
     }
 }
 
+// Prints out exactly LEN characters starting at STR,
+// possibly padding on the left and/or right.
 static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t lpad = 0;
@@ -423,7 +421,7 @@ static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
     }
     else
     {
-        *--last = static_cast<char>('0' + n);
+        *--last = kDecDigits100[2*n + 1];
     }
 
     return last;
@@ -466,7 +464,7 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
 //   0    pt   last
 //  Returns 1.
 //
-static int InsertThousandsSep(Vector buf, int pt, int last, char sep, int group_len)
+static int InsertThousandsSep(char* buf, int pt, int last, char sep, int group_len)
 {
     assert(pt >= 0);
     assert(pt <= last);
@@ -478,17 +476,12 @@ static int InsertThousandsSep(Vector buf, int pt, int last, char sep, int group_
     if (nsep <= 0)
         return 0;
 
-    int shift = nsep;
+    std::copy_backward(buf + pt, buf + last, buf + (last + nsep));
 
-    for (int i = last - 1; i >= pt; --i)
-        buf[i + shift] = buf[i];
-
-    for (int i = pt - 1; shift > 0; --shift, i -= group_len)
+    for (int l = pt, shift = nsep; shift > 0; --shift, l -= group_len)
     {
-        for (int j = 0; j < group_len; ++j)
-            buf[i - j + shift] = buf[i - j];
-
-        buf[i - group_len + shift] = sep;
+        auto p = std::copy_backward(buf + (l - group_len), buf + l, buf + (l + shift));
+        *--p = sep;
     }
 
     return nsep;
@@ -535,8 +528,6 @@ static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
         break;
     }
 
-    const char prefix[] = {'0', conv};
-
     const bool upper = ('A' <= conv && conv <= 'Z');
 
     // Generate digits backwards at buf+64. (64 is the number of digits of
@@ -552,10 +543,10 @@ static errc WriteInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
         const int pos       = static_cast<int>(l - f);
         const int last      = pos;
 
-        Vector vec(f, pos + 15);
-        l += InsertThousandsSep(vec, pos, last, spec.tsep, group_len);
+        l += InsertThousandsSep(f, pos, last, spec.tsep, group_len);
     }
 
+    const char prefix[] = {'0', conv};
     return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
 }
 
@@ -635,754 +626,9 @@ struct Double
     }
 };
 
-struct DtoaResult {
-    char* next;
-    int ec;
-};
-
-struct DtoaOptions {
-    bool use_upper_case_digits       = true;  //       A
-    bool normalize                   = true;  //       A
-    char thousands_sep               = '\0';  // F   G
-    char decimal_point_char          = '.';   // F E G A
-    bool use_alternative_form        = false; // F E G A
-    int  min_exponent_digits         = 2;     //   E G A
-    char exponent_char               = 'e';   //   E G A
-    bool emit_positive_exponent_sign = true;  //   E G A
-};
-
-static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int precision, DtoaOptions const& options)
-{
-    assert(options.decimal_point_char != '\0');
-
-    if (decpt <= 0)
-    {
-        // 0.[000]digits[000]
-
-        assert(precision == 0 || precision >= -decpt + num_digits);
-
-        if (precision > 0)
-        {
-            // digits --> digits0.[000][000]
-            const int nfill = 2 + (precision - num_digits);
-            std::fill_n(buf.begin() + num_digits, nfill, '0');
-            buf[num_digits + 1] = options.decimal_point_char;
-
-            // digits0.[000][000] --> 0.[000]digits[000]
-            const int first_trailing_zero = num_digits + 2 + -decpt;
-            std::rotate(buf.begin(), buf.begin() + num_digits, buf.begin() + first_trailing_zero);
-        }
-        else
-        {
-            buf[0] = '0';
-            if (options.use_alternative_form)
-                buf[1] = options.decimal_point_char;
-        }
-
-        return;
-    }
-
-    int last = 0;
-    if (decpt >= num_digits)
-    {
-        // digits[000][.000]
-
-        const int nz = decpt - num_digits;
-        const int nextra = precision > 0
-            ? 1 + precision
-            : (options.use_alternative_form ? 1 : 0);
-        // (nextra includes the decimal point)
-
-        std::fill_n(buf.begin() + num_digits, nz + nextra, '0');
-        if (nextra > 0)
-            buf[decpt] = options.decimal_point_char;
-
-        last = decpt + nextra;
-    }
-    else
-    {
-        // dig.its[000]
-        assert(precision >= num_digits - decpt); // >= 1
-
-        // digits --> dig.its
-        std::copy_backward(buf.begin() + decpt, buf.begin() + num_digits, buf.begin() + (num_digits + 1));
-        buf[decpt] = options.decimal_point_char;
-        // dig.its --> dig.its[000]
-        std::fill_n(buf.begin() + (num_digits + 1), precision - (num_digits - decpt), '0');
-
-        last = decpt + 1 + precision;
-    }
-
-    if (options.thousands_sep != '\0')
-        InsertThousandsSep(buf, decpt, last, options.thousands_sep, 3);
-}
-
-static int ComputeFixedRepresentationLength(int num_digits, int decpt, int precision, DtoaOptions const& options)
-{
-    assert(num_digits >= 0);
-
-    if (decpt <= 0)
-    {
-        // 0.[000]digits[000]
-
-        if (precision > 0)
-            return 2 + precision;
-        else
-            return 1/*leading zero*/ + (options.use_alternative_form ? 1 : 0);
-    }
-
-    const int tseps = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
-    const int digits_before_point = decpt + tseps;
-
-    if (decpt >= num_digits)
-    {
-        // digits[000][.000]
-
-        if (precision > 0)
-            return digits_before_point + 1 + precision;
-        else
-            return digits_before_point + (options.use_alternative_form ? 1 : 0);
-    }
-    else
-    {
-        // dig.its[000]
-        assert(precision >= num_digits - decpt);
-
-        return digits_before_point + 1 + precision;
-    }
-}
-
-// v = buf * 10^(decpt - num_digits)
-//
-// Produce a fixed number of digits after the decimal point.
-// For instance fixed(0.1, 4) becomes 0.1000
-// If the input number is big, the output will be big.
-static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
-{
-    assert(vec.length() >= 1);
-    assert(vec.length() >= 40); // For FastFixedDtoa
-
-    using namespace double_conversion;
-
-    const Double d { v };
-
-    assert(!d.IsSpecial());
-    assert(d.Abs() >= 0);
-    assert(requested_digits >= 0);
-
-    if (d.IsZero())
-    {
-        vec[0] = '0';
-        *num_digits = 1;
-        *decpt = 1;
-        return true;
-    }
-
-    const bool fast_worked = FastFixedDtoa(v, requested_digits, vec, num_digits, decpt);
-    if (!fast_worked)
-    {
-        if (!BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt))
-            return false; // buffer too small.
-    }
-
-    return true;
-}
-
-// %f
-//
-// http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf (p. 312)
-//
-// A double argument representing a floating-point number is converted to
-// decimal notation in the style [-]ddd.ddd, where the number of digits after
-// the decimal-point character is equal to the precision specification. If the
-// precision is missing, it is taken as 6; if the precision is zero and the #
-// flag is not specified, no decimal-point character appears. If a decimal-point
-// character appears, at least one digit appears before it. The value is rounded
-// to the appropriate number of digits.
-//
-// A double argument representing an infinity is converted in one of the styles
-// [-]inf or [-]infinity -- which style is implementation-defined. A double
-// argument representing a NaN is converted in one of the styles [-]nan or
-// [-]nan(n-char-sequence) -- which style, and the meaning of any
-// n-char-sequence, is implementation-defined. The F conversion specifier
-// produces INF, INFINITY, or NAN instead of inf, infinity, or nan,
-// respectively.[277]
-//
-// [277]
-//  When applied to infinite and NaN values, the -, +, and space flag characters
-//  have their usual meaning; the # and 0 flag characters have no effect.
-//
-static DtoaResult DtoaFixed(char* first, char* last, double d, int precision, DtoaOptions const& options)
-{
-    Vector buf(first, static_cast<int>(last - first));
-
-    int num_digits = 0;
-    int decpt = 0;
-
-    if (!GenerateFixedDigits(d, precision, buf, &num_digits, &decpt))
-        return { last, -1 };
-
-    assert(num_digits >= 0);
-
-    const int fixed_len = ComputeFixedRepresentationLength(num_digits, decpt, precision, options);
-
-    if (last - first < fixed_len)
-        return { last, -1 };
-
-    CreateFixedRepresentation(Vector(first, fixed_len), num_digits, decpt, precision, options);
-    return { first + fixed_len, 0 };
-}
-
-static int ComputeExponentLength(int exponent, DtoaOptions const& options)
-{
-    int len = 1; // exponent_char
-
-    if (exponent < 0)
-    {
-        len += 1;
-        exponent = -exponent;
-    }
-    else if (options.emit_positive_exponent_sign)
-    {
-        len += 1;
-    }
-
-    if (exponent >= 1000 || options.min_exponent_digits >= 4) return len + 4;
-    if (exponent >=  100 || options.min_exponent_digits >= 3) return len + 3;
-    if (exponent >=   10 || options.min_exponent_digits >= 2) return len + 2;
-    return len + 1;
-}
-
-static int AppendExponent(Vector buf, int pos, int exponent, DtoaOptions const& options)
-{
-    assert(exponent > -10000);
-    assert(exponent <  10000);
-    assert(options.exponent_char != '\0');
-    assert(options.min_exponent_digits >= 1);
-    assert(options.min_exponent_digits <= 4);
-
-    buf[pos++] = options.exponent_char;
-
-    if (exponent < 0)
-    {
-        buf[pos++] = '-';
-        exponent = -exponent;
-    }
-    else if (options.emit_positive_exponent_sign)
-    {
-        buf[pos++] = '+';
-    }
-
-    const int k = exponent;
-
-    if (k >= 1000 || options.min_exponent_digits >= 4) { buf[pos++] = static_cast<char>('0' + exponent / 1000); exponent %= 1000; }
-    if (k >=  100 || options.min_exponent_digits >= 3) { buf[pos++] = static_cast<char>('0' + exponent /  100); exponent %=  100; }
-    if (k >=   10 || options.min_exponent_digits >= 2) { buf[pos++] = static_cast<char>('0' + exponent /   10); exponent %=   10; }
-    buf[pos++] = static_cast<char>('0' + exponent % 10);
-
-    return pos;
-}
-
-static int CreateExponentialRepresentation(Vector buf, int num_digits, int exponent, int precision, DtoaOptions const& options)
-{
-    assert(options.decimal_point_char != '\0');
-
-    int pos = 0;
-
-    pos += 1; // leading digit
-    if (num_digits > 1)
-    {
-        // d.igits[000]e+123
-
-        std::copy_backward(buf.begin() + pos, buf.begin() + (pos + num_digits - 1), buf.begin() + (pos + num_digits));
-        buf[pos] = options.decimal_point_char;
-        pos += 1 + (num_digits - 1);
-
-        if (precision > num_digits - 1)
-        {
-            const int nz = precision - (num_digits - 1);
-            std::fill_n(buf.begin() + pos, nz, '0');
-            pos += nz;
-        }
-    }
-    else if (precision > 0)
-    {
-        // d.0[00]e+123
-
-        std::fill_n(buf.begin() + pos, 1 + precision, '0');
-        buf[pos] = options.decimal_point_char;
-        pos += 1 + precision;
-    }
-    else // precision <= 0
-    {
-        // d[.]e+123
-
-        if (options.use_alternative_form)
-            buf[pos++] = options.decimal_point_char;
-    }
-
-    return AppendExponent(buf, pos, exponent, options);
-}
-
-static int ComputeExponentialRepresentationLength(int num_digits, int exponent, int precision, DtoaOptions const& options)
-{
-    assert(num_digits > 0);
-    assert(exponent > -10000);
-    assert(exponent <  10000);
-    assert(precision < 0 || precision >= num_digits - 1);
-
-    int len = 0;
-
-    len += num_digits;
-    if (num_digits > 1)
-    {
-        len += 1; // decimal point
-        if (precision > num_digits - 1)
-            len += precision - (num_digits - 1);
-    }
-    else if (precision > 0)
-    {
-        len += 1 + precision;
-    }
-    else // precision <= 0
-    {
-        if (options.use_alternative_form)
-            len += 1; // decimal point
-    }
-
-    return len + ComputeExponentLength(exponent, options);
-}
-
-// v = buf * 10^(decpt - num_digits)
-//
-// Fixed number of digits (independent of the decimal point).
-static bool GeneratePrecisionDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
-{
-    assert(vec.length() >= 1);
-
-    using namespace double_conversion;
-
-    const Double d { v };
-
-    assert(!d.IsSpecial());
-    assert(d.Abs() >= 0);
-    assert(requested_digits >= 0);
-
-    if (requested_digits == 0)
-    {
-        *num_digits = 0;
-        *decpt = 0;
-        return true;
-    }
-
-    if (vec.length() < requested_digits + 1/*null*/)
-        return false;
-
-    if (d.IsZero())
-    {
-        vec[0] = '0';
-        *num_digits = 1;
-        *decpt = 1;
-        return true;
-    }
-
-    const bool fast_worked = FastDtoa(v, FAST_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
-    if (!fast_worked)
-    {
-        const bool bignum_worked = BignumDtoa(v, BIGNUM_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
-        assert(bignum_worked);
-        static_cast<void>(bignum_worked); // fix warning
-    }
-
-    return true;
-}
-
-// %e
-//
-// http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf (pp. 312)
-//
-// A double argument representing a floating-point number is converted in the
-// style [-]d.ddde+-dd, where there is one digit (which is nonzero if the
-// argument is nonzero) before the decimal-point character and the number of
-// digits after it is equal to the precision; if the precision is missing, it is
-// taken as 6; if the precision is zero and the # flag is not specified, no
-// decimal-point character appears. The value is rounded to the appropriate
-// number of digits. The E conversion specifier produces a number with E instead
-// of e introducing the exponent. The exponent always contains at least two
-// digits, and only as many more digits as necessary to represent the exponent.
-// If the value is zero, the exponent is zero.
-//
-// A double argument representing an infinity or NaN is converted in the style
-// of an f or F conversion specifier.
-//
-static DtoaResult DtoaExponential(char* first, char* last, double d, int precision, DtoaOptions const& options)
-{
-    Vector buf(first, static_cast<int>(last - first));
-
-    int num_digits = 0;
-    int decpt = 0;
-
-    if (!GeneratePrecisionDigits(d, precision + 1, buf, &num_digits, &decpt))
-        return { last, -1 };
-
-    assert(num_digits > 0);
-
-    const int exponent = decpt - 1;
-    const int exponential_len = ComputeExponentialRepresentationLength(num_digits, exponent, precision, options);
-
-    if (last - first < exponential_len)
-        return { last, -1 };
-
-    const int actual_len = CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, precision, options);
-    assert(actual_len == exponential_len);
-    return { first + actual_len, 0 };
-}
-
-// %g
-//
-// http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf (p. 313)
-//
-// A double argument representing a floating-point number is converted in
-// style f or e (or in style F or E in the case of a G conversion specifier),
-// depending on the value converted and the precision. Let P equal the
-// precision if nonzero, 6 if the precision is omitted, or 1 if the precision is
-// zero. Then, if a conversion with style E would have an exponent of X:
-//
-//  - if P > X >= -4, the conversion is with style f (or F) and precision
-//      P - (X + 1).
-//  - otherwise, the conversion is with style e (or E) and precision P - 1.
-//
-// Finally, unless the # flag is used, any trailing zeros are removed from the
-// fractional portion of the result and the decimal-point character is removed
-// if there is no fractional portion remaining.
-//
-// A double argument representing an infinity or NaN is converted in the style
-// of an f or F conversion specifier.
-//
-static DtoaResult DtoaGeneral(char* first, char* last, double d, int precision, DtoaOptions const& options)
-{
-    assert(precision >= 0);
-
-    Vector buf(first, static_cast<int>(last - first));
-
-    int num_digits = 0;
-    int decpt = 0;
-
-    const int P = precision == 0 ? 1 : precision;
-
-    if (!GeneratePrecisionDigits(d, P, buf, &num_digits, &decpt))
-        return { last, -1 };
-
-    assert(num_digits > 0);
-    assert(num_digits == P);
-
-    const int X = decpt - 1;
-
-    // Trim trailing zeros.
-    while (num_digits > 0 && first[num_digits - 1] == '0') {
-        --num_digits;
-    }
-
-    if (-4 <= X && X < P)
-    {
-        int prec = P - (X + 1);
-        if (!options.use_alternative_form)
-        {
-            if (prec > num_digits - decpt)
-                prec = num_digits - decpt;
-        }
-
-        const int output_len = ComputeFixedRepresentationLength(num_digits, decpt, prec, options);
-        if (last - first >= output_len)
-        {
-            CreateFixedRepresentation(Vector(first, output_len), num_digits, decpt, prec, options);
-            return { first + output_len, 0 };
-        }
-    }
-    else
-    {
-        int prec = P - 1;
-        if (!options.use_alternative_form)
-        {
-            if (prec > num_digits - 1)
-                prec = num_digits - 1;
-        }
-
-        const int output_len = ComputeExponentialRepresentationLength(num_digits, X, prec, options);
-        if (last - first >= output_len)
-        {
-            const int actual_len = CreateExponentialRepresentation(Vector(first, output_len), num_digits, X, prec, options);
-            assert(actual_len == output_len);
-            return { first + actual_len, 0 };
-        }
-    }
-
-    return { last, -1 };
-}
-
-static int CountLeadingZeros64(uint64_t n)
-{
-    assert(n != 0);
-
-#if defined(_MSC_VER) && (defined(_M_X64) /* || defined(_M_ARM64) */)
-
-    unsigned long high = 0; // index of most significant 1-bit
-    if (0 == _BitScanReverse64(&high, n))
-    {
-    }
-    return 63 - static_cast<int>(high);
-
-#elif defined(__GNUC__)
-
-    return __builtin_clzll(static_cast<unsigned long long>(n));
-
-#else
-
-    int z = 0;
-    while ((n & 0x8000000000000000) == 0) {
-        z++;
-        n <<= 1;
-    }
-    return z;
-
-#endif
-}
-
-static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, Vector buffer, int* num_digits, int* binary_exponent)
-{
-    const char* const xdigits = upper
-        ? "0123456789ABCDEF"
-        : "0123456789abcdef";
-
-    const Double d { v };
-
-    assert(!d.IsSpecial()); // NaN or infinity?
-    assert(d.Abs() >= 0);
-
-    if (d.IsZero())
-    {
-        buffer[(*num_digits)++] = '0';
-        *binary_exponent = 0;
-        return;
-    }
-
-    uint64_t exp = d.Exponent();
-    uint64_t sig = d.Significand();
-
-    int e = static_cast<int>(exp) - Double::kExponentBias;
-    if (normalize)
-    {
-        if (exp == 0)
-        {
-            assert(sig != 0);
-
-            e++; // denormal exponent = 1 - bias
-
-            // Shift the highest bit into the hidden-bit position and adjust the
-            // exponent.
-            int s = CountLeadingZeros64(sig);
-            sig <<= s - 12 + 1;
-            e    -= s - 12 + 1;
-
-            // Clear out the hidden-bit.
-            // This is not used any more and must be cleared to detect overflow
-            // when rounding below.
-            sig &= Double::kSignificandMask;
-        }
-    }
-    else
-    {
-        if (exp == 0)
-            e++; // denormal exponent = 1 - bias
-        else
-            sig |= Double::kHiddenBit;
-    }
-
-    // Round?
-    if (precision >= 0 && precision < 52/4)
-    {
-        const uint64_t digit = sig         >> (52 - 4*precision - 4);
-        const uint64_t r     = uint64_t{1} << (52 - 4*precision    );
-
-        assert(!normalize || (sig & Double::kHiddenBit) == 0);
-
-        if (digit & 0x8)    // Digit >= 8
-        {
-            sig += r;       // Round...
-            if (normalize)
-            {
-                assert((sig >> 52) <= 1);
-                if (sig & Double::kHiddenBit) // 0ff... was rounded to 100...
-                    e++;
-            }
-        }
-
-        // Zero out unused bits so that the loop below does not produce more
-        // digits than neccessary.
-        sig &= r | (0 - r);
-    }
-
-    *binary_exponent = e;
-
-    buffer[(*num_digits)++] = xdigits[normalize ? 1 : (sig >> 52)];
-
-    // Ignore everything but the significand.
-    // Shift everything to the left; makes the loop below slightly simpler.
-    sig <<= 64 - 52;
-
-    while (sig != 0)
-    {
-        buffer[(*num_digits)++] = xdigits[sig >> (64 - 4)];
-        sig <<= 4;
-    }
-}
-
-// %a
-//
-// http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf (pp. 314)
-//
-// A double argument representing a floating-point number is converted in the
-// style [-]0xh.hhhhp+-d, where there is one hexadecimal digit (which is
-// nonzero if the argument is a normalized floating-point number and is
-// otherwise unspecified) before the decimal-point character and the number
-// of hexadecimal digits after it is equal to the precision; if the precision is
-// missing and FLT_RADIX is a power of 2, then the precision is sufficient for
-// an exact representation of the value; if the precision is missing and
-// FLT_RADIX is not a power of 2, then the precision is sufficient to
-// distinguish [279] values of type double, except that trailing zeros may be
-// omitted; if the precision is zero and the # flag is not specified, no
-// decimalpoint character appears. The letters abcdef are used for a conversion
-// and the letters ABCDEF for A conversion. The A conversion specifier produces
-// a number with X and P instead of x and p. The exponent always contains at
-// least one digit, and only as many more digits as necessary to represent the
-// decimal exponent of 2. If the value is zero, the exponent is zero.
-//
-// A double argument representing an infinity or NaN is converted in the style
-// of an f or F conversion specifier.
-//
-static DtoaResult DtoaHex(char* first, char* last, double d, int precision, DtoaOptions const& options)
-{
-    assert(static_cast<size_t>(last - first) >= 52/4 + 1);
-
-    int num_digits = 0;
-    int binary_exponent = 0;
-
-    GenerateHexDigits(
-            d,
-            precision,
-            options.normalize,
-            options.use_upper_case_digits,
-            Vector(first, 52/4 + 1),
-            &num_digits,
-            &binary_exponent);
-
-    assert(num_digits > 0);
-
-    const int output_len = ComputeExponentialRepresentationLength(num_digits, binary_exponent, precision, options);
-    if (last - first >= output_len)
-    {
-        const int actual_len = CreateExponentialRepresentation(Vector(first, output_len), num_digits, binary_exponent, precision, options);
-        assert(actual_len == output_len);
-        return { first + actual_len, 0 };
-    }
-
-    return { last, -1 };
-}
-
-enum struct DtoaShortStyle {
-    fixed,
-    exponential,
-    general,
-};
-
-static int ComputePrecisionForShortFixedRepresentation(int num_digits, int decpt)
-{
-    if (num_digits <= decpt)
-        return 0;
-
-    if (0 < decpt)
-        return num_digits - decpt;
-
-    return -decpt + num_digits;
-}
-
-// v = buf * 10^(decpt - num_digits)
-//
-// Produce the shortest correct representation.
-// For example the output of 0.299999999999999988897 is (the less accurate but correct) 0.3.
-static void GenerateShortestDigits(double v, Vector vec, int* num_digits, int* decpt)
-{
-    assert(vec.length() >= 17 + 1/*null*/);
-
-    using namespace double_conversion;
-
-    const Double d { v };
-
-    assert(!d.IsSpecial());
-    assert(d.Abs() >= 0);
-
-    if (d.IsZero())
-    {
-        vec[0] = '0';
-        *num_digits = 1;
-        *decpt = 1;
-        return;
-    }
-
-    const bool fast_worked = FastDtoa(v, FAST_DTOA_SHORTEST, 0, vec, num_digits, decpt);
-    if (!fast_worked)
-    {
-        const bool bignum_worked = BignumDtoa(v, BIGNUM_DTOA_SHORTEST, -1, vec, num_digits, decpt);
-        assert(bignum_worked);
-        static_cast<void>(bignum_worked); // fix warning
-    }
-}
-
-static DtoaResult DtoaShortest(char* first, char* last, double d, DtoaShortStyle style, DtoaOptions const& options)
-{
-    assert(static_cast<size_t>(last - first) >= 17 + 1);
-
-    int num_digits = 0;
-    int decpt = 0;
-
-    GenerateShortestDigits(d, Vector(first, 17 + 1), &num_digits, &decpt);
-
-    assert(num_digits > 0);
-
-    const int fixed_precision       = ComputePrecisionForShortFixedRepresentation(num_digits, decpt);
-    const int fixed_len             = ComputeFixedRepresentationLength(num_digits, decpt, fixed_precision, options);
-    const int exponent              = decpt - 1;
-    const int exponential_precision = num_digits - 1;
-    const int exponential_len       = ComputeExponentialRepresentationLength(num_digits, exponent, exponential_precision, options);
-
-    const bool use_fixed
-        = (style == DtoaShortStyle::fixed) ||
-          (style == DtoaShortStyle::general && fixed_len <= exponential_len);
-
-    if (use_fixed)
-    {
-        if (last - first >= fixed_len)
-        {
-            CreateFixedRepresentation(Vector(first, fixed_len), num_digits, decpt, fixed_precision, options);
-            return { first + fixed_len, 0 };
-        }
-    }
-    else
-    {
-        if (last - first >= exponential_len)
-        {
-            const int actual_len = CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, exponential_precision, options);
-            assert(actual_len == exponential_len);
-            return { first + actual_len, 0 };
-        }
-    }
-
-    return { last, -1 };
-}
-
 static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 {
-    DtoaOptions options;
+    dtoa::Options options;
 
     options.use_upper_case_digits       = false;
     options.normalize                   = false;
@@ -1442,6 +688,7 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         break;
     case 'X':
         options.use_upper_case_digits = true;
+        //[[fallthrough]];
     case 'x':
         options.normalize = true;
         options.use_alternative_form = false;
@@ -1472,30 +719,31 @@ static errc WriteDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     const int kBufSize = 1500;
     char buf[kBufSize];
 
-    DtoaResult res;
+    dtoa::Result res;
     switch (conv)
     {
     case 's':
     case 'S':
-        res = DtoaShortest(buf, buf + kBufSize, abs_x, DtoaShortStyle::general, options);
+        res = dtoa::ToShortest(buf, buf + kBufSize, abs_x, dtoa::Style::general, options);
+//      res = dtoa::ToECMAScript(buf, buf + kBufSize, abs_x);
         break;
     case 'f':
     case 'F':
-        res = DtoaFixed(buf, buf + kBufSize, abs_x, prec, options);
+        res = dtoa::ToFixed(buf, buf + kBufSize, abs_x, prec, options);
         break;
     case 'e':
     case 'E':
-        res = DtoaExponential(buf, buf + kBufSize, abs_x, prec, options);
+        res = dtoa::ToExponential(buf, buf + kBufSize, abs_x, prec, options);
         break;
     case 'g':
     case 'G':
-        res = DtoaGeneral(buf, buf + kBufSize, abs_x, prec, options);
+        res = dtoa::ToGeneral(buf, buf + kBufSize, abs_x, prec, options);
         break;
     case 'a':
     case 'A':
     case 'x':
     case 'X':
-        res = DtoaHex(buf, buf + kBufSize, abs_x, prec, options);
+        res = dtoa::ToHex(buf, buf + kBufSize, abs_x, prec, options);
         break;
     default:
         res = { buf + kBufSize, -1 };

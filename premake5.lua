@@ -90,6 +90,8 @@ project "fmtxx"
     language "C++"
     kind "SharedLib"
     files {
+        "src/Dtoa.h",
+        "src/Dtoa.cc",
         "src/Format.h",
         "src/Format.cc",
     }

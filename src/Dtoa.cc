@@ -35,32 +35,12 @@ struct Double
     uint64_t Exponent()    const { return (bits & kExponentMask   ) >> 52; }
     uint64_t Significand() const { return (bits & kSignificandMask);       }
 
-    int UnbiasedExponent() const {
-        return static_cast<int>(Exponent()) - kExponentBias;
-    }
-
     bool IsZero() const {
         return (bits & ~kSignMask) == 0;
     }
 
-    bool IsNegative() const {
-        return Sign() != 0;
-    }
-
-    bool IsDenormal() const {
-        return (bits & kExponentMask) == 0;
-    }
-
     bool IsSpecial() const {
         return (bits & kExponentMask) == kExponentMask;
-    }
-
-    bool IsInf() const {
-        return IsSpecial() && (bits & kSignificandMask) == 0;
-    }
-
-    bool IsNaN() const {
-        return IsSpecial() && (bits & kSignificandMask) != 0;
     }
 
     double Abs() const {

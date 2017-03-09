@@ -2,8 +2,6 @@
 
 #pragma once
 
-namespace dtoa {
-
 //------------------------------------------------------------------------------
 // NOTE:
 //
@@ -12,6 +10,8 @@ namespace dtoa {
 //
 // No infinity, no NaN, no negative zero!!!
 //------------------------------------------------------------------------------
+
+namespace dtoa {
 
 enum struct Style {
     fixed,

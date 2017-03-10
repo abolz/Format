@@ -6,6 +6,7 @@
 #include "Dtoa.h"
 #endif
 
+#include <algorithm>
 #include <ostream>
 
 using namespace fmtxx;

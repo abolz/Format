@@ -7,6 +7,9 @@
 #endif
 
 #include <algorithm>
+#ifdef _MSC_VER
+#include <iterator> // [un]checked_array_iterator
+#endif
 #include <ostream>
 
 using namespace fmtxx;
@@ -350,7 +353,8 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
 //   0    pt   last
 //  Returns 1.
 //
-static int InsertThousandsSep(char* buf, int pt, int last, char sep, int group_len)
+template <typename RanIt>
+static int InsertThousandsSep(RanIt buf, int pt, int last, char sep, int group_len)
 {
     assert(pt >= 0);
     assert(pt <= last);
@@ -428,7 +432,11 @@ static errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, ui
         const int pos       = static_cast<int>(l - f);
         const int last      = pos;
 
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
+        l += InsertThousandsSep(stdext::make_checked_array_iterator(f, pos + 15), pos, last, spec.tsep, group_len);
+#else
         l += InsertThousandsSep(f, pos, last, spec.tsep, group_len);
+#endif
     }
 
     const char prefix[] = {'0', conv};

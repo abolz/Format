@@ -174,6 +174,7 @@ static T Min(T a, T b) {
 }
 
 
+#if !defined(_MSC_VER) && (defined(_DEBUG) || !defined(NDEBUG))
 template <typename Ptr>
 class CheckedArrayIterator {
   Ptr ptr_;
@@ -306,6 +307,7 @@ public:
     return !(*this < rhs);
   }
 };
+#endif
 
 
 inline int StrLength(const char* string) {
@@ -338,15 +340,23 @@ class Vector {
   // Returns whether or not the vector is empty.
   bool is_empty() const { return length_ == 0; }
 
-#if defined(_DEBUG) || !defined(NDEBUG)
+#if !defined(_MSC_VER) && (defined(_DEBUG) || !defined(NDEBUG))
   // Returns a checked iterator pointing to the start of the data of the vector.
   CheckedArrayIterator<T*> start() const {
     return CheckedArrayIterator<T*>(start_, length_, 0);
+  }
+#elif defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
+  // Returns a checked iterator pointing to the start of the data of the vector.
+  stdext::checked_array_iterator<T*> start() const {
+    return stdext::make_checked_array_iterator<T*>(start_, length_, 0);
   }
 #else
   // Returns the pointer to the start of the data in the vector.
   T* start() const { return start_; }
 #endif
+
+  //auto begin() const { return start(); }
+  //auto end() const { return start() + length(); }
 
   // Access individual vector elements - checks bounds in debug mode.
   T& operator[](int index) const {

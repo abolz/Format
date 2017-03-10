@@ -92,9 +92,6 @@ project "fmtxx"
     includedirs {
         "src/",
     }
-    links {
-        "double-conversion",
-    }
     configuration { "gmake" }
         buildoptions {
             "-Wsign-compare",
@@ -117,9 +114,6 @@ project "fmtxx-static"
     }
     includedirs {
         "src/",
-    }
-    links {
-        "double-conversion",
     }
     configuration { "gmake" }
         buildoptions {

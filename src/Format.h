@@ -137,8 +137,7 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
 };
 
 //
-// Formatting function for user-defined types.
-//  (Implement this in the data-type's namespace!)
+// Specialize this to format user-defined types.
 //
 // The default implementation uses std::ostringstream to convert the value into
 // a string and then writes the string to the output buffer.
@@ -148,7 +147,9 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
 // !!!
 //
 template <typename T>
-errc fmtxx__FormatValue(FormatBuffer& fb, FormatSpec const& spec, T const& value);
+struct FormatValue {
+    errc operator()(FormatBuffer& fb, FormatSpec const& spec, T const& value) const;
+};
 
 // Appends the formatted arguments to the given output stream.
 template <typename ...Args>
@@ -276,7 +277,8 @@ public:
     template <typename T>
     static errc FormatValue_fn(FormatBuffer& buf, FormatSpec const& spec, void const* value)
     {
-        return fmtxx__FormatValue(buf, spec, *static_cast<T const*>(value));
+        FormatValue<T> format_value;
+        return format_value(buf, spec, *static_cast<T const*>(value));
     }
 
     struct Other { void const* value; Func func; };
@@ -373,7 +375,7 @@ errc StreamValue(FormatBuffer& fb, FormatSpec const& spec, T const& value)
 } // namespace fmtxx
 
 template <typename T>
-fmtxx::errc fmtxx::fmtxx__FormatValue(FormatBuffer& fb, FormatSpec const& spec, T const& value)
+fmtxx::errc fmtxx::FormatValue<T>::operator()(FormatBuffer& fb, FormatSpec const& spec, T const& value) const
 {
     return fmtxx::impl::StreamValue(fb, spec, value);
 }

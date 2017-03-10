@@ -806,9 +806,14 @@ struct Foo {
     int value;
 };
 
-inline fmtxx::errc fmtxx__FormatValue(fmtxx::FormatBuffer& os, fmtxx::FormatSpec const& spec, Foo const& value)
+namespace fmtxx
 {
-    return fmtxx::Format(os, "{*}", spec, value.value);
+    template <>
+    struct FormatValue<Foo> {
+        errc operator()(FormatBuffer& os, FormatSpec const& spec, Foo const& value) const {
+            return fmtxx::Format(os, "{*}", spec, value.value);
+        }
+    };
 }
 
 namespace foo2_ns
@@ -881,23 +886,15 @@ public:
     }
 };
 
-//namespace fmtxx
-//{
-//    template <typename OS>
-//    errc fmtxx__FormatValue(OS os, FormatSpec const& spec, std::vector<char> const& vec)
-//    {
-//        return fmtxx::FormatTo(os, "{*}", spec, std::string_view(vec.data(), vec.size()));
-//    }
-//}
-
-//namespace std
-//{
-//    template <typename OS>
-//    fmtxx::errc fmtxx__FormatValue(OS os, fmtxx::FormatSpec const& spec, vector<char> const& vec)
-//    {
-//        return fmtxx::FormatTo(os, "{*}", spec, string_view(vec.data(), vec.size()));
-//    }
-//}
+namespace fmtxx
+{
+    template <>
+    struct FormatValue<std::vector<char>> {
+        errc operator()(FormatBuffer& fb, FormatSpec const& spec, std::vector<char> const& vec) const {
+            return fmtxx::Format(fb, "{*}", spec, std::string_view(vec.data(), vec.size()));
+        }
+    };
+}
 
 template <typename Formatter>
 static void test_vector()
@@ -913,8 +910,8 @@ static void test_vector()
     assert(os[4] == '3');
     assert(os[5] == '4');
 
-    //std::vector<char> str = { '1', '2', '3', '4' };
-    //EXPECT_EQUAL("1234", "{}", str);
+    std::vector<char> str = { '1', '2', '3', '4' };
+    EXPECT_EQUAL("1234", "{}", str);
 }
 
 //------------------------------------------------------------------------------

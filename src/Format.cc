@@ -6,7 +6,6 @@
 #include "Dtoa.h"
 #endif
 
-#include <algorithm>
 #include <ostream>
 
 using namespace fmtxx;
@@ -687,8 +686,12 @@ static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         nprefix = 2; // Always add a prefix. Like printf.
         break;
     case 'X':
+        conv = 'A';
+        prefix = "0X";
+        nprefix = spec.hash ? 2u : 0u; // Add a prefix only if '#' was specified. As with integers.
+        break;
     case 'x':
-        conv = (conv == 'x') ? 'a' : 'A';
+        conv = 'a';
         prefix = "0x";
         nprefix = spec.hash ? 2u : 0u; // Add a prefix only if '#' was specified. As with integers.
         break;

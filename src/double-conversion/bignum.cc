@@ -898,18 +898,18 @@ uint64_t Bignum::LongDiv(Bignum& u, const Bignum& v) {
   else
     v2 = 0; // This is an implicit zero digit, encoded by the exponent.
 
-  const int s = CountLeadingZeros32(v1) - (32 - kBigitSize);
-  assert(s >= 0);
-  assert(s < kBigitSize); // since v1 != 0
-  if (s > 0) {
+  const int shift = CountLeadingZeros32(v1) - (32 - kBigitSize);
+  assert(shift >= 0);
+  assert(shift < kBigitSize); // since v1 != 0
+  if (shift > 0) {
     uint32_t v3;
     if (n - 3 - num_zeros_v >= 0)
       v3 = v.bigits_[n - 3 - num_zeros_v];
     else
       v3 = 0; // Shift in zeros.
 
-    v1 = (v1 << s | v2 >> (kBigitSize - s)) & kBigitMask;
-    v2 = (v2 << s | v3 >> (kBigitSize - s)) & kBigitMask;
+    v1 = (v1 << shift | v2 >> (kBigitSize - shift)) & kBigitMask;
+    v2 = (v2 << shift | v3 >> (kBigitSize - shift)) & kBigitMask;
   }
 
   // v1 and v2 now contain the leading digits of v'.
@@ -950,16 +950,16 @@ uint64_t Bignum::LongDiv(Bignum& u, const Bignum& v) {
     uint32_t u0 = u.bigits_[j + n];
     uint32_t u1 = u.bigits_[j + n - 1];
     uint32_t u2 = u.bigits_[j + n - 2];
-    if (s > 0) {
+    if (shift > 0) {
       uint32_t u3;
       if (j + n - 3 >= 0)
         u3 = u.bigits_[j + n - 3];
       else
         u3 = 0; // Shift in zeros
 
-      u0 = (u0 << s | u1 >> (kBigitSize - s)) & kBigitMask;
-      u1 = (u1 << s | u2 >> (kBigitSize - s)) & kBigitMask;
-      u2 = (u2 << s | u3 >> (kBigitSize - s)) & kBigitMask;
+      u0 = (u0 << shift | u1 >> (kBigitSize - shift)) & kBigitMask;
+      u1 = (u1 << shift | u2 >> (kBigitSize - shift)) & kBigitMask;
+      u2 = (u2 << shift | u3 >> (kBigitSize - shift)) & kBigitMask;
     }
 
     // u0, u1 and u2 now contain the leading digits of u'.
@@ -1008,10 +1008,8 @@ uint64_t Bignum::LongDiv(Bignum& u, const Bignum& v) {
         u.bigits_[j + i]  = static_cast<uint32_t>((ui - r) & kBigitMask);
       }
       // vn = 0:
-      const uint32_t un = u.bigits_[j + n];
-      u.bigits_[j + n]  = static_cast<uint32_t>((un - borrow) & kBigitMask);
-
-      const bool was_negative = (un < borrow);
+      const bool was_negative = (u.bigits_[j + n] < borrow);
+      u.bigits_[j + n]  = static_cast<uint32_t>((u.bigits_[j + n] - borrow) & kBigitMask);
 
       //------------------------------------------------------------------------
       // D5. [Test remainder.]

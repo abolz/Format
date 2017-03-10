@@ -164,7 +164,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 #endif
-#if 1
+#if 0
     times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(stdout, format_fmtxx, i); });
 #endif
 #if 0
@@ -179,11 +179,13 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
         std::fwrite(str.data(), 1, str.size(), stdout);
     });
 #endif
-#if 0
+#if 1
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArrayBuffer fb { buf };
-        fmtxx::Format(fb, format_fmtxx, i);
+        const auto ec = fmtxx::Format(fb, format_fmtxx, i);
+        assert(ec == fmtxx::errc::success);
+        static_cast<void>(ec);
         std::fwrite(buf, 1, static_cast<size_t>(fb.next - buf), stdout);
     });
 #endif
@@ -221,7 +223,7 @@ static void TestInts(char const* format_printf, char const* format_fmtxx, char c
 #ifndef NDEBUG
     RunTest(500000, dist, format_printf, format_fmtxx, format_fmt);
 #else
-    RunTest(5000000, dist, format_printf, format_fmtxx, format_fmt);
+    RunTest(500000, dist, format_printf, format_fmtxx, format_fmt);
 #endif
 }
 
@@ -255,7 +257,8 @@ int main()
     setvbuf(stdout, kIOBuf, _IOFBF, kIOBufSize);
 #endif
 
-#if 0
+#if 0 // ints
+#if 1
     TestInts<int32_t>("%d",     "{}");
     TestInts<int32_t>("%8d",    "{:8d}");
     TestInts<int32_t>("%24d",   "{:24d}");
@@ -269,7 +272,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0
+#if 1
     TestInts<uint32_t>("%u",     "{}");
     TestInts<uint32_t>("%8u",    "{:8d}");
     TestInts<uint32_t>("%24u",   "{:24d}");
@@ -283,7 +286,21 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0
+#if 1
+    TestInts<uint32_t>("%u",     "{:'}",      "{:n}");
+    TestInts<uint32_t>("%8u",    "{:'8d}",    "{:8n}");
+    TestInts<uint32_t>("%24u",   "{:'24d}",   "{:24n}");
+    TestInts<uint32_t>("%128u",  "{:'128d}",  "{:128n}");
+    TestInts<uint64_t>("%llu",     "{:'}",      "{:n}");
+    TestInts<uint64_t>("%8llu",    "{:'8d}",    "{:8n}");
+    TestInts<uint64_t>("%24llu",   "{:'24d}",   "{:24n}");
+    TestInts<uint64_t>("%128llu",  "{:'128d}",  "{:128n}");
+
+    PrintAvgTimes();
+    timing_results.clear();
+#endif
+
+#if 1
     TestInts<int64_t>("%lld",     "{}");
     TestInts<int64_t>("%8lld",    "{:8d}");
     TestInts<int64_t>("%24lld",   "{:24d}");
@@ -301,6 +318,20 @@ int main()
     //TestInts<int64_t>("%'08llx",   "{:'08x}");
     //TestInts<int64_t>("%'016llx",  "{:'016x}");
     //TestInts<int64_t>("%'0128llx", "{:'0128x}");
+
+    PrintAvgTimes();
+    timing_results.clear();
+#endif
+#endif
+
+#if 1 // floats
+#if 1
+    TestFloats(0.0,      1.0e-10,  "%.10f",  "{:.10f}");
+    TestFloats(1.0e-10,  1.0e-20,  "%.20f",  "{:.20f}");
+    TestFloats(1.0e-20,  1.0e-40,  "%.40f",  "{:.40f}");
+    TestFloats(1.0e-40,  1.0e-80,  "%.80f",  "{:.80f}");
+    TestFloats(1.0e-295, 1.0e-305, "%.305f", "{:.305f}");
+    TestFloats(0.0,      1.0e-308, "%.308f", "{:.308f}");
 
     PrintAvgTimes();
     timing_results.clear();
@@ -336,7 +367,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0
+#if 1
     TestFloats(0.0,      1.0,      "%.17g", "{}", "{:.17g}");
     TestFloats(1.0,      1.0e+20,  "%.17g", "{}", "{:.17g}");
     TestFloats(1.0e+20,  1.0e+40,  "%.17g", "{}", "{:.17g}");
@@ -354,5 +385,6 @@ int main()
 
     PrintAvgTimes();
     timing_results.clear();
+#endif
 #endif
 }

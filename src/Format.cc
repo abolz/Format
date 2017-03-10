@@ -2,7 +2,9 @@
 
 #include "Format.h"
 
+#if FMTXX_USE_DOUBLE_CONVERSION
 #include "Dtoa.h"
+#endif
 
 #include <algorithm>
 #include <ostream>
@@ -511,6 +513,7 @@ struct Double
 
 static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 {
+#if FMTXX_USE_DOUBLE_CONVERSION
     dtoa::Options options;
 
     options.use_upper_case_digits       = false;
@@ -639,6 +642,103 @@ static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 
     const size_t buflen = static_cast<size_t>(res.next - buf);
     return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, buf, buflen);
+#else
+    char        conv = spec.conv;
+    int         prec = spec.prec;
+    char const* prefix = nullptr;
+    size_t      nprefix = 0;
+
+    switch (conv)
+    {
+    default:
+        // I'm sorry Dave, I'm afraid I can't do that.
+    case '\0':
+    case 's':
+        conv = 'g';
+        if (prec < 17) // 's' is guaranteed to round-trip
+            prec = 17;
+        break;
+    case 'S':
+        conv = 'G';
+        if (prec < 17) // 's' is guaranteed to round-trip
+            prec = 17;
+        break;
+    case 'E':
+    case 'e':
+        if (prec < 0)
+            prec = 6;
+        break;
+    case 'F':
+    case 'f':
+        if (prec < 0)
+            prec = 6;
+        break;
+    case 'G':
+    case 'g':
+        if (prec < 0)
+            prec = 6;
+        break;
+    case 'A':
+        prefix = "0X";
+        nprefix = 2; // Always add a prefix. Like printf.
+        break;
+    case 'a':
+        prefix = "0x";
+        nprefix = 2; // Always add a prefix. Like printf.
+        break;
+    case 'X':
+    case 'x':
+        conv = (conv == 'x') ? 'a' : 'A';
+        prefix = "0x";
+        nprefix = spec.hash ? 2u : 0u; // Add a prefix only if '#' was specified. As with integers.
+        break;
+    }
+
+    const Double d { x };
+
+    const bool   neg = (d.Sign() != 0);
+    const double abs_x = d.Abs();
+    const char   sign = ComputeSignChar(neg, spec.sign, spec.fill);
+
+    if (d.IsSpecial())
+    {
+        const bool upper = ('A' <= conv && conv <= 'Z');
+
+        if (d.IsNaN())
+            return PrintAndPadString(fb, spec, upper ? "NAN" : "nan");
+
+        const char inf[] = { sign, upper ? 'I' : 'i', upper ? 'N' : 'n', upper ? 'F' : 'f', '\0' };
+        return PrintAndPadString(fb, spec, inf + (sign == '\0' ? 1 : 0));
+    }
+
+    const int kBufSize = 1500;
+    char buf[kBufSize];
+
+    int n;
+    if (spec.hash)
+    {
+        const char fmt[] = {'%', '#', '.', '*', conv, '\0'};
+        n = snprintf(buf, kBufSize, fmt, prec, abs_x);
+    }
+    else
+    {
+        const char fmt[] = {'%', '.', '*', conv, '\0'};
+        n = snprintf(buf, kBufSize, fmt, prec, abs_x);
+    }
+
+    if (n < 0)
+        return errc::io_error; // Invalid format-string. Should not happen.
+
+    if (n >= kBufSize)
+        return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
+
+    const size_t buflen = static_cast<size_t>(n);
+
+    // For 'a' or 'A' conversions remove the prefix!
+    // Will be added back iff required.
+    assert(buflen >= nprefix);
+    return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, buf + nprefix, buflen - nprefix);
+#endif
 }
 
 //

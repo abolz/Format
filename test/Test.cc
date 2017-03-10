@@ -12,8 +12,6 @@ g++ Test.cc Format.cc
 #include <sstream>
 #include <vector>
 
-#define NO_FLOATS 0
-
 static int n_errors = 0;
 
 //namespace fmtxx {
@@ -462,8 +460,9 @@ static void test_ints()
 template <typename Formatter>
 static void test_floats()
 {
-#if 1
-#if !NO_FLOATS
+    // XXX:
+    // Disable all the tests when using snprintf for now...
+#if FMTXX_USE_DOUBLE_CONVERSION
     EXPECT_EQUAL("24354608055603473107785637960931689315827890257544706015104721270340534493811981620606737277529913083605031584257830981831645089433797861274588973007916379823425649561385825684928346706685948919211835202051403608328731923243535575249303882582848104435881064910836763331355730531064189222587032782727341408256.000000", "{:f}", 2.4354608055603473e+307);
 
     static const double PI  = 3.1415926535897932384626433832795;
@@ -573,7 +572,6 @@ static void test_floats()
 
 #if 0
     EXPECT_EQUAL("12_345.678900",  "{:_f}",  12345.6789);
-#endif
 #endif
 
     EXPECT_EQUAL("0",                 "{:s}", 0.0);

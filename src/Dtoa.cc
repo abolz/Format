@@ -16,16 +16,16 @@ using Vector = double_conversion::Vector<char>;
 
 struct IEEEDouble // FIXME: Use double_conversion::Double
 {
-    static const uint64_t kSignMask        = 0x8000000000000000;
-    static const uint64_t kExponentMask    = 0x7FF0000000000000;
-    static const uint64_t kSignificandMask = 0x000FFFFFFFFFFFFF;
-    static const uint64_t kHiddenBit       = 0x0010000000000000;
+    static uint64_t const kSignMask        = 0x8000000000000000;
+    static uint64_t const kExponentMask    = 0x7FF0000000000000;
+    static uint64_t const kSignificandMask = 0x000FFFFFFFFFFFFF;
+    static uint64_t const kHiddenBit       = 0x0010000000000000;
 
-    static const int kExponentBias = 0x3FF;
+    static int const kExponentBias = 0x3FF;
 
     union {
-        const double d;
-        const uint64_t bits;
+        double const d;
+        uint64_t const bits;
     };
 
     explicit IEEEDouble(double d) : d(d) {}
@@ -54,7 +54,7 @@ static int InsertThousandsSep(Vector buf, int pt, int last, char sep)
     assert(pt <= last);
     assert(sep != '\0');
 
-    const int nsep = (pt - 1) / 3;
+    int const nsep = (pt - 1) / 3;
 
     if (nsep <= 0)
         return 0;
@@ -72,7 +72,7 @@ static int InsertThousandsSep(Vector buf, int pt, int last, char sep)
     return nsep;
 }
 
-static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int precision, Options const &options)
+static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int precision, Options const& options)
 {
     assert(options.decimal_point_char != '\0');
 
@@ -86,7 +86,7 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
         {
             // digits --> digits0.[000][000]
 
-            const int nextra = 2 + (precision - num_digits);
+            int const nextra = 2 + (precision - num_digits);
             // nextra includes the decimal point.
             std::fill_n(buf.start() + num_digits, nextra, '0');
             buf[num_digits + 1] = options.decimal_point_char;
@@ -109,8 +109,8 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
     {
         // digits[000][.000]
 
-        const int nzeros = decpt - num_digits;
-        const int nextra = precision > 0 ? 1 + precision : (options.use_alternative_form ? 1 : 0);
+        int const nzeros = decpt - num_digits;
+        int const nextra = precision > 0 ? 1 + precision : (options.use_alternative_form ? 1 : 0);
         // nextra includes the decimal point -- if any.
 
         std::fill_n(buf.start() + num_digits, nzeros + nextra, '0');
@@ -141,7 +141,7 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
     }
 }
 
-static int ComputeFixedRepresentationLength(int num_digits, int decpt, int precision, Options const &options)
+static int ComputeFixedRepresentationLength(int num_digits, int decpt, int precision, Options const& options)
 {
     assert(num_digits >= 0);
 
@@ -155,8 +155,8 @@ static int ComputeFixedRepresentationLength(int num_digits, int decpt, int preci
             return 1 + (options.use_alternative_form ? 1 : 0);
     }
 
-    const int nseps = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
-    const int num_digits_before_decpt = decpt + nseps;
+    int const nseps = options.thousands_sep != '\0' ? (decpt - 1) / 3 : 0;
+    int const num_digits_before_decpt = decpt + nseps;
 
     if (decpt >= num_digits)
     {
@@ -175,14 +175,14 @@ static int ComputeFixedRepresentationLength(int num_digits, int decpt, int preci
     }
 }
 
-static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int *num_digits, int *decpt)
+static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
 {
     assert(vec.length() >= 1);
     assert(vec.length() >= 40); // For FastFixedDtoa
 
     using namespace double_conversion;
 
-    const IEEEDouble d{v};
+    IEEEDouble const d{v};
 
     assert(!d.IsSpecial());
     assert(d.Abs() >= 0);
@@ -196,10 +196,10 @@ static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int 
         return true;
     }
 
-    const bool fast_worked = FastFixedDtoa(v, requested_digits, vec, num_digits, decpt);
+    bool const fast_worked = FastFixedDtoa(v, requested_digits, vec, num_digits, decpt);
     if (!fast_worked)
     {
-        const bool slow_worked = BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
+        bool const slow_worked = BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
         if (!slow_worked)
             return false; // buffer too small.
     }
@@ -207,7 +207,7 @@ static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int 
     return true;
 }
 
-Result dtoa::ToFixed(char *first, char *last, double d, int precision, Options const &options)
+Result dtoa::ToFixed(char* first, char* last, double d, int precision, Options const& options)
 {
     Vector buf(first, static_cast<int>(last - first));
 
@@ -219,7 +219,7 @@ Result dtoa::ToFixed(char *first, char *last, double d, int precision, Options c
 
     assert(num_digits >= 0);
 
-    const int fixed_len = ComputeFixedRepresentationLength(num_digits, decpt, precision, options);
+    int const fixed_len = ComputeFixedRepresentationLength(num_digits, decpt, precision, options);
 
     if (last - first < fixed_len)
         return {last, -1};
@@ -228,7 +228,7 @@ Result dtoa::ToFixed(char *first, char *last, double d, int precision, Options c
     return {first + fixed_len, 0};
 }
 
-static int ComputeExponentLength(int exponent, Options const &options)
+static int ComputeExponentLength(int exponent, Options const& options)
 {
     int len = 1; // exponent_char
 
@@ -248,7 +248,7 @@ static int ComputeExponentLength(int exponent, Options const &options)
     return len + 1;
 }
 
-static int AppendExponent(Vector buf, int pos, int exponent, Options const &options)
+static int AppendExponent(Vector buf, int pos, int exponent, Options const& options)
 {
     assert(exponent > -10000);
     assert(exponent <  10000);
@@ -268,7 +268,7 @@ static int AppendExponent(Vector buf, int pos, int exponent, Options const &opti
         buf[pos++] = '+';
     }
 
-    const int k = exponent;
+    int const k = exponent;
 
     if (k >= 1000 || options.min_exponent_digits >= 4) { buf[pos++] = static_cast<char>('0' + exponent / 1000); exponent %= 1000; }
     if (k >=  100 || options.min_exponent_digits >= 3) { buf[pos++] = static_cast<char>('0' + exponent /  100); exponent %=  100; }
@@ -278,7 +278,7 @@ static int AppendExponent(Vector buf, int pos, int exponent, Options const &opti
     return pos;
 }
 
-static int CreateExponentialRepresentation(Vector buf, int num_digits, int exponent, int precision, Options const &options)
+static int CreateExponentialRepresentation(Vector buf, int num_digits, int exponent, int precision, Options const& options)
 {
     assert(options.decimal_point_char != '\0');
 
@@ -295,7 +295,7 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
 
         if (precision > num_digits - 1)
         {
-            const int nzeros = precision - (num_digits - 1);
+            int const nzeros = precision - (num_digits - 1);
             std::fill_n(buf.start() + pos, nzeros, '0');
             pos += nzeros;
         }
@@ -319,7 +319,7 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
     return AppendExponent(buf, pos, exponent, options);
 }
 
-static int ComputeExponentialRepresentationLength(int num_digits, int exponent, int precision, Options const &options)
+static int ComputeExponentialRepresentationLength(int num_digits, int exponent, int precision, Options const& options)
 {
     assert(num_digits > 0);
     assert(exponent > -10000);
@@ -348,14 +348,14 @@ static int ComputeExponentialRepresentationLength(int num_digits, int exponent, 
     return len + ComputeExponentLength(exponent, options);
 }
 
-static bool GeneratePrecisionDigits(double v, int requested_digits, Vector vec, int *num_digits, int *decpt)
+static bool GeneratePrecisionDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
 {
     using namespace double_conversion;
 
     assert(vec.length() >= 1);
     assert(requested_digits >= 0);
 
-    const IEEEDouble d{v};
+    IEEEDouble const d{v};
 
     assert(!d.IsSpecial());
     assert(d.Abs() >= 0);
@@ -378,7 +378,7 @@ static bool GeneratePrecisionDigits(double v, int requested_digits, Vector vec, 
     if (vec.length() < requested_digits + 1 /*null*/)
         return false;
 
-    const bool fast_worked = FastDtoa(v, FAST_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
+    bool const fast_worked = FastDtoa(v, FAST_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
     if (!fast_worked)
     {
         BignumDtoa(v, BIGNUM_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
@@ -387,7 +387,7 @@ static bool GeneratePrecisionDigits(double v, int requested_digits, Vector vec, 
     return true;
 }
 
-Result dtoa::ToExponential(char *first, char *last, double d, int precision, Options const &options)
+Result dtoa::ToExponential(char* first, char* last, double d, int precision, Options const& options)
 {
     Vector buf(first, static_cast<int>(last - first));
 
@@ -399,8 +399,8 @@ Result dtoa::ToExponential(char *first, char *last, double d, int precision, Opt
 
     assert(num_digits > 0);
 
-    const int exponent = decpt - 1;
-    const int exponential_len = ComputeExponentialRepresentationLength(num_digits, exponent, precision, options);
+    int const exponent = decpt - 1;
+    int const exponential_len = ComputeExponentialRepresentationLength(num_digits, exponent, precision, options);
 
     if (last - first < exponential_len)
         return {last, -1};
@@ -409,7 +409,7 @@ Result dtoa::ToExponential(char *first, char *last, double d, int precision, Opt
     return {first + exponential_len, 0};
 }
 
-Result dtoa::ToGeneral(char *first, char *last, double d, int precision, Options const &options)
+Result dtoa::ToGeneral(char* first, char* last, double d, int precision, Options const& options)
 {
     assert(precision >= 0);
 
@@ -418,7 +418,7 @@ Result dtoa::ToGeneral(char *first, char *last, double d, int precision, Options
     int num_digits = 0;
     int decpt = 0;
 
-    const int P = precision == 0 ? 1 : precision;
+    int const P = precision == 0 ? 1 : precision;
 
     if (!GeneratePrecisionDigits(d, P, buf, &num_digits, &decpt))
         return {last, -1};
@@ -426,7 +426,7 @@ Result dtoa::ToGeneral(char *first, char *last, double d, int precision, Options
     assert(num_digits > 0);
     assert(num_digits == P);
 
-    const int X = decpt - 1;
+    int const X = decpt - 1;
 
     // Trim trailing zeros.
     while (num_digits > 0 && first[num_digits - 1] == '0')
@@ -443,7 +443,7 @@ Result dtoa::ToGeneral(char *first, char *last, double d, int precision, Options
                 prec = num_digits - decpt;
         }
 
-        const int output_len = ComputeFixedRepresentationLength(num_digits, decpt, prec, options);
+        int const output_len = ComputeFixedRepresentationLength(num_digits, decpt, prec, options);
         if (last - first >= output_len)
         {
             CreateFixedRepresentation(Vector(first, output_len), num_digits, decpt, prec, options);
@@ -459,7 +459,7 @@ Result dtoa::ToGeneral(char *first, char *last, double d, int precision, Options
                 prec = num_digits - 1;
         }
 
-        const int output_len = ComputeExponentialRepresentationLength(num_digits, X, prec, options);
+        int const output_len = ComputeExponentialRepresentationLength(num_digits, X, prec, options);
         if (last - first >= output_len)
         {
             CreateExponentialRepresentation(Vector(first, output_len), num_digits, X, prec, options);
@@ -497,11 +497,11 @@ static int CountLeadingZeros64(uint64_t n)
 #endif
 }
 
-static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, Vector buffer, int *num_digits, int *binary_exponent)
+static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, Vector buffer, int* num_digits, int* binary_exponent)
 {
-    const char *const xdigits = upper ? "0123456789ABCDEF" : "0123456789abcdef";
+    char const* const xdigits = upper ? "0123456789ABCDEF" : "0123456789abcdef";
 
-    const IEEEDouble d{v};
+    IEEEDouble const d{v};
 
     assert(!d.IsSpecial()); // NaN or infinity?
     assert(d.Abs() >= 0);
@@ -548,8 +548,8 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
     // Round?
     if (precision >= 0 && precision < 52/4)
     {
-        const uint64_t digit = sig         >> (52 - 4 * precision - 4);
-        const uint64_t r     = uint64_t{1} << (52 - 4 * precision    );
+        uint64_t const digit = sig         >> (52 - 4 * precision - 4);
+        uint64_t const r     = uint64_t{1} << (52 - 4 * precision    );
 
         assert(!normalize || (sig & IEEEDouble::kHiddenBit) == 0);
 
@@ -584,7 +584,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
     }
 }
 
-Result dtoa::ToHex(char *first, char *last, double d, int precision, Options const &options)
+Result dtoa::ToHex(char* first, char* last, double d, int precision, Options const& options)
 {
     assert(static_cast<size_t>(last - first) >= 52/4 + 1);
 
@@ -595,7 +595,7 @@ Result dtoa::ToHex(char *first, char *last, double d, int precision, Options con
 
     assert(num_digits > 0);
 
-    const int output_len = ComputeExponentialRepresentationLength(num_digits, binary_exponent, precision, options);
+    int const output_len = ComputeExponentialRepresentationLength(num_digits, binary_exponent, precision, options);
     if (last - first >= output_len)
     {
         CreateExponentialRepresentation(Vector(first, output_len), num_digits, binary_exponent, precision, options);
@@ -616,13 +616,13 @@ static int ComputePrecisionForShortFixedRepresentation(int num_digits, int decpt
     return -decpt + num_digits;
 }
 
-static void GenerateShortestDigits(double v, Vector vec, int *num_digits, int *decpt)
+static void GenerateShortestDigits(double v, Vector vec, int* num_digits, int* decpt)
 {
     using namespace double_conversion;
 
     assert(vec.length() >= 17 + 1 /*null*/);
 
-    const IEEEDouble d{v};
+    IEEEDouble const d{v};
 
     assert(!d.IsSpecial());
     assert(d.Abs() >= 0);
@@ -635,14 +635,14 @@ static void GenerateShortestDigits(double v, Vector vec, int *num_digits, int *d
         return;
     }
 
-    const bool fast_worked = FastDtoa(v, FAST_DTOA_SHORTEST, 0, vec, num_digits, decpt);
+    bool const fast_worked = FastDtoa(v, FAST_DTOA_SHORTEST, 0, vec, num_digits, decpt);
     if (!fast_worked)
     {
         BignumDtoa(v, BIGNUM_DTOA_SHORTEST, -1, vec, num_digits, decpt);
     }
 }
 
-Result dtoa::ToShortest(char *first, char *last, double d, Style style, Options const &options)
+Result dtoa::ToShortest(char* first, char* last, double d, Style style, Options const& options)
 {
     if (style == Style::hex)
         return ToHex(first, last, d, /*precision*/ -1, options);
@@ -654,13 +654,13 @@ Result dtoa::ToShortest(char *first, char *last, double d, Style style, Options 
 
     assert(num_digits > 0);
 
-    const int fixed_precision       = ComputePrecisionForShortFixedRepresentation(num_digits, decpt);
-    const int fixed_len             = ComputeFixedRepresentationLength(num_digits, decpt, fixed_precision, options);
-    const int exponent              = decpt - 1;
-    const int exponential_precision = num_digits - 1;
-    const int exponential_len       = ComputeExponentialRepresentationLength(num_digits, exponent, exponential_precision, options);
+    int const fixed_precision       = ComputePrecisionForShortFixedRepresentation(num_digits, decpt);
+    int const fixed_len             = ComputeFixedRepresentationLength(num_digits, decpt, fixed_precision, options);
+    int const exponent              = decpt - 1;
+    int const exponential_precision = num_digits - 1;
+    int const exponential_len       = ComputeExponentialRepresentationLength(num_digits, exponent, exponential_precision, options);
 
-    const bool use_fixed =
+    bool const use_fixed =
         (style == Style::fixed) ||
         (style == Style::general && fixed_len <= exponential_len);
 
@@ -684,7 +684,7 @@ Result dtoa::ToShortest(char *first, char *last, double d, Style style, Options 
     return {last, -1};
 }
 
-Result dtoa::ToECMAScript(char *first, char *last, double d)
+Result dtoa::ToECMAScript(char* first, char* last, double d)
 {
     Vector buf(first, static_cast<int>(last - first));
     assert(buf.length() >= 24);
@@ -696,8 +696,8 @@ Result dtoa::ToECMAScript(char *first, char *last, double d)
 
     assert(num_digits > 0);
 
-    const int k = num_digits;
-    const int n = decpt;
+    int const k = num_digits;
+    int const n = decpt;
 
     // Use a decimal notation if -6 < n <= 21.
 
@@ -737,7 +737,7 @@ Result dtoa::ToECMAScript(char *first, char *last, double d)
     if (k == 1)
     {
         // dE+123
-        const int endpos = AppendExponent(buf, /*pos*/ 1, n - 1, options);
+        int const endpos = AppendExponent(buf, /*pos*/ 1, n - 1, options);
         return {first + endpos, 0};
     }
     else
@@ -745,7 +745,7 @@ Result dtoa::ToECMAScript(char *first, char *last, double d)
         // d.igitsE+123
         std::copy_backward(buf.start() + 1, buf.start() + k, buf.start() + (k + 1));
         buf[1] = '.';
-        const int endpos = AppendExponent(buf, /*pos*/ k + 1, n - 1, options);
+        int const endpos = AppendExponent(buf, /*pos*/ k + 1, n - 1, options);
         return {first + endpos, 0};
     }
 }

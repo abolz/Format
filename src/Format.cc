@@ -56,14 +56,14 @@ bool fmtxx::FILEBuffer::Write(char const* str, size_t len)
 
 bool fmtxx::FILEBuffer::Pad(char c, size_t count)
 {
-    const size_t kBlockSize = 32;
+    size_t const kBlockSize = 32;
 
     char block[kBlockSize];
     std::memset(block, static_cast<unsigned char>(c), kBlockSize);
 
     while (count > 0)
     {
-        const auto n = Min(count, kBlockSize);
+        auto const n = Min(count, kBlockSize);
 
         if (n != std::fwrite(block, 1, n, os))
             return false;
@@ -88,13 +88,13 @@ bool fmtxx::StreamBuffer::Put(char c)
 
 bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
 {
-    const auto kMaxLen = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
+    auto const kMaxLen = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
 
     while (len > 0)
     {
-        const auto n = Min(len, kMaxLen);
-        const auto k = static_cast<std::streamsize>(n);
+        auto const n = Min(len, kMaxLen);
 
+        auto const k = static_cast<std::streamsize>(n);
         if (k != os.rdbuf()->sputn(str, k)) {
             os.setstate(std::ios_base::badbit);
             return false;
@@ -109,16 +109,16 @@ bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
 
 bool fmtxx::StreamBuffer::Pad(char c, size_t count)
 {
-    const size_t kBlockSize = 32;
+    size_t const kBlockSize = 32;
 
     char block[kBlockSize];
     std::memset(block, static_cast<unsigned char>(c), kBlockSize);
 
     while (count > 0)
     {
-        const auto n = Min(count, kBlockSize);
-        const auto k = static_cast<std::streamsize>(n);
+        auto const n = Min(count, kBlockSize);
 
+        auto const k = static_cast<std::streamsize>(n);
         if (k != os.rdbuf()->sputn(block, k)) {
             os.setstate(std::ios_base::badbit);
             return false;
@@ -184,11 +184,11 @@ static void ComputePadding(size_t len, char align, int width, size_t& lpad, size
     assert(IsAlign(align) && "internal error");
     assert(width >= 0 && "internal error");
 
-    const size_t w = static_cast<size_t>(width);
+    size_t const w = static_cast<size_t>(width);
     if (w <= len)
         return;
 
-    const size_t d = w - len;
+    size_t const d = w - len;
     switch (align)
     {
     case '>':
@@ -234,7 +234,7 @@ static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, std::str
 
 static errc FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
 {
-    const size_t n = (spec.prec >= 0)
+    size_t const n = (spec.prec >= 0)
         ? Min(len, static_cast<size_t>(spec.prec))
         : len;
 
@@ -248,7 +248,7 @@ static errc FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* s
 
     // Use strnlen if a precision was specified.
     // The string may not be null-terminated!
-    const size_t len = (spec.prec >= 0)
+    size_t const len = (spec.prec >= 0)
         ? ::strnlen(str, static_cast<size_t>(spec.prec))
         : ::strlen(str);
 
@@ -257,7 +257,7 @@ static errc FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* s
 
 static errc PrintAndPadNumber(FormatBuffer& fb, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
 {
-    const size_t len = (sign ? 1u : 0u) + nprefix + ndigits;
+    size_t const len = (sign ? 1u : 0u) + nprefix + ndigits;
 
     size_t lpad = 0;
     size_t spad = 0;
@@ -283,7 +283,7 @@ static errc PrintAndPadNumber(FormatBuffer& fb, FormatSpec const& spec, char sig
 
 static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
 {
-    static const char* const kDecDigits100/*[100*2 + 1]*/ =
+    static char const* const kDecDigits100/*[100*2 + 1]*/ =
         "00010203040506070809"
         "10111213141516171819"
         "20212223242526272829"
@@ -318,7 +318,7 @@ static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
 
 static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool capitals)
 {
-    const char* const xdigits = capitals
+    char const* const xdigits = capitals
         ? "0123456789ABCDEF"
         : "0123456789abcdef";
 
@@ -361,7 +361,7 @@ static int InsertThousandsSep(RanIt buf, int pt, int last, char sep, int group_l
     assert(sep != '\0');
     assert(group_len > 0);
 
-    const int nsep = (pt - 1) / group_len;
+    int const nsep = (pt - 1) / group_len;
 
     if (nsep <= 0)
         return 0;
@@ -418,7 +418,7 @@ static errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, ui
         break;
     }
 
-    const bool upper = ('A' <= conv && conv <= 'Z');
+    bool const upper = ('A' <= conv && conv <= 'Z');
 
     // 64: Max. length of integer in base 2.
     // 15: Max. number of grouping chars.
@@ -428,9 +428,9 @@ static errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, ui
 
     if (spec.tsep)
     {
-        const int group_len = (base == 10) ? 3 : 4;
-        const int pos       = static_cast<int>(l - f);
-        const int last      = pos;
+        int const group_len = (base == 10) ? 3 : 4;
+        int const pos       = static_cast<int>(l - f);
+        int const last      = pos;
 
 #if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
         l += InsertThousandsSep(stdext::make_checked_array_iterator(f, pos + 15), pos, last, spec.tsep, group_len);
@@ -439,7 +439,7 @@ static errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, ui
 #endif
     }
 
-    const char prefix[] = {'0', conv};
+    char const prefix[] = {'0', conv};
     return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
 }
 
@@ -467,16 +467,16 @@ static errc FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void const* 
 
 struct Double
 {
-    static const uint64_t kSignMask        = 0x8000000000000000;
-    static const uint64_t kExponentMask    = 0x7FF0000000000000;
-    static const uint64_t kSignificandMask = 0x000FFFFFFFFFFFFF;
-    static const uint64_t kHiddenBit       = 0x0010000000000000;
+    static uint64_t const kSignMask        = 0x8000000000000000;
+    static uint64_t const kExponentMask    = 0x7FF0000000000000;
+    static uint64_t const kSignificandMask = 0x000FFFFFFFFFFFFF;
+    static uint64_t const kHiddenBit       = 0x0010000000000000;
 
-    static const int kExponentBias = 0x3FF;
+    static int const kExponentBias = 0x3FF;
 
     union {
-        const double d;
-        const uint64_t bits;
+        double const d;
+        uint64_t const bits;
     };
 
     explicit Double(double d) : d(d) {}
@@ -593,24 +593,24 @@ static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         break;
     }
 
-    const Double d { x };
+    Double const d { x };
 
-    const bool   neg = (d.Sign() != 0);
-    const double abs_x = d.Abs();
-    const char   sign = ComputeSignChar(neg, spec.sign, spec.fill);
+    bool   const neg = (d.Sign() != 0);
+    double const abs_x = d.Abs();
+    char   const sign = ComputeSignChar(neg, spec.sign, spec.fill);
 
     if (d.IsSpecial())
     {
-        const bool upper = ('A' <= conv && conv <= 'Z');
+        bool const upper = ('A' <= conv && conv <= 'Z');
 
         if (d.IsNaN())
             return PrintAndPadString(fb, spec, upper ? "NAN" : "nan");
 
-        const char inf[] = { sign, upper ? 'I' : 'i', upper ? 'N' : 'n', upper ? 'F' : 'f', '\0' };
+        char const inf[] = { sign, upper ? 'I' : 'i', upper ? 'N' : 'n', upper ? 'F' : 'f', '\0' };
         return PrintAndPadString(fb, spec, inf + (sign == '\0' ? 1 : 0));
     }
 
-    const int kBufSize = 1500;
+    static int const kBufSize = 1500;
     char buf[kBufSize];
 
     dtoa::Result res;
@@ -648,7 +648,7 @@ static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     if (res.ec)
         return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
 
-    const size_t buflen = static_cast<size_t>(res.next - buf);
+    size_t const buflen = static_cast<size_t>(res.next - buf);
     return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, buf, buflen);
 #else
     char        conv = spec.conv;
@@ -706,35 +706,35 @@ static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         break;
     }
 
-    const Double d { x };
+    Double const d { x };
 
-    const bool   neg = (d.Sign() != 0);
-    const double abs_x = d.Abs();
-    const char   sign = ComputeSignChar(neg, spec.sign, spec.fill);
+    bool   const neg = (d.Sign() != 0);
+    double const abs_x = d.Abs();
+    char   const sign = ComputeSignChar(neg, spec.sign, spec.fill);
 
     if (d.IsSpecial())
     {
-        const bool upper = ('A' <= conv && conv <= 'Z');
+        bool const upper = ('A' <= conv && conv <= 'Z');
 
         if (d.IsNaN())
             return PrintAndPadString(fb, spec, upper ? "NAN" : "nan");
 
-        const char inf[] = { sign, upper ? 'I' : 'i', upper ? 'N' : 'n', upper ? 'F' : 'f', '\0' };
+        char const inf[] = { sign, upper ? 'I' : 'i', upper ? 'N' : 'n', upper ? 'F' : 'f', '\0' };
         return PrintAndPadString(fb, spec, inf + (sign == '\0' ? 1 : 0));
     }
 
-    const int kBufSize = 1500;
+    static int const kBufSize = 1500;
     char buf[kBufSize];
 
     int n;
     if (spec.hash)
     {
-        const char fmt[] = {'%', '#', '.', '*', conv, '\0'};
+        char const fmt[] = {'%', '#', '.', '*', conv, '\0'};
         n = snprintf(buf, kBufSize, fmt, prec, abs_x);
     }
     else
     {
-        const char fmt[] = {'%', '.', '*', conv, '\0'};
+        char const fmt[] = {'%', '.', '*', conv, '\0'};
         n = snprintf(buf, kBufSize, fmt, prec, abs_x);
     }
 
@@ -744,7 +744,7 @@ static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     if (n >= kBufSize)
         return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
 
-    const size_t buflen = static_cast<size_t>(n);
+    size_t const buflen = static_cast<size_t>(n);
 
     // For 'a' or 'A' conversions remove the prefix!
     // Will be added back iff required.
@@ -759,7 +759,7 @@ static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 //
 // PRE: IsDigit(*s) == true.
 //
-static int ParseInt(const char*& s, const char* end)
+static int ParseInt(char const*& s, char const* end)
 {
     int x = *s - '0';
 
@@ -790,7 +790,7 @@ static void FixFormatSpec(FormatSpec& spec)
     }
 }
 
-static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, int& nextarg, Types types, Arg const* args)
+static errc ParseFormatSpec(FormatSpec& spec, char const*& f, char const* end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end);
 
@@ -861,7 +861,7 @@ static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, i
 
         if (IsDigit(*f))
         {
-            const int i = ParseInt(f, end);
+            int const i = ParseInt(f, end);
             if (i < 0)
                 return errc::invalid_format_string; // overflow
             if (f == end)
@@ -874,7 +874,7 @@ static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, i
             ++f;
             if (f == end || !IsDigit(*f))
                 return errc::invalid_format_string; // missing '}' or digit expected
-            const int i = ParseInt(f, end);
+            int const i = ParseInt(f, end);
             if (i < 0)
                 return errc::invalid_format_string; // overflow
             if (f == end)
@@ -892,7 +892,7 @@ static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, i
 
     if (*f == ',')
     {
-        const auto f0 = ++f;
+        auto const f0 = ++f;
 
         while (f != end && *f != '}')
             ++f;
@@ -908,12 +908,12 @@ static errc ParseFormatSpec(FormatSpec& spec, const char*& f, const char* end, i
 
 static errc CallFormatFunc(FormatBuffer& fb, FormatSpec const& spec, int index, Types types, Arg const* args)
 {
-    const auto type = types[index];
+    auto const type = types[index];
 
     if (type == Types::T_NONE)
         return errc::index_out_of_range;
 
-    const auto& arg = args[index];
+    auto const& arg = args[index];
 
     switch (type)
     {
@@ -957,9 +957,9 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
 
     int nextarg = 0;
 
-    const char*       f   = format.data();
-    const char* const end = f + format.size();
-    const char*       s   = f;
+    char const*       f   = format.data();
+    char const* const end = f + format.size();
+    char const*       s   = f;
     for (;;)
     {
         while (f != end && *f != '{' && *f != '}')
@@ -971,7 +971,7 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
         if (f == end) // done.
             break;
 
-        const char c = *f++; // skip '{' or '}'
+        char const c = *f++; // skip '{' or '}'
 
         if (*f == c) // '{{' or '}}'
         {
@@ -997,7 +997,7 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
         FormatSpec spec;
         if (*f != '}')
         {
-            const errc ec = ParseFormatSpec(spec, f, end, nextarg, types, args);
+            auto const ec = ParseFormatSpec(spec, f, end, nextarg, types, args);
             if (ec != errc::success)
                 return ec;
         }
@@ -1005,7 +1005,7 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
         if (index < 0)
             index = nextarg++;
 
-        const errc ec = CallFormatFunc(fb, spec, index, types, args);
+        auto const ec = CallFormatFunc(fb, spec, index, types, args);
         if (ec != errc::success)
             return ec;
 
@@ -1032,7 +1032,7 @@ errc fmtxx::impl::DoFormat(std::FILE* os, std::string_view format, Types types, 
 
 errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args)
 {
-    const std::ostream::sentry se(os);
+    std::ostream::sentry const se(os);
     if (se)
     {
         StreamBuffer fb { os };

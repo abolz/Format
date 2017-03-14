@@ -748,7 +748,7 @@ static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 
     // For 'a' or 'A' conversions remove the prefix!
     // Will be added back iff required.
-    int const skip = (conv == 'a' || conv == 'A') ? 2 : 0;
+    size_t const skip = (conv == 'a' || conv == 'A') ? 2u : 0u;
     assert(buflen >= skip);
     return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, buf + skip, buflen - skip);
 #endif

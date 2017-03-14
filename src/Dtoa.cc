@@ -424,7 +424,7 @@ Result dtoa::ToGeneral(char* first, char* last, double d, int precision, Options
         return {last, -1};
 
     assert(num_digits > 0);
-    assert(num_digits == P);
+    assert(num_digits <= P); // GeneratePrecisionDigits is allowed to return fewer digits if they are all 0's.
 
     int const X = decpt - 1;
 

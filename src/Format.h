@@ -211,10 +211,12 @@ public:
         T_FORMATSPEC, // 15
     };
 
-    value_type const types;
+    value_type const types = 0;
+
+    Types() = default;
 
     template <typename ...Args>
-    Types(Args const&... args) : types(Make(args...))
+    explicit Types(Args const&... args) : types(Make(args...))
     {
     }
 
@@ -358,7 +360,7 @@ inline errc Format(Buffer& fb, std::string_view format, Args const&... args)
 template <typename Buffer>
 inline errc Format(Buffer& fb, std::string_view format)
 {
-    return fmtxx::impl::DoFormat(fb, format, 0, nullptr);
+    return fmtxx::impl::DoFormat(fb, format, Types(), nullptr);
 }
 
 template <typename T, typename Stream = std::ostringstream>

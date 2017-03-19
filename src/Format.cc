@@ -232,7 +232,7 @@ static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, std::str
     return PrintAndPadString(fb, spec, str.data(), str.size());
 }
 
-static errc FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
+errc Util::FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t const n = (spec.prec >= 0)
         ? Min(len, static_cast<size_t>(spec.prec))
@@ -241,7 +241,7 @@ static errc FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* s
     return PrintAndPadString(fb, spec, str, n);
 }
 
-static errc FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str)
+errc Util::FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str)
 {
     if (str == nullptr)
         return PrintAndPadString(fb, spec, "(null)");
@@ -377,7 +377,7 @@ static int InsertThousandsSep(RanIt buf, int pt, int last, char sep, int group_l
     return nsep;
 }
 
-static errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uint64_t zext)
+errc Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
     uint64_t number = zext;
     char     conv = spec.conv;
@@ -443,17 +443,17 @@ static errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, ui
     return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
 }
 
-static errc FormatBool(FormatBuffer& fb, FormatSpec const& spec, bool val)
+errc Util::FormatBool(FormatBuffer& fb, FormatSpec const& spec, bool val)
 {
     return PrintAndPadString(fb, spec, val ? "true" : "false");
 }
 
-static errc FormatChar(FormatBuffer& fb, FormatSpec const& spec, char ch)
+errc Util::FormatChar(FormatBuffer& fb, FormatSpec const& spec, char ch)
 {
     return FormatString(fb, spec, &ch, 1u);
 }
 
-static errc FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer)
+errc Util::FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer)
 {
     if (pointer == nullptr)
         return PrintAndPadString(fb, spec, "(nil)");
@@ -519,7 +519,7 @@ struct Double
     }
 };
 
-static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
+errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 {
 #if FMTXX_USE_DOUBLE_CONVERSION
     dtoa::Options options;
@@ -923,27 +923,27 @@ static errc CallFormatFunc(FormatBuffer& fb, FormatSpec const& spec, int index, 
     case Types::T_OTHER:
         return arg.other.func(fb, spec, arg.other.value);
     case Types::T_STRING:
-        return FormatString(fb, spec, arg.string.data(), arg.string.size());
+        return Util::FormatString(fb, spec, arg.string.data(), arg.string.size());
     case Types::T_PVOID:
-        return FormatPointer(fb, spec, arg.pvoid);
+        return Util::FormatPointer(fb, spec, arg.pvoid);
     case Types::T_PCHAR:
-        return FormatString(fb, spec, arg.pchar);
+        return Util::FormatString(fb, spec, arg.pchar);
     case Types::T_CHAR:
-        return FormatChar(fb, spec, arg.char_);
+        return Util::FormatChar(fb, spec, arg.char_);
     case Types::T_BOOL:
-        return FormatBool(fb, spec, arg.bool_);
+        return Util::FormatBool(fb, spec, arg.bool_);
     case Types::T_SCHAR:
-        return FormatInt(fb, spec, arg.schar, static_cast<unsigned char>(arg.schar));
+        return Util::FormatInt(fb, spec, arg.schar, static_cast<unsigned char>(arg.schar));
     case Types::T_SSHORT:
-        return FormatInt(fb, spec, arg.sshort, static_cast<unsigned short>(arg.sshort));
+        return Util::FormatInt(fb, spec, arg.sshort, static_cast<unsigned short>(arg.sshort));
     case Types::T_SINT:
-        return FormatInt(fb, spec, arg.sint, static_cast<unsigned int>(arg.sint));
+        return Util::FormatInt(fb, spec, arg.sint, static_cast<unsigned int>(arg.sint));
     case Types::T_SLONGLONG:
-        return FormatInt(fb, spec, arg.slonglong, static_cast<unsigned long long>(arg.slonglong));
+        return Util::FormatInt(fb, spec, arg.slonglong, static_cast<unsigned long long>(arg.slonglong));
     case Types::T_ULONGLONG:
-        return FormatInt(fb, spec, 0, arg.ulonglong);
+        return Util::FormatInt(fb, spec, 0, arg.ulonglong);
     case Types::T_DOUBLE:
-        return FormatDouble(fb, spec, arg.double_);
+        return Util::FormatDouble(fb, spec, arg.double_);
     case Types::T_FORMATSPEC:
         return PrintAndPadString(fb, spec, "[[error]]");
     }

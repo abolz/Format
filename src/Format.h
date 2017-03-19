@@ -8,6 +8,7 @@
 //
 //------------------------------------------------------------------------------
 
+#include <cstdint>
 #include <cstdio>
 #include <iosfwd>
 #include <string>
@@ -138,6 +139,17 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
     FMTXX_API virtual bool Pad(char c, size_t count) override;
 };
 
+struct Util
+{
+    static FMTXX_API errc FormatString (FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len);
+    static FMTXX_API errc FormatString (FormatBuffer& fb, FormatSpec const& spec, char const* str);
+    static FMTXX_API errc FormatInt    (FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uint64_t zext);
+    static FMTXX_API errc FormatBool   (FormatBuffer& fb, FormatSpec const& spec, bool val);
+    static FMTXX_API errc FormatChar   (FormatBuffer& fb, FormatSpec const& spec, char ch);
+    static FMTXX_API errc FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer);
+    static FMTXX_API errc FormatDouble (FormatBuffer& fb, FormatSpec const& spec, double x);
+};
+
 //
 // Specialize this to format user-defined types.
 //
@@ -181,7 +193,6 @@ std::string StringFormat(std::string_view format, Args const&... args);
 
 #include <cassert>
 #include <climits>
-#include <cstdint>
 #include <cstring>
 
 namespace fmtxx {
@@ -368,11 +379,8 @@ errc StreamValue(FormatBuffer& fb, FormatSpec const& spec, T const& value)
 {
     Stream stream;
     stream << value;
-    //
-    // XXX:
-    // Directly call WriteString(...)
-    //
-    return fmtxx::impl::Format(fb, "{*}", spec, stream.str());
+    auto const& str = stream.str();
+    return Util::FormatString(fb, spec, str.data(), str.size());
 }
 
 } // namespace impl

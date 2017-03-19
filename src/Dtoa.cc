@@ -74,7 +74,7 @@ static int InsertThousandsSep(Vector buf, int pt, int last, char sep)
 
 static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int precision, Options const& options)
 {
-    assert(options.decimal_point_char != '\0');
+    assert(options.decimal_point != '\0');
 
     if (decpt <= 0)
     {
@@ -89,7 +89,7 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
             int const nextra = 2 + (precision - num_digits);
             // nextra includes the decimal point.
             std::fill_n(buf.start() + num_digits, nextra, '0');
-            buf[num_digits + 1] = options.decimal_point_char;
+            buf[num_digits + 1] = options.decimal_point;
 
             // digits0.[000][000] --> 0.[000]digits[000]
             std::rotate(buf.start(), buf.start() + num_digits, buf.start() + (num_digits + 2 + -decpt));
@@ -98,7 +98,7 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
         {
             buf[0] = '0';
             if (options.use_alternative_form)
-                buf[1] = options.decimal_point_char;
+                buf[1] = options.decimal_point;
         }
 
         return;
@@ -116,7 +116,7 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
         std::fill_n(buf.start() + num_digits, nzeros + nextra, '0');
         if (nextra > 0)
         {
-            buf[decpt] = options.decimal_point_char;
+            buf[decpt] = options.decimal_point;
         }
 
         last = decpt + nextra;
@@ -128,7 +128,7 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
 
         // digits --> dig.its
         std::copy_backward(buf.start() + decpt, buf.start() + num_digits, buf.start() + (num_digits + 1));
-        buf[decpt] = options.decimal_point_char;
+        buf[decpt] = options.decimal_point;
         // dig.its --> dig.its[000]
         std::fill_n(buf.start() + (num_digits + 1), precision - (num_digits - decpt), '0');
 
@@ -280,7 +280,7 @@ static int AppendExponent(Vector buf, int pos, int exponent, Options const& opti
 
 static int CreateExponentialRepresentation(Vector buf, int num_digits, int exponent, int precision, Options const& options)
 {
-    assert(options.decimal_point_char != '\0');
+    assert(options.decimal_point != '\0');
 
     int pos = 0;
 
@@ -290,7 +290,7 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
         // d.igits[000]e+123
 
         std::copy_backward(buf.start() + pos, buf.start() + (pos + num_digits - 1), buf.start() + (pos + num_digits));
-        buf[pos] = options.decimal_point_char;
+        buf[pos] = options.decimal_point;
         pos += 1 + (num_digits - 1);
 
         if (precision > num_digits - 1)
@@ -305,7 +305,7 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
         // d.0[000]e+123
 
         std::fill_n(buf.start() + pos, 1 + precision, '0');
-        buf[pos] = options.decimal_point_char;
+        buf[pos] = options.decimal_point;
         pos += 1 + precision;
     }
     else
@@ -313,7 +313,7 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
         // d[.]e+123
 
         if (options.use_alternative_form)
-            buf[pos++] = options.decimal_point_char;
+            buf[pos++] = options.decimal_point;
     }
 
     return AppendExponent(buf, pos, exponent, options);

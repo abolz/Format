@@ -527,7 +527,7 @@ static errc FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     options.use_upper_case_digits       = false;
     options.normalize                   = false;
     options.thousands_sep               = spec.tsep;
-    options.decimal_point_char          = '.';
+    options.decimal_point               = '.';
     options.use_alternative_form        = spec.hash;
     options.min_exponent_digits         = 2;
     options.exponent_char               = '\0';

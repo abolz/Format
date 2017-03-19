@@ -29,7 +29,7 @@ struct Options {
     bool use_upper_case_digits       = true;  //       A
     bool normalize                   = true;  //       A
     char thousands_sep               = '\0';  // F   G
-    char decimal_point_char          = '.';   // F E G A
+    char decimal_point               = '.';   // F E G A
     bool use_alternative_form        = false; // F E G A
     int  min_exponent_digits         = 2;     //   E G A
     char exponent_char               = 'e';   //   E G A

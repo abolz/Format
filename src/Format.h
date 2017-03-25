@@ -100,9 +100,9 @@ struct FMTXX_VISIBILITY_DEFAULT StringBuffer : public FormatBuffer
     std::string& os;
     explicit StringBuffer(std::string& v) : os(v) {}
 
-    FMTXX_API virtual bool Put(char c) override;
-    FMTXX_API virtual bool Write(char const* str, size_t len) override;
-    FMTXX_API virtual bool Pad(char c, size_t count) override;
+    FMTXX_API bool Put(char c) override;
+    FMTXX_API bool Write(char const* str, size_t len) override;
+    FMTXX_API bool Pad(char c, size_t count) override;
 };
 
 struct FMTXX_VISIBILITY_DEFAULT FILEBuffer : public FormatBuffer
@@ -110,9 +110,9 @@ struct FMTXX_VISIBILITY_DEFAULT FILEBuffer : public FormatBuffer
     std::FILE* os;
     explicit FILEBuffer(std::FILE* v) : os(v) {}
 
-    FMTXX_API virtual bool Put(char c) override;
-    FMTXX_API virtual bool Write(char const* str, size_t len) override;
-    FMTXX_API virtual bool Pad(char c, size_t count) override;
+    FMTXX_API bool Put(char c) override;
+    FMTXX_API bool Write(char const* str, size_t len) override;
+    FMTXX_API bool Pad(char c, size_t count) override;
 };
 
 struct FMTXX_VISIBILITY_DEFAULT StreamBuffer : public FormatBuffer
@@ -120,9 +120,9 @@ struct FMTXX_VISIBILITY_DEFAULT StreamBuffer : public FormatBuffer
     std::ostream& os;
     explicit StreamBuffer(std::ostream& v) : os(v) {}
 
-    FMTXX_API virtual bool Put(char c) override;
-    FMTXX_API virtual bool Write(char const* str, size_t len) override;
-    FMTXX_API virtual bool Pad(char c, size_t count) override;
+    FMTXX_API bool Put(char c) override;
+    FMTXX_API bool Write(char const* str, size_t len) override;
+    FMTXX_API bool Pad(char c, size_t count) override;
 };
 
 struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
@@ -134,9 +134,9 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
     template <size_t N>
     explicit CharArrayBuffer(char (&buf)[N]) : next(buf), last(buf + N) {}
 
-    FMTXX_API virtual bool Put(char c) override;
-    FMTXX_API virtual bool Write(char const* str, size_t len) override;
-    FMTXX_API virtual bool Pad(char c, size_t count) override;
+    FMTXX_API bool Put(char c) override;
+    FMTXX_API bool Write(char const* str, size_t len) override;
+    FMTXX_API bool Pad(char c, size_t count) override;
 };
 
 struct Util

@@ -25,6 +25,10 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#define TEST_BIGNUM 0
+
+#if TEST_BIGNUM
+
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
@@ -1684,8 +1688,11 @@ static void TestAssignPowerUInt16() {
            buffer);
 }
 
+#endif
+
 int main()
 {
+#if TEST_BIGNUM
   TestAssign();
   TestShiftLeft();
   TestAddUInt64();
@@ -1700,4 +1707,5 @@ int main()
   TestPlusCompare();
   TestSquare();
   TestAssignPowerUInt16();
+#endif
 }

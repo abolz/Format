@@ -11,6 +11,8 @@ g++ Test.cc Format.cc
 #include <limits>
 #include <sstream>
 #include <vector>
+#include <unordered_map>
+#include <clocale>
 
 static int n_errors = 0;
 
@@ -96,6 +98,43 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
     return true;
 }
 
+template <typename Formatter, typename ...Args>
+static bool expect_equal_printf(std::string_view format, char conv, Args const&... args)
+{
+    std::string f0 = "%" + std::string(format) + conv;
+    std::string f1 = "{:" + std::string(format) + conv + "}";
+
+    // fprintf(stderr, "expect_equal_printf(\"%s\", \"%s\")\n", f0.c_str(), f1.c_str());
+
+    Formatter formatter {};
+    FormatterResult res = formatter(f1, args...);
+
+    if (res.ec != fmtxx::errc::success)
+    {
+        fprintf(stderr, "FAIL: invalid format string\n");
+        return false;
+    }
+
+    static size_t const kPrintfBufSize = 2000;
+    char printf_buf[kPrintfBufSize];
+    int n = snprintf(printf_buf, kPrintfBufSize, f0.c_str(), args...);
+    if (n < 0 || static_cast<size_t>(n) >= kPrintfBufSize)
+    {
+        fprintf(stderr, "FAIL: snprintf error\n");
+        return false;
+    }
+
+    auto const expected = std::string_view(printf_buf);
+    if (expected != res.str)
+    {
+        ++n_errors;
+        fprintf(stderr, "FAIL: '%.*s' != '%s'", static_cast<int>(expected.size()), expected.data(), res.str.c_str());
+        return false;
+    }
+
+    return true;
+}
+
 #define EXPECT_EQUAL(EXPECTED, FORMAT, ...)             \
     if (!expect_equal<Formatter>(EXPECTED, FORMAT, __VA_ARGS__))   \
     {                                                   \
@@ -105,6 +144,13 @@ static bool expect_equal(char const* expected, std::string_view format, Args con
 
 #define EXPECT_EQUAL_0(EXPECTED, FORMAT)                \
     if (!expect_equal<Formatter>(EXPECTED, FORMAT))                \
+    {                                                   \
+        fprintf(stderr, "    line %d\n", __LINE__);              \
+    }                                                   \
+    /**/
+
+#define EXPECT_EQUAL_PRINTF(PRINTF_FORMAT, FORMAT, ...)             \
+    if (!expect_equal_printf<Formatter>(PRINTF_FORMAT, FORMAT, __VA_ARGS__))   \
     {                                                   \
         fprintf(stderr, "    line %d\n", __LINE__);              \
     }                                                   \
@@ -458,10 +504,79 @@ static void test_ints()
 }
 
 template <typename Formatter>
+static void test_floats_printf(char conv)
+{
+    // fprintf(stderr, "test_floats_printf('%c')\n", conv);
+
+#ifndef _WIN32
+    EXPECT_EQUAL_PRINTF("",        conv, -0.0);
+    EXPECT_EQUAL_PRINTF("",        conv, +0.0);
+    EXPECT_EQUAL_PRINTF("",        conv, 1.0e-10);
+    EXPECT_EQUAL_PRINTF("",        conv, 1.0e-6);
+    EXPECT_EQUAL_PRINTF("",        conv, 1.0e-5);
+    EXPECT_EQUAL_PRINTF("",        conv, 3.141592);
+    EXPECT_EQUAL_PRINTF(".0",      conv, 3.141592);
+    EXPECT_EQUAL_PRINTF(".1",      conv, 3.141592);
+    EXPECT_EQUAL_PRINTF(".2",      conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("",        conv, 3141592.0);
+    EXPECT_EQUAL_PRINTF("",        conv, 3141592.0e+47);
+    EXPECT_EQUAL_PRINTF("#",       conv, -0.0);
+    EXPECT_EQUAL_PRINTF("#",       conv, +0.0);
+    EXPECT_EQUAL_PRINTF("#",       conv, 1.0e-10);
+    EXPECT_EQUAL_PRINTF("#",       conv, 1.0e-6);
+    EXPECT_EQUAL_PRINTF("#",       conv, 1.0e-5);
+    EXPECT_EQUAL_PRINTF("#",       conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("#.0",     conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("#.1",     conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("#.2",     conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("#",       conv, 3141592.0);
+    EXPECT_EQUAL_PRINTF("#",       conv, 3141592.0e+47);
+    EXPECT_EQUAL_PRINTF("047",     conv, -0.0);
+    EXPECT_EQUAL_PRINTF("047",     conv, +0.0);
+    EXPECT_EQUAL_PRINTF("047",     conv, 1.0e-10);
+    EXPECT_EQUAL_PRINTF("047",     conv, 1.0e-6);
+    EXPECT_EQUAL_PRINTF("047",     conv, 1.0e-5);
+    EXPECT_EQUAL_PRINTF("047",     conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("047.0",   conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("047.1",   conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("047.2",   conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("047",     conv, 3141592.0);
+    EXPECT_EQUAL_PRINTF("047",     conv, 3141592.0e+47);
+    EXPECT_EQUAL_PRINTF("+#047",   conv, -0.0);
+    EXPECT_EQUAL_PRINTF("+#047",   conv, +0.0);
+    EXPECT_EQUAL_PRINTF("+#047",   conv, 1.0e-10);
+    EXPECT_EQUAL_PRINTF("+#047",   conv, 1.0e-6);
+    EXPECT_EQUAL_PRINTF("+#047",   conv, 1.0e-5);
+    EXPECT_EQUAL_PRINTF("+#047",   conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("+#047.0", conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("+#047.1", conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("+#047.2", conv, 3.141592);
+    EXPECT_EQUAL_PRINTF("+#047",   conv, 3141592.0);
+    EXPECT_EQUAL_PRINTF("+#047",   conv, 3141592.0e+47);
+    EXPECT_EQUAL_PRINTF(" #047",   conv, -0.0);
+    EXPECT_EQUAL_PRINTF(" #047",   conv, +0.0);
+    EXPECT_EQUAL_PRINTF(" #047",   conv, 1.0e-10);
+    EXPECT_EQUAL_PRINTF(" #047",   conv, 1.0e-6);
+    EXPECT_EQUAL_PRINTF(" #047",   conv, 1.0e-5);
+    EXPECT_EQUAL_PRINTF(" #047",   conv, 3.141592);
+    EXPECT_EQUAL_PRINTF(" #047.0", conv, 3.141592);
+    EXPECT_EQUAL_PRINTF(" #047.1", conv, 3.141592);
+    EXPECT_EQUAL_PRINTF(" #047.2", conv, 3.141592);
+    EXPECT_EQUAL_PRINTF(" #047",   conv, 3141592.0);
+    EXPECT_EQUAL_PRINTF(" #047",   conv, 3141592.0e+47);
+#endif
+}
+
+template <typename Formatter>
 static void test_floats()
 {
-    // XXX:
-    // Disable all the tests when using snprintf for now...
+#if !defined(_WIN32) && !FMTXX_USE_DOUBLE_CONVERSION
+    test_floats_printf<Formatter>('f');
+    test_floats_printf<Formatter>('e');
+    test_floats_printf<Formatter>('g');
+    test_floats_printf<Formatter>('a');
+#endif
+
 #if FMTXX_USE_DOUBLE_CONVERSION
     EXPECT_EQUAL("24354608055603473107785637960931689315827890257544706015104721270340534493811981620606737277529913083605031584257830981831645089433797861274588973007916379823425649561385825684928346706685948919211835202051403608328731923243535575249303882582848104435881064910836763331355730531064189222587032782727341408256.000000", "{:f}", 2.4354608055603473e+307);
 
@@ -754,7 +869,16 @@ static void test_floats()
 template <typename Formatter>
 static void test_pointer()
 {
-    EXPECT_EQUAL("0x1020304", "{}", (void*)0x01020304)
+#if 0
+#if UINTPTR_MAX == UINT64_MAX
+    EXPECT_EQUAL("0x0000000001020304", "{}", (void*)0x01020304)
+#elif UINTPTR_MAX == UINT32_MAX
+    EXPECT_EQUAL("0x01020304", "{}", (void*)0x01020304)
+#endif
+    EXPECT_EQUAL("-1", "{:d}", (void*)-1)
+#else
+    EXPECT_EQUAL("0x1020304", "{}", (void*)0x01020304);
+#endif
 
     EXPECT_EQUAL("(nil)", "{}", (void*)0);
     EXPECT_EQUAL("(nil)", "{:3}", (void*)0);
@@ -812,6 +936,21 @@ namespace fmtxx
             return fmtxx::Format(os, "{*}", spec, value.value);
         }
     };
+
+    template <typename K, typename V>
+    struct FormatValue<std::unordered_map<K, V>>
+    {
+        errc operator()(FormatBuffer& os, FormatSpec const& spec, std::unordered_map<K, V> const& value) const
+        {
+            //auto const key = spec.key;
+            auto const key = spec.style;
+            auto const I = value.find(key);
+            if (I == value.end()) {
+                return fmtxx::Format(os, "[[key '{}' does not exist]]", key);
+            }
+            return fmtxx::Format(os, "{*}", spec, I->second);
+        }
+    };
 }
 
 namespace foo2_ns
@@ -830,6 +969,9 @@ static void test_custom()
 {
     EXPECT_EQUAL("struct Foo '   123'", "struct Foo '{:6}'", Foo{123});
     EXPECT_EQUAL("struct Foo2 '   123'", "struct Foo2 '{:6}'", foo2_ns::Foo2{123});
+
+    std::unordered_map<std::string_view, int> map = {{"eins", 1}, {"zwei", 2}};
+    EXPECT_EQUAL("1, 2", "{0,eins}, {0,zwei}", map);
 }
 
 template <typename Formatter>
@@ -951,6 +1093,26 @@ int main()
 
     fprintf(stderr, "CharArrayFormatter...\n");
     test_all<CharArrayFormatter>();
+
+#if 0
+    setlocale(LC_NUMERIC, "");
+
+    fmtxx::Format(stderr, "{:'f}\n", 12345.6789);
+    fmtxx::Format(stderr, "{:'.20f}\n", 12345.6789);
+    fmtxx::Format(stderr, "{:'050f}\n", 12345.6789);
+    fmtxx::Format(stderr, "{:'050.20f}\n", 12345.6789);
+    fmtxx::Format(stderr, "{:'050.0e}\n", 1e+20);
+    fmtxx::Format(stderr, "{:'050.20e}\n", 1e+20);
+    fmtxx::Format(stderr, "{:'050.20e}\n", 1.23456789);
+
+    fprintf(stderr, "%'f\n", 12345.67890);
+    fprintf(stderr, "%'.20f\n", 12345.67890);
+    fprintf(stderr, "%'050f\n", 12345.67890);
+    fprintf(stderr, "%'050.20f\n", 12345.67890);
+    fprintf(stderr, "%'050.0e\n", 1e+20);
+    fprintf(stderr, "%'050.20e\n", 1e+20);
+    fprintf(stderr, "%'050.20e\n", 1.23456789);
+#endif
 
     return n_errors == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

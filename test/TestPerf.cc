@@ -1,31 +1,40 @@
 #include "Format.h"
 
+#define HAVE_FMTLIB 1
+#define HAVE_TINYFORMAT 1
+
+#ifdef HAVE_FMTLIB
 #include "fmt/format.h"
 #include "fmt/ostream.h"
+#endif
+#ifdef HAVE_TINYFORMAT
+#include "tinyformat/tinyformat.h"
+#endif
 
-//#define STB_SPRINTF_IMPLEMENTATION 1
-//#include "stb/stb_sprintf.h"
-
+#include <chrono>
+#include <climits>
 #include <cstdarg>
 #include <cstdio>
-#include <climits>
-#include <chrono>
 #include <iostream>
 #include <limits>
 #include <random>
+#include <typeinfo>
 #include <vector>
 
 #define NO_COMP             0 //1:profile
-#define NO_SYNC_WITH_STDIO  1
-#define NO_IOBUF            1
+#define NO_SYNC_WITH_STDIO  0
+#define NO_IOBUF            0
 
 using Clock = std::chrono::steady_clock;
 
 struct Times {
     double t_printf = 0.0;
-    //double t_tiny   = 0.0;
-    //double t_stb    = 0.0;
+#ifdef HAVE_FMTLIB
     double t_fmt    = 0.0;
+#endif
+#ifdef HAVE_TINYFORMAT
+    double t_tiny   = 0.0;
+#endif
     double t_fmtxx  = 0.0;
 };
 
@@ -38,16 +47,22 @@ static void PrintAvgTimes()
     for (auto t : timing_results)
     {
         avg.t_printf += t.t_printf;
-        //avg.t_tiny   += t.t_tiny;
-        //avg.t_stb    += t.t_stb;
+#ifdef HAVE_FMTLIB
         avg.t_fmt    += t.t_fmt;
+#endif
+#ifdef HAVE_TINYFORMAT
+        avg.t_tiny   += t.t_tiny;
+#endif
         avg.t_fmtxx  += t.t_fmtxx;
     }
 
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
-    //fprintf(stderr, "tiny:    x%.2f\n", avg.t_printf / avg.t_tiny);
-    //fprintf(stderr, "stb:     x%.2f\n", avg.t_printf / avg.t_stb);
+#ifdef HAVE_FMTLIB
     fprintf(stderr, "fmt:     x%.2f\n", avg.t_printf / avg.t_fmt);
+#endif
+#ifdef HAVE_TINYFORMAT
+    fprintf(stderr, "tiny:    x%.2f\n", avg.t_printf / avg.t_tiny);
+#endif
     fprintf(stderr, "fmtxx:   x%.2f\n", avg.t_printf / avg.t_fmtxx);
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
 }
@@ -146,25 +161,32 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     Times times;
 
 #if NO_COMP
+
     times.t_printf  = 1.0;
-    //times.t_tiny    = 1.0;
-    //times.t_stb     = 1.0;
+#ifdef HAVE_FMTLIB
     times.t_fmt     = 1.0;
+#endif
+#ifdef HAVE_TINYFORMAT
+    times.t_tiny    = 1.0;
+#endif
+
 #else
     times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { PRINTF(format_printf, i); });
 	//times.t_printf  = 1.0;
 
-	//times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
-    //times.t_tiny    = 1.0;
-
-    //times.t_stb     = GenerateNumbers(n, dist, [=](auto i) { STB_PRINTF(format_printf, i); });
-    //times.t_stb     = 1.0;
-
+#ifdef HAVE_FMTLIB
     times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 #endif
-#if 0
+
+#ifdef HAVE_TINYFORMAT
+    times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
+#endif
+
+#endif // NO_COMP
+
+#if 1
     times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(stdout, format_fmtxx, i); });
 #endif
 #if 0
@@ -179,7 +201,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
         std::fwrite(str.data(), 1, str.size(), stdout);
     });
 #endif
-#if 1
+#if 0
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArrayBuffer fb { buf };
@@ -198,17 +220,23 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     });
 #endif
 
-#if 1
+#if 0
     fprintf(stderr,
         "   printf:  %.2f sec\n"
-        //"   tiny:    %.2f sec (x%.2f)\n"
-        //"   stb:     %.2f sec (x%.2f)\n"
+#ifdef HAVE_FMTLIB
         "   fmt:     %.2f sec (x%.2f)\n"
+#endif
+#ifdef HAVE_TINYFORMAT
+        "   tiny:    %.2f sec (x%.2f)\n"
+#endif
         "   fmtxx:   %.2f sec (x%.2f)\n",
         times.t_printf,
-        //times.t_tiny,  times.t_printf / times.t_tiny,
-        //times.t_stb,   times.t_printf / times.t_stb,
+#ifdef HAVE_FMTLIB
         times.t_fmt,   times.t_printf / times.t_fmt,
+#endif
+#ifdef HAVE_TINYFORMAT
+        times.t_tiny, times.t_printf / times.t_tiny,
+#endif
         times.t_fmtxx, times.t_printf / times.t_fmtxx);
 #endif
 
@@ -223,14 +251,14 @@ static void TestInts(char const* format_printf, char const* format_fmtxx, char c
 #ifndef NDEBUG
     RunTest(500000, dist, format_printf, format_fmtxx, format_fmt);
 #else
-    RunTest(500000, dist, format_printf, format_fmtxx, format_fmt);
+    RunTest(5000000, dist, format_printf, format_fmtxx, format_fmt);
 #endif
 }
 
 template <typename T>
 static void TestFloats(T min, T max, char const* format_printf, char const* format_fmtxx, char const* format_fmt = nullptr)
 {
-    fprintf(stderr, "TestFloats(%g, %g)\n", min, max);
+    //fprintf(stderr, "TestFloats(%g, %g)\n", min, max);
 
     std::uniform_real_distribution<T> dist { min, max };
 
@@ -257,7 +285,7 @@ int main()
     setvbuf(stdout, kIOBuf, _IOFBF, kIOBufSize);
 #endif
 
-#if 0 // ints
+#if 1 // ints
 #if 1
     TestInts<int32_t>("%d",     "{}");
     TestInts<int32_t>("%8d",    "{:8d}");

@@ -6,10 +6,9 @@
 #include "Dtoa.h"
 #endif
 
+#include <clocale>
 #include <algorithm>
-#ifdef _MSC_VER
-#include <iterator> // [un]checked_array_iterator
-#endif
+#include <iterator> // MSVC: [un]checked_array_iterator
 #include <ostream>
 
 using namespace fmtxx;
@@ -17,6 +16,17 @@ using namespace fmtxx::impl;
 
 template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
 template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
+
+template <typename RanIt>
+inline auto MakeArrayIterator(RanIt first, intptr_t n)
+{
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
+    return stdext::make_checked_array_iterator(first, n);
+#else
+    static_cast<void>(n); // unused...
+    return first;
+#endif
+}
 
 //------------------------------------------------------------------------------
 //
@@ -432,11 +442,7 @@ errc Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
         int const pos       = static_cast<int>(l - f);
         int const last      = pos;
 
-#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
-        l += InsertThousandsSep(stdext::make_checked_array_iterator(f, pos + 15), pos, last, spec.tsep, group_len);
-#else
-        l += InsertThousandsSep(f, pos, last, spec.tsep, group_len);
-#endif
+        l += InsertThousandsSep(MakeArrayIterator(f, pos + 15), pos, last, spec.tsep, group_len);
     }
 
     char const prefix[] = {'0', conv};
@@ -739,18 +745,59 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     }
 
     if (n < 0)
-        return errc::io_error; // Invalid format-string. Should not happen.
+        return PrintAndPadString(fb, spec, "[[snprintf failed]]");
 
     if (n >= kBufSize)
         return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
 
-    size_t const buflen = static_cast<size_t>(n);
-
     // For 'a' or 'A' conversions remove the prefix!
     // Will be added back iff required.
-    size_t const skip = (conv == 'a' || conv == 'A') ? 2u : 0u;
-    assert(buflen >= skip);
-    return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, buf + skip, buflen - skip);
+    int const skip = (conv == 'a' || conv == 'A') ? 2 : 0;
+
+    char* repr = buf + skip;
+    assert(n >= skip);
+    n -= skip;
+
+    if (spec.tsep != '\0' && (conv == 'f' || conv == 'F' || conv == 'g' || conv == 'G'))
+    {
+        // Find the decimal point - if any.
+        char const decimal_point = ::localeconv()->decimal_point[0];
+        char const* const p = static_cast<char const*>(std::memchr(repr, decimal_point, static_cast<size_t>(n)));
+
+        int point;
+        if (p != nullptr)
+        {
+            // Found a decimal point: "12345.67" or "1.2345e+67"
+            // In the case of an exponential representation, point will be 1 and
+            // no thousand-separators will be inserted.
+            point = static_cast<int>(p - repr);
+
+            // Replace the locale-specific decimal-point with a '.'
+            repr[point] = '.';
+        }
+        else
+        {
+            // No decimal point found: "12345" or "1e+23"
+            // Don't insert separators in the exponential representation.
+            if (n > 1 && (repr[1] == 'e' || repr[1] == 'E'))
+                point = 1;
+            else
+                point = n;
+        }
+
+        if (point > 3)
+        {
+            int const nsep = (point - 1) / 3;
+            if (kBufSize < n + skip + nsep) {
+                return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
+            }
+
+            n += InsertThousandsSep(MakeArrayIterator(repr, kBufSize - skip), point, n, spec.tsep, 3);
+        }
+    }
+
+    assert(n >= 0);
+    return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, repr, static_cast<size_t>(n));
 #endif
 }
 

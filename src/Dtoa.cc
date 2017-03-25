@@ -5,8 +5,10 @@
 #include "double-conversion/bignum-dtoa.h"
 #include "double-conversion/fast-dtoa.h"
 #include "double-conversion/fixed-dtoa.h"
+#include "double-conversion/ieee.h"
 
 #include <algorithm>
+#include <cmath>
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
@@ -175,6 +177,28 @@ static int ComputeFixedRepresentationLength(int num_digits, int decpt, int preci
     }
 }
 
+// From double-conversion/bignum-dtoa.cc
+static int NormalizedExponent(uint64_t significand, int exponent)
+{
+    assert(significand != 0);
+    while ((significand & double_conversion::Double::kHiddenBit) == 0)
+    {
+        significand <<= 1;
+        exponent--;
+    }
+    return exponent;
+}
+
+// From double-conversion/bignum-dtoa.cc
+static int EstimatePower(int exponent)
+{
+    static double const k1Log10 = 0.30102999566398114;  // 1/lg(10)
+    static int    const kSignificandSize = double_conversion::Double::kSignificandSize;
+
+    double const estimate = ceil((exponent + kSignificandSize - 1) * k1Log10 - 1e-10);
+    return static_cast<int>(estimate);
+}
+
 static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
 {
     assert(vec.length() >= 1);
@@ -199,9 +223,27 @@ static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int*
     bool const fast_worked = FastFixedDtoa(v, requested_digits, vec, num_digits, decpt);
     if (!fast_worked)
     {
-        bool const slow_worked = BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
-        if (!slow_worked)
-            return false; // buffer too small.
+        // Compute the number of digits in the fixed-representation of v.
+        // XXX/FIXME: Will be computed again in BignumDtoa...
+
+        // From double-conversion/bignum-dtoa.cc:
+
+        uint64_t const significand = double_conversion::Double(v).Significand();
+        int      const exponent    = double_conversion::Double(v).Exponent();
+
+        int const normalized_exponent = NormalizedExponent(significand, exponent);
+        // estimated_power might be too low by 1.
+        int const estimated_power = EstimatePower(normalized_exponent);
+        // needed_digits might be too large by 1.
+        // But it doesn't really matter: A decimal-point will be added in
+        // CreateFixedRepresentation so we will eventually need at least one
+        // more digit.
+        int const needed_digits = estimated_power + requested_digits + 1;
+
+        if (vec.length() < needed_digits)
+            return false; // buffer too small
+
+        BignumDtoa(v, BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
     }
 
     return true;

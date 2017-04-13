@@ -49,7 +49,7 @@ struct StreamFormatter
     }
 };
 
-#ifndef _WIN32
+#ifdef __linux__
 struct FILEFormatter
 {
     template <typename ...Args>
@@ -1093,7 +1093,7 @@ int main()
     fprintf(stderr, "StreamFormatter...\n");
     test_all<StreamFormatter>();
 
-#ifndef _WIN32
+#ifdef __linux__
     fprintf(stderr, "FILEFormatter...\n");
     test_all<FILEFormatter>();
 #endif

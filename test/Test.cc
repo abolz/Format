@@ -694,7 +694,7 @@ static void test_floats()
     EXPECT_EQUAL("10",              "{:S}", 10.0);
     EXPECT_EQUAL("-0",                "{:s}", -0.0);
     EXPECT_EQUAL("0p+0",                "{:x}", 0.0);
-    EXPECT_EQUAL("0p+0",                "{:X}", 0.0);
+    EXPECT_EQUAL("0P+0",                "{:X}", 0.0);
     EXPECT_EQUAL("-0p+0",               "{:x}", -0.0);
     EXPECT_EQUAL("1.8p+0",              "{:x}", 1.5);
     EXPECT_EQUAL("0x1.8000p+0",           "{:.4a}", 1.5);
@@ -720,10 +720,10 @@ static void test_floats()
 
     EXPECT_EQUAL("1p-1022",               "{:x}", std::numeric_limits<double>::min());
     EXPECT_EQUAL("1p-1074",               "{:x}", std::numeric_limits<double>::denorm_min());
-    EXPECT_EQUAL("1p-1074",               "{:X}", std::numeric_limits<double>::denorm_min());
-    //EXPECT_EQUAL("1.0p-1022",               "{:#x}", std::numeric_limits<double>::min());
-    //EXPECT_EQUAL("1.0p-1074",               "{:#x}", std::numeric_limits<double>::denorm_min());
-    //EXPECT_EQUAL("1.0p-1074",               "{:#X}", std::numeric_limits<double>::denorm_min());
+    EXPECT_EQUAL("1P-1074",               "{:X}", std::numeric_limits<double>::denorm_min());
+    EXPECT_EQUAL("0x1p-1022",               "{:#x}", std::numeric_limits<double>::min());
+    EXPECT_EQUAL("0x1p-1074",               "{:#x}", std::numeric_limits<double>::denorm_min());
+    EXPECT_EQUAL("0X1P-1074",               "{:#X}", std::numeric_limits<double>::denorm_min());
 
     EXPECT_EQUAL("1.7976931348623157e+308",     "{:s}",  std::numeric_limits<double>::max());
     EXPECT_EQUAL("1.7976931348623157E+308",     "{:S}",  std::numeric_limits<double>::max());
@@ -751,15 +751,14 @@ static void test_floats()
     EXPECT_EQUAL("1.00p+0", "{:.2x}",   1.0);
     EXPECT_EQUAL("0x1.0p+0",  "{:#.1x}",   1.0);
     EXPECT_EQUAL("0x1.00p+0", "{:#.2x}",   1.0);
-    // 0x and p are always lower-case for x/X
-    EXPECT_EQUAL("0x1.0p+0",  "{:#.1X}",   1.0);
-    EXPECT_EQUAL("0x1.00p+0", "{:#.2X}",   1.0);
+    EXPECT_EQUAL("0X1.0P+0",  "{:#.1X}",   1.0);
+    EXPECT_EQUAL("0X1.00P+0", "{:#.2X}",   1.0);
     EXPECT_EQUAL("1.badp+1",   "{:.3x}", 3.4597);
     EXPECT_EQUAL("1.bad7p+1",  "{:.4x}", 3.4597);
     EXPECT_EQUAL("1.bad77p+1", "{:.5x}", 3.4597);
-    EXPECT_EQUAL("0x1.BADp+1",   "{:#.3X}", 3.4597);
-    EXPECT_EQUAL("0x1.BAD7p+1",  "{:#.4X}", 3.4597);
-    EXPECT_EQUAL("0x1.BAD77p+1", "{:#.5X}", 3.4597);
+    EXPECT_EQUAL("0X1.BADP+1",   "{:#.3X}", 3.4597);
+    EXPECT_EQUAL("0X1.BAD7P+1",  "{:#.4X}", 3.4597);
+    EXPECT_EQUAL("0X1.BAD77P+1", "{:#.5X}", 3.4597);
 
     EXPECT_EQUAL("0x1p+0",    "{:a}",     1.0);
     EXPECT_EQUAL("0x1p+0",    "{:.0a}",   1.0);

@@ -401,8 +401,8 @@ errc Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
     switch (conv)
     {
     default:
-        // I'm sorry Dave, I'm afraid I can't do that.
-    case '\0':
+        conv = 'd';
+        //[[fallthrough]];
     case 'd':
     case 'i':
         sign = ComputeSignChar(sext < 0, spec.sign, spec.fill);
@@ -545,14 +545,12 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     char        conv = spec.conv;
     int         prec = spec.prec;
     char const* prefix = nullptr;
-    size_t      nprefix = 0;
 
     switch (conv)
     {
     default:
-        // I'm sorry Dave, I'm afraid I can't do that.
-    case '\0':
         conv = 's';
+        //[[fallthrough]];
     case 'S':
     case 's':
         options.use_alternative_form = false;
@@ -580,25 +578,29 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         options.use_upper_case_digits = true;
         options.exponent_char = 'P';
         options.min_exponent_digits = 1;
-        prefix = "0X";
-        nprefix = 2; // Always add a prefix. Like printf.
+        prefix = "0X"; // Always add a prefix. Like printf.
         break;
     case 'a':
         options.exponent_char = 'p';
         options.min_exponent_digits = 1;
-        prefix = "0x";
-        nprefix = 2; // Always add a prefix. Like printf.
+        prefix = "0x"; // Always add a prefix. Like printf.
         break;
     case 'X':
         options.use_upper_case_digits = true;
-        //[[fallthrough]];
+        options.normalize = true;
+        options.use_alternative_form = false;
+        options.exponent_char = 'P';
+        options.min_exponent_digits = 1;
+        if (spec.hash) // Add a prefix only if '#' was specified. As with integers.
+            prefix = "0X";
+        break;
     case 'x':
         options.normalize = true;
         options.use_alternative_form = false;
         options.exponent_char = 'p';
         options.min_exponent_digits = 1;
-        prefix = "0x";
-        nprefix = spec.hash ? 2u : 0u; // Add a prefix only if '#' was specified. As with integers.
+        if (spec.hash) // Add a prefix only if '#' was specified. As with integers.
+            prefix = "0x";
         break;
     }
 
@@ -658,27 +660,22 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
 
     size_t const buflen = static_cast<size_t>(res.next - buf);
-    return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, buf, buflen);
+    return PrintAndPadNumber(fb, spec, sign, prefix, prefix != nullptr ? 2u : 0u, buf, buflen);
 #else
     char        conv = spec.conv;
     int         prec = spec.prec;
     char const* prefix = nullptr;
-    size_t      nprefix = 0;
 
     switch (conv)
     {
     default:
-        // I'm sorry Dave, I'm afraid I can't do that.
-    case '\0':
     case 's':
         conv = 'g';
-        if (prec < 17) // 's' is guaranteed to round-trip
-            prec = 17;
+        prec = 17; // 's' is guaranteed to round-trip
         break;
     case 'S':
         conv = 'G';
-        if (prec < 17) // 's' is guaranteed to round-trip
-            prec = 17;
+        prec = 17; // 's' is guaranteed to round-trip
         break;
     case 'E':
     case 'e':
@@ -696,22 +693,20 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
             prec = 6;
         break;
     case 'A':
-        prefix = "0X";
-        nprefix = 2; // Always add a prefix. Like printf.
+        prefix = "0X"; // Always add a prefix. Like printf.
         break;
     case 'a':
-        prefix = "0x";
-        nprefix = 2; // Always add a prefix. Like printf.
+        prefix = "0x"; // Always add a prefix. Like printf.
         break;
     case 'X':
         conv = 'A';
-        prefix = "0X";
-        nprefix = spec.hash ? 2u : 0u; // Add a prefix only if '#' was specified. As with integers.
+        if (spec.hash) // Add a prefix only if '#' was specified. As with integers.
+            prefix = "0X";
         break;
     case 'x':
         conv = 'a';
-        prefix = "0x";
-        nprefix = spec.hash ? 2u : 0u; // Add a prefix only if '#' was specified. As with integers.
+        if (spec.hash) // Add a prefix only if '#' was specified. As with integers.
+            prefix = "0x";
         break;
     }
 
@@ -800,7 +795,7 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     }
 
     assert(n >= 0);
-    return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, repr, static_cast<size_t>(n));
+    return PrintAndPadNumber(fb, spec, sign, prefix, prefix != nullptr ? 2u : 0u, repr, static_cast<size_t>(n));
 #endif
 }
 

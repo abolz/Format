@@ -14,8 +14,7 @@ matrix:
           packages:
             - g++-6
       env:
-        - CC=gcc-6
-        - CXX=g++-6
+        - COMPILER=g++-6
         - CONFIGURATION=release
     - os: linux
       compiler: gcc
@@ -26,8 +25,7 @@ matrix:
           packages:
             - g++-6
       env:
-        - CC=gcc-6
-        - CXX=g++-6
+        - COMPILER=g++-6
         - CONFIGURATION=debug
     - os: linux
       compiler: clang
@@ -40,8 +38,7 @@ matrix:
             - g++-6
             - clang-3.8
       env:
-        - CC=clang-3.8
-        - CXX=clang++-3.8
+        - COMPILER=clang++-3.8
         - CONFIGURATION=release
     - os: linux
       compiler: clang
@@ -54,15 +51,18 @@ matrix:
             - g++-6
             - clang-3.8
       env:
-        - CC=clang-3.8
-        - CXX=clang++-3.8
+        - COMPILER=clang++-3.8
         - CONFIGURATION=debug
     - os: osx
       compiler: clang
-      env: CONFIGURATION=release
+      env:
+        - COMPILER=clang++
+        - CONFIGURATION=release
     - os: osx
       compiler: clang
-      env: CONFIGURATION=debug
+      env:
+        - COMPILER=clang++
+        - CONFIGURATION=release
 
 before_install:
   - git clone https://github.com/premake/premake-core.git
@@ -77,5 +77,6 @@ install:
   - ./premake5 gmake
 
 script:
+  - export CXX=$COMPILER
   - make -C build/gmake/ config=$CONFIGURATION Test
   - ./build/gmake/bin/$CONFIGURATION/Test

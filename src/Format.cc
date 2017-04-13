@@ -923,14 +923,22 @@ static errc ParseFormatSpec(FormatSpec& spec, char const*& f, char const* end, i
         if (*f == '.')
         {
             ++f;
-            if (f == end || !IsDigit(*f))
-                return errc::invalid_format_string; // missing '}' or digit expected
-            int const i = ParseInt(f, end);
-            if (i < 0)
-                return errc::invalid_format_string; // overflow
             if (f == end)
                 return errc::invalid_format_string; // missing '}'
-            spec.prec = i;
+
+            if (IsDigit(*f))
+            {
+                int const i = ParseInt(f, end);
+                if (i < 0)
+                    return errc::invalid_format_string; // overflow
+                if (f == end)
+                    return errc::invalid_format_string; // missing '}'
+                spec.prec = i;
+            }
+            else
+            {
+                spec.prec = 0;
+            }
         }
 
         if (*f != ',' && *f != '}')

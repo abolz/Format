@@ -2,7 +2,7 @@ local build_dir = "build/" .. _ACTION
 
 --------------------------------------------------------------------------------
 solution "Libs"
-    configurations { "Release", "Debug" }
+    configurations { "release", "debug" }
 
     architecture "x64"
 
@@ -11,17 +11,17 @@ solution "Libs"
 
     warnings "Extra"
 
-    configuration { "Debug" }
-        targetdir (build_dir .. "/bin/Debug")
+    configuration { "debug" }
+        targetdir (build_dir .. "/bin/debug")
 
-    configuration { "Release" }
-        targetdir (build_dir .. "/bin/Release")
+    configuration { "release" }
+        targetdir (build_dir .. "/bin/release")
 
-    configuration { "Debug" }
+    configuration { "debug" }
         defines { "_DEBUG" }
         symbols "On"
 
-    configuration { "Release" }
+    configuration { "release" }
         defines { "NDEBUG" }
         symbols "Off"
         optimize "Full"
@@ -43,7 +43,7 @@ solution "Libs"
 --            "-ftime-report",
         }
 
-    configuration { "gmake", "Debug", "not Windows" }
+    configuration { "gmake", "debug", "not Windows" }
         buildoptions {
             "-fno-omit-frame-pointer",
             "-fsanitize=undefined",

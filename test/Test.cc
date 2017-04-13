@@ -258,6 +258,7 @@ static void test_strings()
     EXPECT_EQUAL_0("x", "x");
 
     EXPECT_EQUAL("x", "{}", 'x');
+    EXPECT_EQUAL("x", "{:.0}", 'x');
 
     EXPECT_EQUAL_0("{", "{{");
     EXPECT_EQUAL_0("}", "}}");

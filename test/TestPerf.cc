@@ -1,13 +1,13 @@
 #include "Format.h"
 
 #define HAVE_FMTLIB 1
-#define HAVE_TINYFORMAT 1
+#define HAVE_TINYFORMAT 0
 
-#ifdef HAVE_FMTLIB
+#if HAVE_FMTLIB
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 #endif
-#ifdef HAVE_TINYFORMAT
+#if HAVE_TINYFORMAT
 #include "tinyformat/tinyformat.h"
 #endif
 

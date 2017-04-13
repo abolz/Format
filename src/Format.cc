@@ -459,7 +459,7 @@ errc Util::FormatBool(FormatBuffer& fb, FormatSpec const& spec, bool val)
 
 errc Util::FormatChar(FormatBuffer& fb, FormatSpec const& spec, char ch)
 {
-    return FormatString(fb, spec, &ch, 1u);
+    return PrintAndPadString(fb, spec, &ch, 1u);
 }
 
 errc Util::FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer)

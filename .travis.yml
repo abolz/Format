@@ -34,8 +34,9 @@ matrix:
         - CONFIGURATION=debug
 
 before_install:
-  - wget "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha11/premake-5.0.0-alpha11-linux.tar.gz"
-  - tar -xvf premake-5.0.0-alpha11-linux.tar.gz
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha11/premake-5.0.0-alpha11-linux.tar.gz" -O premake5.tar.gz; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx"   ]]; then wget "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha11/premake-5.0.0-alpha11-macosx.tar.gz" -O premake5.tar.gz; fi
+  - tar -xvf premake5.tar.gz
 
 install:
   - ./premake5 gmake

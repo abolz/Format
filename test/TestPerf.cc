@@ -1,6 +1,6 @@
 #include "Format.h"
 
-#define HAVE_FMTLIB 1
+#define HAVE_FMTLIB 0
 #define HAVE_TINYFORMAT 0
 
 #if HAVE_FMTLIB
@@ -29,10 +29,10 @@ using Clock = std::chrono::steady_clock;
 
 struct Times {
     double t_printf = 0.0;
-#ifdef HAVE_FMTLIB
+#if HAVE_FMTLIB
     double t_fmt    = 0.0;
 #endif
-#ifdef HAVE_TINYFORMAT
+#if HAVE_TINYFORMAT
     double t_tiny   = 0.0;
 #endif
     double t_fmtxx  = 0.0;
@@ -47,20 +47,20 @@ static void PrintAvgTimes()
     for (auto t : timing_results)
     {
         avg.t_printf += t.t_printf;
-#ifdef HAVE_FMTLIB
+#if HAVE_FMTLIB
         avg.t_fmt    += t.t_fmt;
 #endif
-#ifdef HAVE_TINYFORMAT
+#if HAVE_TINYFORMAT
         avg.t_tiny   += t.t_tiny;
 #endif
         avg.t_fmtxx  += t.t_fmtxx;
     }
 
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
-#ifdef HAVE_FMTLIB
+#if HAVE_FMTLIB
     fprintf(stderr, "fmt:     x%.2f\n", avg.t_printf / avg.t_fmt);
 #endif
-#ifdef HAVE_TINYFORMAT
+#if HAVE_TINYFORMAT
     fprintf(stderr, "tiny:    x%.2f\n", avg.t_printf / avg.t_tiny);
 #endif
     fprintf(stderr, "fmtxx:   x%.2f\n", avg.t_printf / avg.t_fmtxx);
@@ -163,10 +163,10 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #if NO_COMP
 
     times.t_printf  = 1.0;
-#ifdef HAVE_FMTLIB
+#if HAVE_FMTLIB
     times.t_fmt     = 1.0;
 #endif
-#ifdef HAVE_TINYFORMAT
+#if HAVE_TINYFORMAT
     times.t_tiny    = 1.0;
 #endif
 
@@ -174,13 +174,13 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { PRINTF(format_printf, i); });
 	//times.t_printf  = 1.0;
 
-#ifdef HAVE_FMTLIB
+#if HAVE_FMTLIB
     times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 #endif
 
-#ifdef HAVE_TINYFORMAT
+#if HAVE_TINYFORMAT
     times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
 #endif
 
@@ -223,18 +223,18 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #if 0
     fprintf(stderr,
         "   printf:  %.2f sec\n"
-#ifdef HAVE_FMTLIB
+#if HAVE_FMTLIB
         "   fmt:     %.2f sec (x%.2f)\n"
 #endif
-#ifdef HAVE_TINYFORMAT
+#if HAVE_TINYFORMAT
         "   tiny:    %.2f sec (x%.2f)\n"
 #endif
         "   fmtxx:   %.2f sec (x%.2f)\n",
         times.t_printf,
-#ifdef HAVE_FMTLIB
+#if HAVE_FMTLIB
         times.t_fmt,   times.t_printf / times.t_fmt,
 #endif
-#ifdef HAVE_TINYFORMAT
+#if HAVE_TINYFORMAT
         times.t_tiny, times.t_printf / times.t_tiny,
 #endif
         times.t_fmtxx, times.t_printf / times.t_fmtxx);

@@ -14,7 +14,8 @@ matrix:
           packages:
             - g++-6
       env:
-        - COMPILER=g++-6
+        - CC=gcc-6
+        - CXX=g++-6
         - CONFIGURATION=release
     - os: linux
       compiler: gcc
@@ -25,7 +26,8 @@ matrix:
           packages:
             - g++-6
       env:
-        - COMPILER=g++-6
+        - CC=gcc-6
+        - CXX=g++-6
         - CONFIGURATION=debug
     - os: linux
       compiler: clang
@@ -38,7 +40,8 @@ matrix:
             - g++-6
             - clang-3.8
       env:
-        - COMPILER=clang++-3.8
+        - CC=clang-3.8
+        - CXX=clang++-3.8
         - CONFIGURATION=release
     - os: linux
       compiler: clang
@@ -51,7 +54,8 @@ matrix:
             - g++-6
             - clang-3.8
       env:
-        - COMPILER=clang++-3.8
+        - CC=clang-3.8
+        - CXX=clang++-3.8
         - CONFIGURATION=debug
     - os: osx
       compiler: clang

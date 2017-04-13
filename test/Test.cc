@@ -1087,18 +1087,18 @@ static void test_all()
 
 int main()
 {
-    fprintf(stderr, "StringFormatter...\n");
+    //fprintf(stderr, "StringFormatter...\n");
     test_all<StringFormatter>();
 
-    fprintf(stderr, "StreamFormatter...\n");
+    //fprintf(stderr, "StreamFormatter...\n");
     test_all<StreamFormatter>();
 
 #ifdef __linux__
-    fprintf(stderr, "FILEFormatter...\n");
+    //fprintf(stderr, "FILEFormatter...\n");
     test_all<FILEFormatter>();
 #endif
 
-    fprintf(stderr, "CharArrayFormatter...\n");
+    //fprintf(stderr, "CharArrayFormatter...\n");
     test_all<CharArrayFormatter>();
 
 #if 0

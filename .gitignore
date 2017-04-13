@@ -4,6 +4,7 @@
 /bloat_test/*.dll
 /bloat_test/*.h
 /bloat_test/*.txt
+/bloat_test/*.py
 /build/
 /ext/
 /scratch/

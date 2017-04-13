@@ -1,25 +1,38 @@
 sudo: required
-
-language: cpp
-
-os:
-  - linux
-  - osx
-
 dist: trusty
 
-compiler:
-  - clang
-  - gcc
+language: cpp
 
 env:
   - CONFIGURATION=release
   - CONFIGURATION=debug
 
+matrix:
+  include:
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+      env: COMPILER=g++-6
+    - os: linux
+      compiler: clang
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-precise-3.8
+          packages:
+            - g++-6
+            - clang-3.8
+      env: COMPILER=clang++-3.8
+    - os: osx
+      compiler: clang
+
 before_install:
-  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test --yes
-  - sudo apt-get update --yes
-  - sudo apt-get install gcc-6 g++-6 --yes
   - git clone https://github.com/premake/premake-core.git
   - cd premake-core
   - git submodule init

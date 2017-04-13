@@ -16,7 +16,10 @@ env:
   - CONFIGURATION=release
   - CONFIGURATION=debug
 
-install:
+before_install:
+  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test --yes
+  - sudo apt-get update --yes
+  - sudo apt-get install gcc-6 g++-6 --yes
   - git clone https://github.com/premake/premake-core.git
   - cd premake-core
   - git submodule init
@@ -25,8 +28,9 @@ install:
   - cp bin/release/premake5 ../premake5
   - cd ../
 
-script:
+install:
   - ./premake5 gmake
-  - make -C build/gmake/ config=$CONFIGURATION fmtxx
+
+script:
   - make -C build/gmake/ config=$CONFIGURATION Test
   - ./build/gmake/bin/$CONFIGURATION/Test

@@ -88,7 +88,8 @@ bool fmtxx::StreamBuffer::Put(char c)
 {
     using traits_type = std::ostream::traits_type;
 
-    if (traits_type::eq_int_type(os.rdbuf()->sputc(c), traits_type::eof())) {
+    if (traits_type::eq_int_type(os.rdbuf()->sputc(c), traits_type::eof()))
+    {
         os.setstate(std::ios_base::badbit);
         return false;
     }
@@ -105,7 +106,8 @@ bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
         auto const n = Min(len, kMaxLen);
 
         auto const k = static_cast<std::streamsize>(n);
-        if (k != os.rdbuf()->sputn(str, k)) {
+        if (k != os.rdbuf()->sputn(str, k))
+        {
             os.setstate(std::ios_base::badbit);
             return false;
         }
@@ -129,7 +131,8 @@ bool fmtxx::StreamBuffer::Pad(char c, size_t count)
         auto const n = Min(count, kBlockSize);
 
         auto const k = static_cast<std::streamsize>(n);
-        if (k != os.rdbuf()->sputn(block, k)) {
+        if (k != os.rdbuf()->sputn(block, k))
+        {
             os.setstate(std::ios_base::badbit);
             return false;
         }

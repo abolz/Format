@@ -214,10 +214,10 @@ public:
         T_SCHAR,      //  7 XXX: promote to int?
         T_SSHORT,     //  8 XXX: promote to int?
         T_SINT,       //  9
-                      // 10
-        T_SLONGLONG,  // 11
+        T_SLONGLONG,  // 10
+        T_ULONGLONG,  // 11
                       // 12
-        T_ULONGLONG,  // 13
+                      // 13
         T_DOUBLE,     // 14 XXX: float is promoted to double. long double ???
         T_FORMATSPEC, // 15
     };
@@ -231,7 +231,7 @@ public:
     {
     }
 
-    EType operator [](int index) const
+    EType operator[](int index) const
     {
         assert(index >= 0);
         if (index >= 16)
@@ -292,8 +292,7 @@ public:
     template <typename T>
     static errc FormatValue_fn(FormatBuffer& buf, FormatSpec const& spec, void const* value)
     {
-        FormatValue<T> format_value;
-        return format_value(buf, spec, *static_cast<T const*>(value));
+        return FormatValue<T>{}(buf, spec, *static_cast<T const*>(value));
     }
 
     struct Other { void const* value; Func func; };

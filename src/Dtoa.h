@@ -127,8 +127,7 @@ Result ToGeneral(
 
 // NOTE: This function *never* adds any prefix!
 //
-// PRE: last - first >= 14 (style == hex)
-//      last - first >= 18 (otherwise)
+// PRE: last - first >= 14
 //  (Even if the actual result is shorter!)
 Result ToHex(
     char*          first,
@@ -139,7 +138,7 @@ Result ToHex(
 
 // http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0067r5.html
 //
-//20.2.7 Output functions
+// 20.2.7 Output functions
 //
 // All functions named to_chars convert value into a character string by
 // successively filling the range [first, last), where [first, last) is required

@@ -37,7 +37,7 @@ solution "Libs"
 --            "-Wsign-conversion",
 --            "-pedantic",
 --            "-fvisibility=hidden",
-            "-fno-exceptions",
+--            "-fno-exceptions",
 --            "-fno-rtti",
 --            "-fno-omit-frame-pointer",
 --            "-ftime-report",

@@ -1,7 +1,7 @@
 #include "Format.h"
 
-#define HAVE_FMTLIB 0
-#define HAVE_TINYFORMAT 0
+#define HAVE_FMTLIB 1
+#define HAVE_TINYFORMAT 1
 
 #if HAVE_FMTLIB
 #include "fmt/format.h"
@@ -186,7 +186,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 
 #endif // NO_COMP
 
-#if 1
+#if 0
     times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(stdout, format_fmtxx, i); });
 #endif
 #if 0
@@ -205,13 +205,11 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArrayBuffer fb { buf };
-        const auto ec = fmtxx::Format(fb, format_fmtxx, i);
-        assert(ec == fmtxx::errc::success);
-        static_cast<void>(ec);
+        fmtxx::Format(fb, format_fmtxx, i);
         std::fwrite(buf, 1, static_cast<size_t>(fb.next - buf), stdout);
     });
 #endif
-#if 0
+#if 1
     std::string buf;
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         buf.clear();
@@ -220,7 +218,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     });
 #endif
 
-#if 0
+#if 1
     fprintf(stderr,
         "   printf:  %.2f sec\n"
 #if HAVE_FMTLIB
@@ -286,7 +284,7 @@ int main()
 #endif
 
 #if 1 // ints
-#if 1
+#if 0
     TestInts<int32_t>("%d",     "{}");
     TestInts<int32_t>("%8d",    "{:8d}");
     TestInts<int32_t>("%24d",   "{:24d}");
@@ -314,7 +312,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestInts<uint32_t>("%u",     "{:'}",      "{:n}");
     TestInts<uint32_t>("%8u",    "{:'8d}",    "{:8n}");
     TestInts<uint32_t>("%24u",   "{:'24d}",   "{:24n}");
@@ -353,27 +351,17 @@ int main()
 #endif
 
 #if 1 // floats
-#if 1
-    TestFloats(0.0,      1.0e-10,  "%.10f",  "{:.10f}");
-    TestFloats(1.0e-10,  1.0e-20,  "%.20f",  "{:.20f}");
-    TestFloats(1.0e-20,  1.0e-40,  "%.40f",  "{:.40f}");
-    TestFloats(1.0e-40,  1.0e-80,  "%.80f",  "{:.80f}");
-    TestFloats(1.0e-295, 1.0e-305, "%.305f", "{:.305f}");
-    TestFloats(0.0,      1.0e-308, "%.308f", "{:.308f}");
-
-    PrintAvgTimes();
-    timing_results.clear();
-#endif
-
-#if 1
-    TestFloats(0.0,      1.0,      "%.17f", "{:.17f}");
-    TestFloats(1.0,      1.0e+20,  "%.17f", "{:.17f}");
-    TestFloats(1.0e+20,  1.0e+40,  "%.17f", "{:.17f}");
-    TestFloats(1.0e+40,  1.0e+60,  "%.17f", "{:.17f}");
-
-    PrintAvgTimes();
-    timing_results.clear();
-#endif
+//#if 1
+//    TestFloats(0.0,      1.0e-10,  "%.10f",  "{:.10f}");
+//    TestFloats(1.0e-10,  1.0e-20,  "%.20f",  "{:.20f}");
+//    TestFloats(1.0e-20,  1.0e-40,  "%.40f",  "{:.40f}");
+//    TestFloats(1.0e-40,  1.0e-80,  "%.80f",  "{:.80f}");
+//    TestFloats(1.0e-295, 1.0e-305, "%.305f", "{:.305f}");
+//    TestFloats(0.0,      1.0e-308, "%.308f", "{:.308f}");
+//
+//    PrintAvgTimes();
+//    timing_results.clear();
+//#endif
 
 #if 1
     TestFloats(0.0,      1.0,      "%.17e", "{:.17e}");
@@ -395,7 +383,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestFloats(0.0,      1.0,      "%.17g", "{}", "{:.17g}");
     TestFloats(1.0,      1.0e+20,  "%.17g", "{}", "{:.17g}");
     TestFloats(1.0e+20,  1.0e+40,  "%.17g", "{}", "{:.17g}");

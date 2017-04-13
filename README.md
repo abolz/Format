@@ -1,5 +1,7 @@
 # Format
 
+[![Build Status](https://travis-ci.org/effzeh/Format.svg?branch=master)](https://travis-ci.org/effzeh/Format)
+
 ## API
 
     namespace fmtxx {

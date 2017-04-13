@@ -528,6 +528,25 @@ struct Double
     }
 };
 
+static errc HandleSpecialFloat(Double const d, FormatBuffer& fb, FormatSpec const& spec, char sign, bool upper)
+{
+    assert(d.IsSpecial());
+
+    if (d.IsNaN())
+        return PrintAndPadString(fb, spec, upper ? "NAN" : "nan");
+
+    char  inf_lower[] = " inf";
+    char  inf_upper[] = " INF";
+    char* str = upper ? inf_upper : inf_lower;
+
+    if (sign != '\0')
+        *str = sign;
+    else
+        ++str; // skip leading space
+
+    return PrintAndPadString(fb, spec, str);
+}
+
 errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 {
 #if FMTXX_USE_DOUBLE_CONVERSION
@@ -613,12 +632,7 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     if (d.IsSpecial())
     {
         bool const upper = ('A' <= conv && conv <= 'Z');
-
-        if (d.IsNaN())
-            return PrintAndPadString(fb, spec, upper ? "NAN" : "nan");
-
-        char const inf[] = { sign, upper ? 'I' : 'i', upper ? 'N' : 'n', upper ? 'F' : 'f', '\0' };
-        return PrintAndPadString(fb, spec, inf + (sign == '\0' ? 1 : 0));
+        return HandleSpecialFloat(d, fb, spec, sign, upper);
     }
 
     static int const kBufSize = 1500;
@@ -719,12 +733,7 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     if (d.IsSpecial())
     {
         bool const upper = ('A' <= conv && conv <= 'Z');
-
-        if (d.IsNaN())
-            return PrintAndPadString(fb, spec, upper ? "NAN" : "nan");
-
-        char const inf[] = { sign, upper ? 'I' : 'i', upper ? 'N' : 'n', upper ? 'F' : 'f', '\0' };
-        return PrintAndPadString(fb, spec, inf + (sign == '\0' ? 1 : 0));
+        return HandleSpecialFloat(d, fb, spec, sign, upper);
     }
 
     static int const kBufSize = 1500;

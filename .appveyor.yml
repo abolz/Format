@@ -1,0 +1,22 @@
+platform:
+  - x64
+
+configuration:
+  - Release
+  - Debug
+
+build:
+  verbosity: quiet
+
+before_build:
+  - ps: wget "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha11/premake-5.0.0-alpha11-windows.zip" -OutFile premake.zip
+  - ps: 7z x premake.zip
+
+build_script:
+  - ps: ./premake5 vs2015
+  - ps: msbuild .\build\vs2015\fmt.vcxproj
+  - ps: msbuild .\build\vs2015\Test.vcxproj
+
+test_script:
+  - ps: $cmd = ".\build\vs2015\bin\$($env:CONFIGURATION)\Test.exe"
+  - ps: Invoke-Expression $cmd

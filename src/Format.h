@@ -185,6 +185,14 @@ errc Format(std::ostream& os, std::string_view format, Args const&... args);
 template <typename ...Args>
 std::string StringFormat(std::string_view format, Args const&... args);
 
+// Appends the formatted arguments to the given buffer.
+// This is short for:
+//  Buffer fb { ... };
+//  Format(fb, format, args...);
+//
+template <typename Buffer, typename ...Args>
+errc FormatTo(Buffer fb, std::string_view format, Args const&... args);
+
 } // namespace fmtxx
 
 //------------------------------------------------------------------------------
@@ -421,6 +429,12 @@ std::string fmtxx::StringFormat(std::string_view format, Args const&... args)
     std::string os;
     fmtxx::Format(os, format, args...);
     return os;
+}
+
+template <typename Buffer, typename ...Args>
+fmtxx::errc fmtxx::FormatTo(Buffer fb, std::string_view format, Args const&... args)
+{
+    return fmtxx::impl::Format(fb, format, args...);
 }
 
 //------------------------------------------------------------------------------

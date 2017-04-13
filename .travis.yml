@@ -3,10 +3,6 @@ dist: trusty
 
 language: cpp
 
-env:
-  - CONFIGURATION=release
-  - CONFIGURATION=debug
-
 matrix:
   include:
     - os: linux
@@ -17,7 +13,20 @@ matrix:
             - ubuntu-toolchain-r-test
           packages:
             - g++-6
-      env: COMPILER=g++-6
+      env:
+        - COMPILER=g++-6
+        - CONFIGURATION=release
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+      env:
+        - COMPILER=g++-6
+        - CONFIGURATION=debug
     - os: linux
       compiler: clang
       addons:
@@ -28,9 +37,28 @@ matrix:
           packages:
             - g++-6
             - clang-3.8
-      env: COMPILER=clang++-3.8
+      env:
+        - COMPILER=clang++-3.8
+        - CONFIGURATION=release
+    - os: linux
+      compiler: clang
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-precise-3.8
+          packages:
+            - g++-6
+            - clang-3.8
+      env:
+        - COMPILER=clang++-3.8
+        - CONFIGURATION=debug
     - os: osx
       compiler: clang
+      env: CONFIGURATION=release
+    - os: osx
+      compiler: clang
+      env: CONFIGURATION=debug
 
 before_install:
   - git clone https://github.com/premake/premake-core.git

@@ -27,6 +27,6 @@ install:
 
 script:
   - ./premake5 gmake
-  - make -C build/gmake/ config=$CONFIGURATION fmt
+  - make -C build/gmake/ config=$CONFIGURATION fmtxx
   - make -C build/gmake/ config=$CONFIGURATION Test
   - ./build/gmake/bin/$CONFIGURATION/Test

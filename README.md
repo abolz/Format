@@ -110,41 +110,35 @@ Formatting to other buffers or streams is supported by implementing the
 
 struct VectorBuffer : public fmtxx::FormatBuffer
 {
-    std::vector<char>& os;
-    explicit VectorBuffer(std::vector<char>& v) : os(v) {}
+    std::vector<char> vec;
 
     bool Put(char c) override {
-        os.push_back(c);
+        vec.push_back(c);
         return true;
     }
     bool Write(char const* str, size_t len) override {
-        os.insert(os.end(), str, str + len);
+        vec.insert(vec.end(), str, str + len);
         return true;
     }
     bool Pad(char c, size_t count) override {
-        os.resize(os.size() + count, c);
+        vec.resize(vec.size() + count, c);
         return true;
     }
 };
 
+// Tell the Format library that vector<char> should be handled as a string.
+// Possible because vector<char> has compatible data() and size() members.
 template <>
-struct fmtxx::FormatValue<std::vector<char>>
-{
-    errc operator()(FormatBuffer& fb, FormatSpec const& spec, std::vector<char> const& vec) const
-    {
-        // The "{*}" means:
-        // The formatting specification is given as an argument ('spec' here).
-        return fmtxx::Format(fb, "{*}", spec, std::string_view(vec.data(), vec.size()));
-    }
-};
+struct fmtxx::IsString<std::vector<char>> : std::true_type {};
 
 int main()
 {
-    std::vector<char> vec;
-    fmtxx::FormatTo(VectorBuffer{vec}, "{:5}", -123);
-        // out = {' ', '-', '1', '2', '3'}
+    VectorBuffer buf;
 
-    fmtxx::Format(stdout, "{}\n", vec);
+    fmtxx::Format(buf, "{:5}", -123);
+        // buf.vec = {' ', '-', '1', '2', '3'}
+
+    fmtxx::Format(stdout, "{}\n", buf.vec);
         // " -123"
 }
 ```

@@ -9,12 +9,25 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator> // MSVC: [un]checked_array_iterator
+
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif
 
 using namespace dtoa;
 using Vector = double_conversion::Vector<char>;
+
+template <typename RanIt>
+inline auto MakeArrayIterator(RanIt first, intptr_t n)
+{
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
+    return stdext::make_checked_array_iterator(first, n);
+#else
+    static_cast<void>(n); // unused...
+    return first;
+#endif
+}
 
 struct IEEEDouble // FIXME: Use double_conversion::Double
 {
@@ -61,7 +74,8 @@ static int InsertThousandsSep(Vector buf, int pt, int last, char sep)
     if (nsep <= 0)
         return 0;
 
-    std::copy_backward(buf.start() + pt, buf.start() + last, buf.start() + (last + nsep));
+    auto I = MakeArrayIterator(buf.start(), buf.length());
+    std::copy_backward(I + pt, I + last, I + (last + nsep));
 
     for (int l = pt - 1, shift = nsep; shift > 0; --shift, l -= 3)
     {
@@ -125,14 +139,16 @@ static void CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int
     }
     else
     {
+        auto I = MakeArrayIterator(buf.start(), buf.length());
+
         // dig.its[000]
         assert(precision >= num_digits - decpt); // >= 1
 
         // digits --> dig.its
-        std::copy_backward(buf.start() + decpt, buf.start() + num_digits, buf.start() + (num_digits + 1));
-        buf[decpt] = options.decimal_point;
+        std::copy_backward(I + decpt, I + num_digits, I + (num_digits + 1));
+        I[decpt] = options.decimal_point;
         // dig.its --> dig.its[000]
-        std::fill_n(buf.start() + (num_digits + 1), precision - (num_digits - decpt), '0');
+        std::fill_n(I + (num_digits + 1), precision - (num_digits - decpt), '0');
 
         last = decpt + 1 + precision;
     }
@@ -329,16 +345,18 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
     pos += 1; // leading digit
     if (num_digits > 1)
     {
+        auto I = MakeArrayIterator(buf.start(), buf.length());
+
         // d.igits[000]e+123
 
-        std::copy_backward(buf.start() + pos, buf.start() + (pos + num_digits - 1), buf.start() + (pos + num_digits));
-        buf[pos] = options.decimal_point;
+        std::copy_backward(I + pos, I + (pos + num_digits - 1), I + (pos + num_digits));
+        I[pos] = options.decimal_point;
         pos += 1 + (num_digits - 1);
 
         if (precision > num_digits - 1)
         {
             int const nzeros = precision - (num_digits - 1);
-            std::fill_n(buf.start() + pos, nzeros, '0');
+            std::fill_n(I + pos, nzeros, '0');
             pos += nzeros;
         }
     }
@@ -731,6 +749,8 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
     Vector buf(first, static_cast<int>(last - first));
     assert(buf.length() >= 24);
 
+    auto I = MakeArrayIterator(buf.start(), buf.length());
+
     int num_digits = 0;
     int decpt = 0;
 
@@ -746,25 +766,25 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
     if (k <= n && n <= 21)
     {
         // digits[000]
-        std::fill_n(buf.start() + k, n - k, '0');
+        std::fill_n(I + k, n - k, '0');
         return {first + n, 0};
     }
 
     if (0 < n && n <= 21)
     {
         // dig.its
-        std::copy_backward(buf.start() + n, buf.start() + k, buf.start() + (k + 1));
-        buf[n] = '.';
+        std::copy_backward(I + n, I + k, I + (k + 1));
+        I[n] = '.';
         return {first + (k + 1), 0};
     }
 
     if (-6 < n && n <= 0)
     {
         // 0.[000]digits
-        std::copy_backward(buf.start(), buf.start() + k, buf.start() + (2 + -n + k));
-        buf[0] = '0';
-        buf[1] = '.';
-        std::fill_n(buf.start() + 2, -n, '0');
+        std::copy_backward(I, I + k, I + (2 + -n + k));
+        I[0] = '0';
+        I[1] = '.';
+        std::fill_n(I + 2, -n, '0');
         return {first + (2 + -n + k), 0};
     }
 
@@ -785,8 +805,8 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
     else
     {
         // d.igitsE+123
-        std::copy_backward(buf.start() + 1, buf.start() + k, buf.start() + (k + 1));
-        buf[1] = '.';
+        std::copy_backward(I + 1, I + k, I + (k + 1));
+        I[1] = '.';
         int const endpos = AppendExponent(buf, /*pos*/ k + 1, n - 1, options);
         return {first + endpos, 0};
     }

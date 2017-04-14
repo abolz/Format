@@ -28,8 +28,6 @@
 #ifndef DOUBLE_CONVERSION_UTILS_H_
 #define DOUBLE_CONVERSION_UTILS_H_
 
-#include <iterator>
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -174,142 +172,6 @@ static T Min(T a, T b) {
 }
 
 
-#if !defined(_MSC_VER) && (defined(_DEBUG) || !defined(NDEBUG))
-template <typename Ptr>
-class CheckedArrayIterator {
-  Ptr ptr_;
-  intptr_t size_;
-  intptr_t pos_;
-
-public:
-  using iterator_category
-    = typename std::iterator_traits<Ptr>::iterator_category;
-  using value_type
-    = typename std::iterator_traits<Ptr>::value_type;
-  using difference_type
-    = typename std::iterator_traits<Ptr>::difference_type;
-  using pointer
-    = typename std::iterator_traits<Ptr>::pointer;
-  using reference
-    = typename std::iterator_traits<Ptr>::reference;
-
-public:
-  CheckedArrayIterator() : ptr_(nullptr), size_(0), pos_(0) {}
-  CheckedArrayIterator(Ptr ptr, intptr_t size, intptr_t pos = 0)
-    : ptr_(ptr)
-    , size_(size)
-    , pos_(pos)
-  {
-    assert(pos_ <= size_);
-  }
-
-  reference operator*() const {
-    assert(ptr_ != nullptr);
-    assert(pos_ < size_);
-    return ptr_[pos_];
-  }
-
-  pointer operator->() const {
-    assert(ptr_ != nullptr);
-    assert(pos_ < size_);
-    return ptr_ + pos_;
-  }
-
-  CheckedArrayIterator& operator++() {
-    assert(ptr_ != nullptr);
-    assert(pos_ < size_);
-    ++pos_;
-    return *this;
-  }
-
-  CheckedArrayIterator operator++(int) {
-    auto t = *this;
-    ++(*this);
-    return t;
-  }
-
-  CheckedArrayIterator& operator--() {
-    assert(ptr_ != nullptr);
-    assert(pos_ > 0);
-    --pos_;
-    return *this;
-  }
-
-  CheckedArrayIterator operator--(int) {
-    auto t = *this;
-    --(*this);
-    return t;
-  }
-
-  CheckedArrayIterator& operator+=(difference_type n) {
-    assert(ptr_ != nullptr);
-    assert(pos_ + n >= 0);
-    assert(pos_ + n <= size_);
-    pos_ += n;
-    return *this;
-  }
-
-  CheckedArrayIterator operator+(difference_type n) const {
-    auto t = *this;
-    t += n;
-    return t;
-  }
-
-  CheckedArrayIterator& operator-=(difference_type n) {
-    assert(ptr_ != nullptr);
-    assert(pos_ - n >= 0);
-    assert(pos_ - n <= size_);
-    pos_ -= n;
-    return *this;
-  }
-
-  CheckedArrayIterator operator-(difference_type n) const {
-    auto t = *this;
-    t -= n;
-    return t;
-  }
-
-  difference_type operator-(CheckedArrayIterator const& rhs) const {
-    assert(ptr_ == rhs.ptr_);
-    return pos_ - rhs.pos_;
-  }
-
-  reference operator[](difference_type index) const {
-    assert(ptr_ != nullptr);
-    assert(index >= 0);
-    assert(index < size_);
-    return ptr_[index];
-  }
-
-  bool operator==(CheckedArrayIterator const& rhs) const {
-    assert(ptr_ == rhs.ptr_);
-    return pos_ == rhs.pos_;
-  }
-
-  bool operator!=(CheckedArrayIterator const& rhs) const {
-    return !(*this == rhs);
-  }
-
-  bool operator<(CheckedArrayIterator const& rhs) const {
-    assert(ptr_ == rhs.ptr_);
-    return pos_ < rhs.pos_;
-  }
-
-  bool operator>(CheckedArrayIterator const& rhs) const {
-    return rhs < *this;
-  }
-
-  bool operator<=(CheckedArrayIterator const& rhs) const {
-    return !(rhs < *this);
-  }
-
-  bool operator>=(CheckedArrayIterator const& rhs) const {
-    return !(*this < rhs);
-  }
-};
-#endif
-
-
 inline int StrLength(const char* string) {
   size_t length = strlen(string);
   ASSERT(length == static_cast<size_t>(static_cast<int>(length)));
@@ -340,20 +202,8 @@ class Vector {
   // Returns whether or not the vector is empty.
   bool is_empty() const { return length_ == 0; }
 
-#if !defined(_MSC_VER) && (defined(_DEBUG) || !defined(NDEBUG))
-  // Returns a checked iterator pointing to the start of the data of the vector.
-  CheckedArrayIterator<T*> start() const {
-    return CheckedArrayIterator<T*>(start_, length_, 0);
-  }
-#elif defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
-  // Returns a checked iterator pointing to the start of the data of the vector.
-  stdext::checked_array_iterator<T*> start() const {
-    return stdext::make_checked_array_iterator<T*>(start_, length_, 0);
-  }
-#else
   // Returns the pointer to the start of the data in the vector.
   T* start() const { return start_; }
-#endif
 
   //auto begin() const { return start(); }
   //auto end() const { return start() + length(); }

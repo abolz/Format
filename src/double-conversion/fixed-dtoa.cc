@@ -131,7 +131,7 @@ static void FillDigits32(uint32_t number, Vector<char> buffer, int* length) {
   int number_length = 0;
   // We fill the digits in reverse order and exchange them afterwards.
   while (number != 0) {
-    uint32_t digit = number % 10;
+    int digit = number % 10;
     number /= 10;
     buffer[(*length) + number_length] = static_cast<char>('0' + digit);
     number_length++;
@@ -259,8 +259,8 @@ static void FillFractionals(uint64_t fractionals, int exponent,
       fractionals -= static_cast<uint64_t>(digit) << point;
     }
     // If the first bit after the point is set we have to round up.
-    ASSERT(fractionals == 0 || point >= 1);
-    if (fractionals != 0 && ((fractionals >> (point - 1)) & 1) == 1) {
+    ASSERT(fractionals == 0 || point - 1 >= 0);
+    if ((fractionals != 0) && ((fractionals >> (point - 1)) & 1) == 1) {
       RoundUp(buffer, length, decimal_point);
     }
   } else {  // We need 128 bits.

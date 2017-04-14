@@ -205,9 +205,6 @@ class Vector {
   // Returns the pointer to the start of the data in the vector.
   T* start() const { return start_; }
 
-  //auto begin() const { return start(); }
-  //auto end() const { return start() + length(); }
-
   // Access individual vector elements - checks bounds in debug mode.
   T& operator[](int index) const {
     ASSERT(0 <= index && index < length_);
@@ -232,7 +229,7 @@ class StringBuilder {
   StringBuilder(char* buffer, int buffer_size)
       : buffer_(buffer, buffer_size), position_(0) { }
 
-  ~StringBuilder() { /*if (!is_finalized()) Finalize();*/ }
+  ~StringBuilder() { if (!is_finalized()) Finalize(); }
 
   int size() const { return buffer_.length(); }
 
@@ -263,10 +260,9 @@ class StringBuilder {
   // Add the first 'n' characters of the given string 's' to the
   // builder. The input string must have enough characters.
   void AddSubstring(const char* s, int n) {
-    ASSERT(n >= 0);
     ASSERT(!is_finalized() && position_ + n < buffer_.length());
     ASSERT(static_cast<size_t>(n) <= strlen(s));
-    memmove(&buffer_[position_], s, static_cast<size_t>(n * kCharSize));
+    memmove(&buffer_[position_], s, n * kCharSize);
     position_ += n;
   }
 
@@ -285,10 +281,10 @@ class StringBuilder {
     buffer_[position_] = '\0';
     // Make sure nobody managed to add a 0-character to the
     // buffer while building the string.
-    ASSERT(strlen(&*buffer_.start()) == static_cast<size_t>(position_));
+    ASSERT(strlen(buffer_.start()) == static_cast<size_t>(position_));
     position_ = -1;
     ASSERT(is_finalized());
-    return &*buffer_.start();
+    return buffer_.start();
   }
 
  private:

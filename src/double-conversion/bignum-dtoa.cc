@@ -74,23 +74,22 @@ static void GenerateShortestDigits(Bignum* numerator, Bignum* denominator,
                                    bool is_even,
                                    Vector<char> buffer, int* length);
 // Generates 'requested_digits' after the decimal point.
-static bool BignumToFixed(int requested_digits, int* decimal_point,
+static void BignumToFixed(int requested_digits, int* decimal_point,
                           Bignum* numerator, Bignum* denominator,
-                          Vector<char> buffer, int* length);
+                          Vector<char>(buffer), int* length);
 // Generates 'count' digits of numerator/denominator.
 // Once 'count' digits have been produced rounds the result depending on the
 // remainder (remainders of exactly .5 round upwards). Might update the
 // decimal_point when rounding up (for example for 0.9999).
-static bool GenerateCountedDigits(int count, int* decimal_point,
+static void GenerateCountedDigits(int count, int* decimal_point,
                                   Bignum* numerator, Bignum* denominator,
-                                  Vector<char> buffer, int* length);
+                                  Vector<char>(buffer), int* length);
 
 
-bool BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
+void BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
                 Vector<char> buffer, int* length, int* decimal_point) {
   ASSERT(v > 0);
   ASSERT(!Double(v).IsSpecial());
-  ASSERT(buffer.length() > 0);
   uint64_t significand;
   int exponent;
   bool lower_boundary_is_closer;
@@ -124,7 +123,7 @@ bool BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
     // Note that it should not have any effect anyways since the string is
     // empty.
     *decimal_point = -requested_digits;
-    return true;
+    return;
   }
 
   Bignum numerator;
@@ -146,30 +145,27 @@ bool BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
                   &delta_minus, &delta_plus);
   // We now have v = (numerator / denominator) * 10^(decimal_point-1), and
   //  1 <= (numerator + delta_plus) / denominator < 10
-  bool success = false;
   switch (mode) {
     case BIGNUM_DTOA_SHORTEST:
     case BIGNUM_DTOA_SHORTEST_SINGLE:
       GenerateShortestDigits(&numerator, &denominator,
                              &delta_minus, &delta_plus,
                              is_even, buffer, length);
-      success = true;
       break;
     case BIGNUM_DTOA_FIXED:
-      success = BignumToFixed(requested_digits, decimal_point,
-                              &numerator, &denominator,
-                              buffer, length);
+      BignumToFixed(requested_digits, decimal_point,
+                    &numerator, &denominator,
+                    buffer, length);
       break;
     case BIGNUM_DTOA_PRECISION:
-      success = GenerateCountedDigits(requested_digits, decimal_point,
-                                      &numerator, &denominator,
-                                      buffer, length);
+      GenerateCountedDigits(requested_digits, decimal_point,
+                            &numerator, &denominator,
+                            buffer, length);
       break;
     default:
       UNREACHABLE();
   }
   buffer[*length] = '\0';
-  return success;
 }
 
 
@@ -284,40 +280,11 @@ static void GenerateShortestDigits(Bignum* numerator, Bignum* denominator,
 // to round up or down. Remainders of exactly .5 round upwards. Numbers such
 // as 9.999999 propagate a carry all the way, and change the
 // exponent (decimal_point), when rounding upwards.
-static bool GenerateCountedDigits(int count, int* decimal_point,
+static void GenerateCountedDigits(int count, int* decimal_point,
                                   Bignum* numerator, Bignum* denominator,
                                   Vector<char> buffer, int* length) {
   ASSERT(count >= 0);
-  if (buffer.length() < count)
-    return false;
-  int i = 0;
-  if (i < count - 1) {
-    static const int kDigitsPerStep = 8;
-    static const uint32_t kPow10 = 100000000;  // 10^kDigitsPerStep
-
-    // Generate the first digit
-    const uint16_t digit = numerator->DivideModuloIntBignum(*denominator);
-    ASSERT(digit <= 9);
-    buffer[i] = static_cast<char>('0' + digit);
-    ++i;
-
-    // Generate digits in groups of kDigitsPerStep.
-    for (; i + kDigitsPerStep <= count - 1; i += kDigitsPerStep) {
-      numerator->MultiplyByUInt32(kPow10);
-      uint64_t q = numerator->Mod(*denominator);
-      ASSERT(q < kPow10);
-      // Write the digits into the buffer (in reverse order)
-      for (int k = kDigitsPerStep - 1; k >= 0; --k) {
-        const uint64_t r = q % 10;
-        q /= 10;
-        buffer[i + k] = static_cast<char>('0' + r);
-      }
-    }
-
-    // Prepare for next iteration. (The remaining digits below.)
-    numerator->Times10();
-  }
-  for (; i < count - 1; ++i) {
+  for (int i = 0; i < count - 1; ++i) {
     uint16_t digit;
     digit = numerator->DivideModuloIntBignum(*denominator);
     ASSERT(digit <= 9);  // digit is a uint16_t and therefore always positive.
@@ -337,7 +304,7 @@ static bool GenerateCountedDigits(int count, int* decimal_point,
   buffer[count - 1] = static_cast<char>(digit + '0');
   // Correct bad digits (in case we had a sequence of '9's). Propagate the
   // carry until we hat a non-'9' or til we reach the first digit.
-  for (i = count - 1; i > 0; --i) {
+  for (int i = count - 1; i > 0; --i) {
     if (buffer[i] != '0' + 10) break;
     buffer[i] = '0';
     buffer[i - 1]++;
@@ -348,7 +315,6 @@ static bool GenerateCountedDigits(int count, int* decimal_point,
     (*decimal_point)++;
   }
   *length = count;
-  return true;
 }
 
 
@@ -357,9 +323,9 @@ static bool GenerateCountedDigits(int count, int* decimal_point,
 // generated (ex.: 2 fixed digits for 0.00001).
 //
 // Input verifies:  1 <= (numerator + delta) / denominator < 10.
-static bool BignumToFixed(int requested_digits, int* decimal_point,
+static void BignumToFixed(int requested_digits, int* decimal_point,
                           Bignum* numerator, Bignum* denominator,
-                          Vector<char> buffer, int* length) {
+                          Vector<char>(buffer), int* length) {
   // Note that we have to look at more than just the requested_digits, since
   // a number could be rounded up. Example: v=0.5 with requested_digits=0.
   // Even though the power of v equals 0 we can't just stop here.
@@ -371,7 +337,7 @@ static bool BignumToFixed(int requested_digits, int* decimal_point,
     // empty.
     *decimal_point = -requested_digits;
     *length = 0;
-    return true;
+    return;
   } else if (-(*decimal_point) == requested_digits) {
     // We only need to verify if the number rounds down or up.
     // Ex: 0.04 and 0.06 with requested_digits == 1.
@@ -389,14 +355,14 @@ static bool BignumToFixed(int requested_digits, int* decimal_point,
       // Note that we caught most of similar cases earlier.
       *length = 0;
     }
-    return true;
+    return;
   } else {
     // The requested digits correspond to the digits after the point.
     // The variable 'needed_digits' includes the digits before the point.
     int needed_digits = (*decimal_point) + requested_digits;
-    return GenerateCountedDigits(needed_digits, decimal_point,
-                                 numerator, denominator,
-                                 buffer, length);
+    GenerateCountedDigits(needed_digits, decimal_point,
+                          numerator, denominator,
+                          buffer, length);
   }
 }
 

@@ -167,7 +167,7 @@ struct FormatSpec {
     bool hash  = false;
     bool zero  = false;
     char tsep  = '\0';
-    char conv  = 's';
+    char conv  = '\0';
 };
 
 // Base class for formatting buffers. Can be implemented to provide formatting
@@ -386,6 +386,7 @@ Format specification syntax:
 ## Limitations
 
 - Only up to 16 arguments may be provided.
+- No wide string support
 - ...
 
 ## Copying

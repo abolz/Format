@@ -169,15 +169,15 @@ project "Test"
         "fmtxx",
     }
 
-project "TestBignum"
-    language "C++"
-    kind "ConsoleApp"
-    files {
-        "test/TestBignum.cc",
-    }
-    links {
-        "fmtxx-static",
-    }
+--project "TestBignum"
+--    language "C++"
+--    kind "ConsoleApp"
+--    files {
+--        "test/TestBignum.cc",
+--    }
+--    links {
+--        "fmtxx-static",
+--    }
 
 project "TestPerf"
     language "C++"

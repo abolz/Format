@@ -13,6 +13,8 @@
 
 namespace dtoa {
 
+enum { kMinBufferSize = 26 + 1 };
+
 enum struct Style {
     fixed,
     scientific,
@@ -21,8 +23,10 @@ enum struct Style {
 };
 
 struct Result {
-    char* next;
-    int ec;
+    bool success;
+    // If success == false, this is a size hint: retry with a buffer of at least this size.
+    // Otherwise this is equal to length of converted float.
+    int size; 
 };
 
 struct Options {
@@ -48,7 +52,8 @@ struct Options {
 // character appears, at least one digit appears before it. The value is rounded
 // to the appropriate number of digits.
 
-// PRE: last - first >= 1
+// PRE: last - first >= 27
+//  (Even if the actual result is shorter!)
 Result ToFixed(
     char*          first,
     char*          last,

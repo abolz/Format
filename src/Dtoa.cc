@@ -215,12 +215,23 @@ static int EstimatePower(int exponent)
     return static_cast<int>(estimate);
 }
 
+// From double-conversion/bignum-dtoa.cc
+static int EstimateNeededDigits(double v, int requested_digits)
+{
+    using Dbl = double_conversion::Double;
+
+    int const normalized_exponent = NormalizedExponent(Dbl(v).Significand(), Dbl(v).Exponent());
+    int const estimated_power     = EstimatePower(normalized_exponent);     // might be too low by 1.
+    int const needed_digits       = estimated_power + requested_digits + 1; // might be too large by 1.
+
+    return needed_digits;
+}
+
 static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
 {
-    assert(vec.length() >= 1);
-    assert(vec.length() >= 40); // For FastFixedDtoa
-
     using namespace double_conversion;
+
+    assert(vec.length() >= 26 + 1/*null*/);
 
     IEEEDouble const d{v};
 
@@ -239,22 +250,13 @@ static bool GenerateFixedDigits(double v, int requested_digits, Vector vec, int*
     bool const fast_worked = FastFixedDtoa(v, requested_digits, vec, num_digits, decpt);
     if (!fast_worked)
     {
-        // Compute the number of digits in the fixed-representation of v.
-        // XXX/FIXME: Will be computed again in BignumDtoa...
-
-        // From double-conversion/bignum-dtoa.cc:
-
-        uint64_t const significand = double_conversion::Double(v).Significand();
-        int      const exponent    = double_conversion::Double(v).Exponent();
-
-        int const normalized_exponent = NormalizedExponent(significand, exponent);
-        // estimated_power might be too low by 1.
-        int const estimated_power = EstimatePower(normalized_exponent);
         // needed_digits might be too large by 1.
+        //
         // But it doesn't really matter: A decimal-point will be added in
         // CreateFixedRepresentation so we will eventually need at least one
         // more digit.
-        int const needed_digits = estimated_power + requested_digits + 1;
+        //
+        int const needed_digits = EstimateNeededDigits(v, requested_digits);
 
         if (vec.length() < needed_digits)
             return false; // buffer too small
@@ -273,17 +275,17 @@ Result dtoa::ToFixed(char* first, char* last, double d, int precision, Options c
     int decpt = 0;
 
     if (!GenerateFixedDigits(d, precision, buf, &num_digits, &decpt))
-        return {last, -1};
+        return { false, num_digits };
 
     assert(num_digits >= 0);
 
     int const fixed_len = ComputeFixedRepresentationLength(num_digits, decpt, precision, options);
 
     if (last - first < fixed_len)
-        return {last, -1};
+        return { false, fixed_len };
 
     CreateFixedRepresentation(Vector(first, fixed_len), num_digits, decpt, precision, options);
-    return {first + fixed_len, 0};
+    return { true, fixed_len };
 }
 
 static int ComputeExponentLength(int exponent, Options const& options)
@@ -455,7 +457,7 @@ Result dtoa::ToExponential(char* first, char* last, double d, int precision, Opt
     int decpt = 0;
 
     if (!GeneratePrecisionDigits(d, precision + 1, buf, &num_digits, &decpt))
-        return {last, -1};
+        return { false, num_digits };
 
     assert(num_digits > 0);
 
@@ -463,10 +465,10 @@ Result dtoa::ToExponential(char* first, char* last, double d, int precision, Opt
     int const exponential_len = ComputeExponentialRepresentationLength(num_digits, exponent, precision, options);
 
     if (last - first < exponential_len)
-        return {last, -1};
+        return { false, exponential_len };
 
     CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, precision, options);
-    return {first + exponential_len, 0};
+    return { true, exponential_len };
 }
 
 Result dtoa::ToGeneral(char* first, char* last, double d, int precision, Options const& options)
@@ -481,7 +483,7 @@ Result dtoa::ToGeneral(char* first, char* last, double d, int precision, Options
     int const P = precision == 0 ? 1 : precision;
 
     if (!GeneratePrecisionDigits(d, P, buf, &num_digits, &decpt))
-        return {last, -1};
+        return { false, num_digits };
 
     assert(num_digits > 0);
     assert(num_digits <= P); // GeneratePrecisionDigits is allowed to return fewer digits if they are all 0's.
@@ -507,7 +509,11 @@ Result dtoa::ToGeneral(char* first, char* last, double d, int precision, Options
         if (last - first >= output_len)
         {
             CreateFixedRepresentation(Vector(first, output_len), num_digits, decpt, prec, options);
-            return {first + output_len, 0};
+            return { true, output_len };
+        }
+        else
+        {
+            return { false, output_len };
         }
     }
     else
@@ -523,11 +529,13 @@ Result dtoa::ToGeneral(char* first, char* last, double d, int precision, Options
         if (last - first >= output_len)
         {
             CreateExponentialRepresentation(Vector(first, output_len), num_digits, X, prec, options);
-            return {first + output_len, 0};
+            return { true, output_len };
+        }
+        else
+        {
+            return { false, output_len };
         }
     }
-
-    return {last, -1};
 }
 
 static int CountLeadingZeros64(uint64_t n)
@@ -646,7 +654,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
 
 Result dtoa::ToHex(char* first, char* last, double d, int precision, Options const& options)
 {
-    assert(static_cast<size_t>(last - first) >= 52/4 + 1);
+    assert(last - first >= 52/4 + 1);
 
     int num_digits = 0;
     int binary_exponent = 0;
@@ -659,10 +667,10 @@ Result dtoa::ToHex(char* first, char* last, double d, int precision, Options con
     if (last - first >= output_len)
     {
         CreateExponentialRepresentation(Vector(first, output_len), num_digits, binary_exponent, precision, options);
-        return {first + output_len, 0};
+        return { true, output_len };
     }
 
-    return {last, -1};
+    return { false, output_len };
 }
 
 static int ComputePrecisionForShortFixedRepresentation(int num_digits, int decpt)
@@ -729,7 +737,11 @@ Result dtoa::ToShortest(char* first, char* last, double d, Style style, Options 
         if (last - first >= fixed_len)
         {
             CreateFixedRepresentation(Vector(first, fixed_len), num_digits, decpt, fixed_precision, options);
-            return {first + fixed_len, 0};
+            return { true, fixed_len };
+        }
+        else
+        {
+            return { false, fixed_len };
         }
     }
     else
@@ -737,11 +749,13 @@ Result dtoa::ToShortest(char* first, char* last, double d, Style style, Options 
         if (last - first >= exponential_len)
         {
             CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, exponential_precision, options);
-            return {first + exponential_len, 0};
+            return { true, exponential_len };
+        }
+        else 
+        {
+            return { false, exponential_len };
         }
     }
-
-    return {last, -1};
 }
 
 Result dtoa::ToECMAScript(char* first, char* last, double d)
@@ -767,7 +781,7 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
     {
         // digits[000]
         std::fill_n(I + k, n - k, '0');
-        return {first + n, 0};
+        return { true, n };
     }
 
     if (0 < n && n <= 21)
@@ -775,7 +789,7 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
         // dig.its
         std::copy_backward(I + n, I + k, I + (k + 1));
         I[n] = '.';
-        return {first + (k + 1), 0};
+        return { true, k + 1 };
     }
 
     if (-6 < n && n <= 0)
@@ -785,7 +799,7 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
         I[0] = '0';
         I[1] = '.';
         std::fill_n(I + 2, -n, '0');
-        return {first + (2 + -n + k), 0};
+        return { true, 2 + (-n) + k };
     }
 
     // Otherwise use an exponential notation.
@@ -800,7 +814,7 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
     {
         // dE+123
         int const endpos = AppendExponent(buf, /*pos*/ 1, n - 1, options);
-        return {first + endpos, 0};
+        return { true, endpos };
     }
     else
     {
@@ -808,7 +822,7 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
         std::copy_backward(I + 1, I + k, I + (k + 1));
         I[1] = '.';
         int const endpos = AppendExponent(buf, /*pos*/ k + 1, n - 1, options);
-        return {first + endpos, 0};
+        return { true, endpos };
     }
 }
 

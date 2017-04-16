@@ -665,15 +665,15 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         res = dtoa::ToHex(buf, buf + kBufSize, abs_x, prec, options);
         break;
     default:
-        res = { buf + kBufSize, -1 };
+        res = { false, 0 };
         assert(!"internal error");
         break;
     }
 
-    if (res.ec)
+    if (!res.success)
         return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
 
-    size_t const buflen = static_cast<size_t>(res.next - buf);
+    size_t const buflen = static_cast<size_t>(res.size);
     return PrintAndPadNumber(fb, spec, sign, prefix, prefix != nullptr ? 2u : 0u, buf, buflen);
 #else
     char        conv = spec.conv;

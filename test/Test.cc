@@ -22,29 +22,32 @@ struct FormatterResult
     fmtxx::errc ec;
 };
 
+template <typename Fn>
 struct StringFormatter
 {
     template <typename ...Args>
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
         std::string os;
-        const auto ec = fmtxx::Format(os, format, args...);
+        const auto ec = Fn{}(os, format, args...);
         return { os, ec };
     }
 };
 
+template <typename Fn>
 struct StreamFormatter
 {
     template <typename ...Args>
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
         std::ostringstream os;
-        const auto ec = fmtxx::Format(os, format, args...);
+        const auto ec = Fn{}(os, format, args...);
         return { os.str(), ec };
     }
 };
 
 #ifdef __linux__
+template <typename Fn>
 struct FILEFormatter
 {
     template <typename ...Args>
@@ -52,13 +55,14 @@ struct FILEFormatter
     {
         char buf[1000] = {0};
         FILE* f = fmemopen(buf, sizeof(buf), "w");
-        const auto ec = fmtxx::Format(f, format, args...);
+        const auto ec = Fn{}(f, format, args...);
         fclose(f); // flush!
         return { std::string(buf), ec };
     }
 };
 #endif
 
+template <typename Fn>
 struct CharArrayFormatter
 {
     template <typename ...Args>
@@ -66,7 +70,7 @@ struct CharArrayFormatter
     {
         char buf[500];
         fmtxx::CharArrayBuffer os { buf };
-        const auto ec = fmtxx::Format(os, format, args...);
+        const auto ec = Fn{}(os, format, args...);
         return { std::string(buf, os.next), ec };
     }
 };
@@ -74,46 +78,82 @@ struct CharArrayFormatter
 template <typename Formatter, typename ...Args>
 static std::string FormatArgs1(std::string_view format, Args const&... args)
 {
-    Formatter formatter {};
-    FormatterResult res = formatter(format, args...);
+    FormatterResult res = Formatter{}(format, args...);
     assert(res.ec == fmtxx::errc::success);
     return res.str;
 }
 
-template <typename ...Args>
-static std::string FormatArgs(std::string_view format, Args const&... args)
-{
-    std::string const s1 = FormatArgs1<StringFormatter>(format, args...);
+struct FormatFn {
+    template <typename Buffer, typename ...Args>
+    auto operator()(Buffer& fb, std::string_view format, Args const&... args) const {
+        return fmtxx::Format(fb, format, args...);
+    }
+};
 
-    std::string const s2 = FormatArgs1<StreamFormatter>(format, args...);
+struct PrintfFn {
+    template <typename Buffer, typename ...Args>
+    auto operator()(Buffer& fb, std::string_view format, Args const&... args) const {
+        return fmtxx::Printf(fb, format, args...);
+    }
+};
+
+template <typename Fn, typename ...Args>
+static std::string FormatArgsTemplate(std::string_view format, Args const&... args)
+{
+    std::string const s1 = FormatArgs1<StringFormatter<Fn>>(format, args...);
+
+    std::string const s2 = FormatArgs1<StreamFormatter<Fn>>(format, args...);
     if (s2 != s1)
         return "[[[[ formatter mismatch ]]]]";
 
 #ifdef __linux__
-    std::string const s3 = FormatArgs1<FILEFormatter>(format, args...);
+    std::string const s3 = FormatArgs1<FILEFormatter<Fn>>(format, args...);
     if (s3 != s1)
         return "[[[[ formatter mismatch ]]]]";
 #endif
 
-    std::string const s4 = FormatArgs1<CharArrayFormatter>(format, args...);
+    std::string const s4 = FormatArgs1<CharArrayFormatter<Fn>>(format, args...);
     if (s4 != s1)
         return "[[[[ formatter mismatch ]]]]";
 
     return s1;
 }
 
+template <typename ...Args>
+static std::string FormatArgs(std::string_view format, Args const&... args)
+{
+    return FormatArgsTemplate<FormatFn>(format, args...);
+}
+
+template <typename ...Args>
+static std::string PrintfArgs(std::string_view format, Args const&... args)
+{
+    return FormatArgsTemplate<PrintfFn>(format, args...);
+}
+
 TEST_CASE("General", "0")
 {
-    REQUIRE("Hello"                           == FormatArgs("Hello",                                    0));
-    REQUIRE("Count to 10"                     == FormatArgs("Count to {0}",                             10));
-    REQUIRE("Bring me a beer"                 == FormatArgs("Bring me a {}",                            "beer"));
-    REQUIRE("From 0 to 10"                    == FormatArgs("From {} to {}",                            0, 10));
-    REQUIRE("From 0 to 10"                    == FormatArgs("From {1} to {0}",                          10, 0));
-    REQUIRE("dec:42 hex:2a oct:52 bin:101010" == FormatArgs("dec:{0:d} hex:{0:x} oct:{0:o} bin:{0:b}",  42));
-    REQUIRE("left<<<<<<<<<<<<"                == FormatArgs("{:<<16}",                                  "left"));
-    REQUIRE(".....center....."                == FormatArgs("{:.^16}",                                  "center"));
-    REQUIRE(">>>>>>>>>>>right"                == FormatArgs("{:>>16}",                                  "right"));
-    REQUIRE("2 1 1 2"                         == FormatArgs("{1} {} {0} {}",                            1, 2));
+    SECTION("Format")
+    {
+        REQUIRE("Hello"                           == FormatArgs("Hello",                                    0));
+        REQUIRE("Count to 10"                     == FormatArgs("Count to {0}",                             10));
+        REQUIRE("Bring me a beer"                 == FormatArgs("Bring me a {}",                            "beer"));
+        REQUIRE("From 0 to 10"                    == FormatArgs("From {} to {}",                            0, 10));
+        REQUIRE("From 0 to 10"                    == FormatArgs("From {1} to {0}",                          10, 0));
+        REQUIRE("dec:42 hex:2a oct:52 bin:101010" == FormatArgs("dec:{0:d} hex:{0:x} oct:{0:o} bin:{0:b}",  42));
+        REQUIRE("left<<<<<<<<<<<<"                == FormatArgs("{:<<16}",                                  "left"));
+        REQUIRE(".....center....."                == FormatArgs("{:.^16}",                                  "center"));
+        REQUIRE(">>>>>>>>>>>right"                == FormatArgs("{:>>16}",                                  "right"));
+        REQUIRE("2 1 1 2"                         == FormatArgs("{1} {} {0} {}",                            1, 2));
+    }
+    SECTION("Printf")
+    {
+        REQUIRE("Hello"                           == PrintfArgs("Hello",                                    0));
+        REQUIRE("Bring me a beer"                 == PrintfArgs("Bring me a %s",                            "beer"));
+        REQUIRE("From 0 to 10"                    == PrintfArgs("From %s to %s",                            0, 10));
+        REQUIRE("dec:42 hex:2a oct:52 bin:101010" == PrintfArgs("dec:%0$d hex:%1$x oct:%1$o bin:%0$b",      42, 42));
+        REQUIRE("left            "                == PrintfArgs("%-16s",                                    "left"));
+    }
 }
 
 TEST_CASE("String", "1")
@@ -122,6 +162,10 @@ TEST_CASE("String", "1")
     REQUIRE("x" == FormatArgs("x"));
     REQUIRE("{" == FormatArgs("{{"));
     REQUIRE("}" == FormatArgs("}}"));
+
+    REQUIRE("hello %" == PrintfArgs("hello %%"));
+    REQUIRE("% hello" == PrintfArgs("%% hello"));
+    REQUIRE("hello % hello" == PrintfArgs("hello %% hello"));
 
     REQUIRE("x" == FormatArgs("{}", 'x'));
     REQUIRE("x" == FormatArgs("{:.0}", 'x'));
@@ -139,6 +183,15 @@ TEST_CASE("String", "1")
 	REQUIRE(":Hello, world!:"       == FormatArgs(":{:.15}:",     "Hello, world!"));
 	REQUIRE(":     Hello, wor:"     == FormatArgs(":{:15.10}:",   "Hello, world!"));
 	REQUIRE(":Hello, wor     :"     == FormatArgs(":{:<15.10}:",  "Hello, world!"));
+
+    REQUIRE(":Hello, world!:"       == PrintfArgs(":%s:",         "Hello, world!"));
+	REQUIRE(":  Hello, world!:"     == PrintfArgs(":%15s:",      "Hello, world!"));
+	REQUIRE(":Hello, wor:"          == PrintfArgs(":%.10s:",     "Hello, world!"));
+	REQUIRE(":Hello, world!:"       == PrintfArgs(":%-10s:",     "Hello, world!"));
+	REQUIRE(":Hello, world!  :"     == PrintfArgs(":%-15s:",     "Hello, world!"));
+	REQUIRE(":Hello, world!:"       == PrintfArgs(":%.15s:",     "Hello, world!"));
+	REQUIRE(":     Hello, wor:"     == PrintfArgs(":%15.10s:",   "Hello, world!"));
+	REQUIRE(":Hello, wor     :"     == PrintfArgs(":%-15.10s:",  "Hello, world!"));
 
     std::string str = "hello hello hello hello hello hello hello hello hello hello ";
     REQUIRE("hello hello hello hello hello hello hello hello hello hello " == FormatArgs("{}", str));
@@ -161,6 +214,13 @@ TEST_CASE("String", "1")
     REQUIRE("(null)"     == FormatArgs("{:3.3}",  (char const*)0));
     REQUIRE("    (null)" == FormatArgs("{:10.3}", (char const*)0));
 
+    REQUIRE("(null)"     == PrintfArgs("%s",      (char*)0));
+    REQUIRE("(null)"     == PrintfArgs("%s",      (char const*)0));
+    REQUIRE("(null)"     == PrintfArgs("%.3s",   (char const*)0));
+    REQUIRE("(null)"     == PrintfArgs("%.10s",  (char const*)0));
+    REQUIRE("(null)"     == PrintfArgs("%3.3s",  (char const*)0));
+    REQUIRE("    (null)" == PrintfArgs("%10.3s", (char const*)0));
+
     std::string spad = std::string(128, ' ');
     REQUIRE(spad.c_str() == FormatArgs("{:128}", ' '));
 }
@@ -170,6 +230,16 @@ TEST_CASE("Ints", "1")
     REQUIRE("2 1 1 2" == FormatArgs("{1} {} {0} {}", 1, 2));
 
     static const int V = 0x12345;
+
+    REQUIRE("74565"     == PrintfArgs("%s",     V));
+    REQUIRE("74565"     == PrintfArgs("%hhs",     V));
+    REQUIRE("74565"     == PrintfArgs("%hs",     V));
+    REQUIRE("74565"     == PrintfArgs("%ls",     V));
+    REQUIRE("74565"     == PrintfArgs("%lls",     V));
+    REQUIRE("74565"     == PrintfArgs("%js",     V));
+    REQUIRE("74565"     == PrintfArgs("%zs",     V));
+    REQUIRE("74565"     == PrintfArgs("%ts",     V));
+    REQUIRE("74565"     == PrintfArgs("%Ls",     V));
 
     REQUIRE("74565"     == FormatArgs("{}",     V));
     REQUIRE("-74565"    == FormatArgs("{}",    -V));
@@ -215,6 +285,19 @@ TEST_CASE("Ints", "1")
     REQUIRE("-000074565" == FormatArgs("{: <-010}",  -V));
     REQUIRE("+000074565" == FormatArgs("{: <+010}",   V));
     REQUIRE("-000074565" == FormatArgs("{: <+010}",  -V));
+
+    REQUIRE("0000074565" == PrintfArgs("%-010s",    V));
+    REQUIRE("-000074565" == PrintfArgs("%-010s",   -V));
+    REQUIRE(" 000074565" == PrintfArgs("%- 010s",   V));
+    REQUIRE("-000074565" == PrintfArgs("%- 010s",  -V));
+    REQUIRE("0000074565" == PrintfArgs("%--010s",   V));
+    REQUIRE("-000074565" == PrintfArgs("%--010s",  -V));
+    REQUIRE("+000074565" == PrintfArgs("%-+010s",   V));
+    REQUIRE("-000074565" == PrintfArgs("%-+010s",  -V));
+    REQUIRE("+000074565" == PrintfArgs("%-+ 010s",   V)); // If the space and + flags both appear, the space flag is ignored.
+    REQUIRE("-000074565" == PrintfArgs("%-+ 010s",  -V)); // If the space and + flags both appear, the space flag is ignored.
+    REQUIRE("+000074565" == PrintfArgs("%- +010s",   V)); // If the space and + flags both appear, the space flag is ignored.
+    REQUIRE("-000074565" == PrintfArgs("%- +010s",  -V)); // If the space and + flags both appear, the space flag is ignored.
 
     REQUIRE("0000074565" == FormatArgs("{: =010}",    V));
     REQUIRE("-000074565" == FormatArgs("{: =010}",   -V));
@@ -596,6 +679,16 @@ TEST_CASE("Floats", "1")
     REQUIRE("1'234."       == FormatArgs("{:'#.0f}", 1234.0));
     REQUIRE("1'234.0"      == FormatArgs("{:'#.1f}", 1234.0));
     REQUIRE("1'234.00"     == FormatArgs("{:'#.2f}", 1234.0));
+
+    REQUIRE("1'234.000000" == PrintfArgs("%'f",    1234.0));
+    REQUIRE("1'234"        == PrintfArgs("%'.f",   1234.0));
+    REQUIRE("1'234"        == PrintfArgs("%'.0f",  1234.0));
+    REQUIRE("1'234.0"      == PrintfArgs("%'.1f",  1234.0));
+    REQUIRE("1'234.00"     == PrintfArgs("%'.2f",  1234.0));
+    REQUIRE("1'234.000000" == PrintfArgs("%'#f",   1234.0));
+    REQUIRE("1'234."       == PrintfArgs("%'#.0f", 1234.0));
+    REQUIRE("1'234.0"      == PrintfArgs("%'#.1f", 1234.0));
+    REQUIRE("1'234.00"     == PrintfArgs("%'#.2f", 1234.0));
 
     REQUIRE("1.000000e+00" == FormatArgs("{:e}",    1.0));
     REQUIRE("1e+00"        == FormatArgs("{:.e}",   1.0));

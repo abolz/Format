@@ -185,6 +185,31 @@ errc Format(std::ostream& os, std::string_view format, Args const&... args);
 template <typename ...Args>
 std::string StringFormat(std::string_view format, Args const&... args);
 
+// Appends the formatted arguments to the given output stream.
+// Using a printf-style format string.
+template <typename ...Args>
+errc Printf(FormatBuffer& fb, std::string_view format, Args const&... args);
+
+// Appends the formatted arguments to the given string.
+// Using a printf-style format string.
+template <typename ...Args>
+errc Printf(std::string& os, std::string_view format, Args const&... args);
+
+// Appends the formatted arguments to the given stream.
+// Using a printf-style format string.
+template <typename ...Args>
+errc Printf(std::FILE* os, std::string_view format, Args const&... args);
+
+// Appends the formatted arguments to the given stream.
+// Using a printf-style format string.
+template <typename ...Args>
+errc Printf(std::ostream& os, std::string_view format, Args const&... args);
+
+// Returns a std::string containing the formatted arguments.
+// Using a printf-style format string.
+template <typename ...Args>
+std::string StringPrintf(std::string_view format, Args const&... args);
+
 } // namespace fmtxx
 
 //------------------------------------------------------------------------------
@@ -373,6 +398,24 @@ inline errc Format(Buffer& fb, std::string_view format)
     return fmtxx::impl::DoFormat(fb, format, Types(), nullptr);
 }
 
+FMTXX_API errc DoPrintf(FormatBuffer& fb, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf(std::string&  os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf(std::FILE*    os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf(std::ostream& os, std::string_view format, Types types, Arg const* args);
+
+template <typename Buffer, typename ...Args>
+inline errc Printf(Buffer& fb, std::string_view format, Args const&... args)
+{
+    Arg arr[] = { args... };
+    return fmtxx::impl::DoPrintf(fb, format, Types(args...), arr);
+}
+
+template <typename Buffer>
+inline errc Printf(Buffer& fb, std::string_view format)
+{
+    return fmtxx::impl::DoPrintf(fb, format, Types(), nullptr);
+}
+
 template <typename T, typename Stream = std::ostringstream>
 errc StreamValue(FormatBuffer& fb, FormatSpec const& spec, T const& value)
 {
@@ -420,6 +463,38 @@ std::string fmtxx::StringFormat(std::string_view format, Args const&... args)
 {
     std::string os;
     fmtxx::Format(os, format, args...);
+    return os;
+}
+
+template <typename ...Args>
+fmtxx::errc fmtxx::Printf(FormatBuffer& fb, std::string_view format, Args const&... args)
+{
+    return fmtxx::impl::Printf(fb, format, args...);
+}
+
+template <typename ...Args>
+fmtxx::errc fmtxx::Printf(std::string& os, std::string_view format, Args const&... args)
+{
+    return fmtxx::impl::Printf(os, format, args...);
+}
+
+template <typename ...Args>
+fmtxx::errc fmtxx::Printf(std::FILE* os, std::string_view format, Args const&... args)
+{
+    return fmtxx::impl::Printf(os, format, args...);
+}
+
+template <typename ...Args>
+fmtxx::errc fmtxx::Printf(std::ostream& os, std::string_view format, Args const&... args)
+{
+    return fmtxx::impl::Printf(os, format, args...);
+}
+
+template <typename ...Args>
+std::string fmtxx::StringPrintf(std::string_view format, Args const&... args)
+{
+    std::string os;
+    fmtxx::Printf(os, format, args...);
     return os;
 }
 

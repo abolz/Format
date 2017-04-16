@@ -1105,6 +1105,232 @@ errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types type
     return errc::io_error;
 }
 
+static errc ParsePrintfSpec(FormatSpec& spec, char const*& f, char const* end, int& /*nextarg*/, Types /*types*/, Arg const* /*args*/)
+{
+    assert(f != end);
+
+    // Flags
+    for (;;)
+    {
+        if (*f == '-')
+            spec.align = '<';
+        else if (*f == '+')
+            spec.sign = '+';
+        else if (*f == ' ') {
+            // N1570 (p. 310):
+            // If the space and + flags both appear, the space flag is ignored.
+            if (spec.sign != '+')
+                spec.sign = ' ';
+        }
+        else if (*f == '#')
+            spec.hash = true;
+        else if (*f == '0')
+            spec.zero = true;
+        else if (*f == '\'' || *f == '_')
+            spec.tsep = *f;
+        else
+            break;
+
+        ++f;
+        if (f == end)
+            return errc::invalid_format_string; // missing conversion
+    }
+
+    // Field width
+    if (IsDigit(*f))
+    {
+        int const i = ParseInt(f, end);
+        if (i < 0)
+            return errc::invalid_format_string; // overflow
+        if (f == end)
+            return errc::invalid_format_string; // missing conversion
+        spec.width = i;
+    }
+
+    // Precision
+    if (*f == '.')
+    {
+        ++f;
+        if (f == end)
+            return errc::invalid_format_string; // missing conversion
+
+        if (IsDigit(*f))
+        {
+            int const i = ParseInt(f, end);
+            if (i < 0)
+                return errc::invalid_format_string; // overflow
+            if (f == end)
+                return errc::invalid_format_string; // missing conversion
+            spec.prec = i;
+        }
+        else
+        {
+            spec.prec = 0;
+        }
+    }
+
+    // Length modifiers. Ignored.
+    switch (*f)
+    {
+    case 'h':
+    case 'l':
+        ++f;
+        if (f != end && f[-1] == f[0])
+            ++f;
+        if (f == end)
+            return errc::invalid_format_string; // missing conversion
+        break;
+    case 'j':
+    case 'z':
+    case 't':
+    case 'L':
+        ++f;
+        if (f == end)
+            return errc::invalid_format_string; // missing conversion
+        break;
+    }
+
+    // Conversion
+    switch (*f)
+    {
+    case 's':
+    case 'S':
+    case 'd':
+    case 'i':
+    case 'u':
+    case 'x':
+    case 'X':
+    case 'b':
+    case 'B':
+    case 'o':
+    case 'f':
+    case 'F':
+    case 'e':
+    case 'E':
+    case 'g':
+    case 'G':
+    case 'a':
+    case 'A':
+    case 'p':
+    case 'c':
+        spec.conv = *f++;
+        break;
+    default:
+#if 0
+        spec.conv = 's';
+        break;
+#else
+        return errc::invalid_format_string; // invalid conversion
+#endif
+    }
+
+    return errc::success;
+}
+
+errc fmtxx::impl::DoPrintf(FormatBuffer& fb, std::string_view format, Types types, Arg const* args)
+{
+    if (format.empty())
+        return errc::success;
+
+    int nextarg = 0;
+
+    char const*       f   = format.data();
+    char const* const end = f + format.size();
+    char const*       s   = f;
+    for (;;)
+    {
+        while (f != end && *f != '%')
+            ++f;
+
+        if (f != s && !fb.Write(s, static_cast<size_t>(f - s)))
+            return errc::io_error;
+
+        if (f == end) // done.
+            break;
+
+        char const c = *f++; // skip '%'
+
+        if (*f == c) // '%%'
+        {
+            s = f++;
+            continue;
+        }
+
+        if (f == end)
+            return errc::invalid_format_string; // missing conversion
+
+        char const* spec_start = f;
+
+        int index = -1;
+        if (IsDigit(*f))
+        {
+            index = ParseInt(f, end);
+            if (index < 0)
+                return errc::invalid_format_string; // overflow
+            if (f == end)
+                return errc::invalid_format_string; // missing conversion
+            if (*f != '$')
+            {
+                // This is actually NOT an argument index.
+                // It is the 0-flag and/or the field width. Rescan in ParsePrintfSpec below...
+                f = spec_start;
+                index = -1;
+            }
+            else
+            {
+                ++f;
+                if (f == end)
+                    return errc::invalid_format_string; // missing conversion
+            }
+        }
+
+        FormatSpec spec;
+        {
+            auto const ec = ParsePrintfSpec(spec, f, end, nextarg, types, args);
+            if (ec != errc::success)
+                return ec;
+        }
+
+        if (index < 0)
+            index = nextarg++;
+
+        auto const ec = CallFormatFunc(fb, spec, index, types, args);
+        if (ec != errc::success)
+            return ec;
+
+        if (f == end) // done.
+            break;
+
+        s = f;
+    }
+
+    return errc::success;
+}
+
+errc fmtxx::impl::DoPrintf(std::string& os, std::string_view format, Types types, Arg const* args)
+{
+    StringBuffer fb { os };
+    return DoPrintf(fb, format, types, args);
+}
+
+errc fmtxx::impl::DoPrintf(std::FILE* os, std::string_view format, Types types, Arg const* args)
+{
+    FILEBuffer fb { os };
+    return DoPrintf(fb, format, types, args);
+}
+
+errc fmtxx::impl::DoPrintf(std::ostream& os, std::string_view format, Types types, Arg const* args)
+{
+    std::ostream::sentry const se(os);
+    if (se)
+    {
+        StreamBuffer fb { os };
+        return DoPrintf(fb, format, types, args);
+    }
+
+    return errc::io_error;
+}
+
 //------------------------------------------------------------------------------
 // Copyright (c) 2017 A. Bolz
 //

@@ -151,7 +151,7 @@ TEST_CASE("General", "0")
         REQUIRE("Hello"                           == PrintfArgs("Hello",                                    0));
         REQUIRE("Bring me a beer"                 == PrintfArgs("Bring me a %s",                            "beer"));
         REQUIRE("From 0 to 10"                    == PrintfArgs("From %s to %s",                            0, 10));
-        REQUIRE("dec:42 hex:2a oct:52 bin:101010" == PrintfArgs("dec:%0$d hex:%1$x oct:%1$o bin:%0$b",      42, 42));
+        REQUIRE("dec:42 hex:2a oct:52 bin:101010" == PrintfArgs("dec:%1$d hex:%1$x oct:%1$o bin:%1$b",      42));
         REQUIRE("left            "                == PrintfArgs("%-16s",                                    "left"));
     }
 }
@@ -774,6 +774,12 @@ TEST_CASE("Dynamic", "1")
     REQUIRE("......-123" == FormatArgs("{1*0}", spec, -123));
     REQUIRE(".......123" == FormatArgs("{0*1}", 123, spec));
     REQUIRE("......-123" == FormatArgs("{0*1}", -123, spec));
+
+    REQUIRE("  3.14" == PrintfArgs("%*.*f", 6, 2, 3.1415));
+    REQUIRE("  3.14" == PrintfArgs("%3$*.*f", 6, 2, 3.1415));
+    REQUIRE("  3.14" == PrintfArgs("%1$2$.3$f", 3.1415, 6, 2));
+    REQUIRE("3.14  " == PrintfArgs("%1$2$.3$f", 3.1415, -6, 2));
+    REQUIRE("  3.14" == PrintfArgs("%1$*2$.*3$f", 3.1415, 6, 2));
 }
 
 struct Foo {

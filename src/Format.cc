@@ -1105,7 +1105,90 @@ errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types type
     return errc::io_error;
 }
 
-static errc ParsePrintfSpec(FormatSpec& spec, char const*& f, char const* end, int& /*nextarg*/, Types /*types*/, Arg const* /*args*/)
+static errc GetIntArg(int& value, int index, Types types, Arg const* args)
+{
+    switch (types[index])
+    {
+    case Types::T_SCHAR:
+        value = args[index].schar;
+        break;
+    case Types::T_SSHORT:
+        value = args[index].sshort;
+        break;
+    case Types::T_SINT:
+        value = args[index].sint;
+        break;
+    case Types::T_SLONGLONG:
+        if (args[index].slonglong < INT_MIN || args[index].slonglong > INT_MAX)
+            return errc::invalid_argument;
+        value = static_cast<int>(args[index].slonglong);
+        break;
+    case Types::T_ULONGLONG:
+        if (args[index].ulonglong > static_cast<unsigned long long>(INT_MAX))
+            return errc::invalid_argument;
+        value = static_cast<int>(args[index].ulonglong);
+        break;
+    default:
+        return errc::invalid_argument; // not an integer type
+    }
+
+    return errc::success;
+}
+
+static errc ParseIntArg(int& value, char const*& f, char const* end, int& nextarg, Types types, Arg const* args)
+{
+    assert(IsDigit(*f) || *f == '*');
+
+    bool is_dynamic = (*f == '*');
+    if (is_dynamic)
+    {
+        ++f;
+        if (f == end)
+            return errc::invalid_format_string; // missing conversion
+    }
+
+    int index;
+    if (IsDigit(*f))
+    {
+        int const i = ParseInt(f, end);
+        if (i < 0)
+            return errc::invalid_argument; // overflow
+        if (f == end)
+            return errc::invalid_format_string; // missing conversion
+
+        if (*f != '$')
+        {
+            if (is_dynamic)
+                return errc::invalid_format_string; // missing '$'
+
+            // Argument is not using a '*' and does not end with a '$', i.e.,
+            // its not a positional argument, just an integer.
+            value = i;
+            return errc::success;
+        }
+
+        // Ends with a '$'. Its a positional argument.
+
+        ++f; // skip '$'
+        if (f == end)
+            return errc::invalid_format_string; // missing conversion
+
+        // Positional arguments are 1-based.
+        if (i < 1)
+            return errc::index_out_of_range;
+
+        index = i - 1;
+    }
+    else
+    {
+        assert(is_dynamic);
+        index = nextarg++;
+    }
+
+    return GetIntArg(value, index, types, args);
+}
+
+static errc ParsePrintfSpec(FormatSpec& spec, char const*& f, char const* end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end);
 
@@ -1137,14 +1220,21 @@ static errc ParsePrintfSpec(FormatSpec& spec, char const*& f, char const* end, i
     }
 
     // Field width
-    if (IsDigit(*f))
+    if (IsDigit(*f) || *f == '*')
     {
-        int const i = ParseInt(f, end);
-        if (i < 0)
-            return errc::invalid_format_string; // overflow
-        if (f == end)
-            return errc::invalid_format_string; // missing conversion
-        spec.width = i;
+        assert(*f != '0');
+
+        errc const err = ParseIntArg(spec.width, f, end, nextarg, types, args);
+        if (err != errc::success)
+            return err;
+
+        if (spec.width < 0)
+        {
+            if (spec.width == INT_MIN)
+                return errc::invalid_argument;
+            spec.width = -spec.width;
+            spec.align = '<';
+        }
     }
 
     // Precision
@@ -1154,14 +1244,14 @@ static errc ParsePrintfSpec(FormatSpec& spec, char const*& f, char const* end, i
         if (f == end)
             return errc::invalid_format_string; // missing conversion
 
-        if (IsDigit(*f))
+        if (IsDigit(*f) || *f == '*')
         {
-            int const i = ParseInt(f, end);
-            if (i < 0)
-                return errc::invalid_format_string; // overflow
-            if (f == end)
-                return errc::invalid_format_string; // missing conversion
-            spec.prec = i;
+            errc const err = ParseIntArg(spec.prec, f, end, nextarg, types, args);
+            if (err != errc::success)
+                return err;
+
+            if (spec.prec < 0)
+                spec.prec = -1;
         }
         else
         {
@@ -1281,6 +1371,11 @@ errc fmtxx::impl::DoPrintf(FormatBuffer& fb, std::string_view format, Types type
                 ++f;
                 if (f == end)
                     return errc::invalid_format_string; // missing conversion
+
+                // Positional arguments are 1-based.
+                if (index < 1)
+                    return errc::index_out_of_range;
+                index -= 1;
             }
         }
 

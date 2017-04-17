@@ -131,6 +131,53 @@ static std::string PrintfArgs(std::string_view format, Args const&... args)
     return FormatArgsTemplate<PrintfFn>(format, args...);
 }
 
+template <typename ...Args>
+static fmtxx::errc FormatErr(std::string_view format, Args const&... args)
+{
+    std::string sink;
+    return fmtxx::Format(sink, format, args...);
+}
+
+TEST_CASE("Invalid", "1")
+{
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr(std::string_view("{*}", 1), 0, 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr(std::string_view("{*}", 2), 0, 0));
+    REQUIRE(fmtxx::errc::invalid_argument      == FormatErr("{*}", 1));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{*", fmtxx::FormatSpec{}, 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{*}}", fmtxx::FormatSpec{}, 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr(std::string_view("{}", 1), 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr(std::string_view("{1}", 2), 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1:", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1:1", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1:1.", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1:1.1", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1:1.1f", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{ ", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1 ", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1: ", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1:1 ", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1:1. ", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1:1.1 ", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{1:1.1f ", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{-1: >10.2f}", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{:*10}", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{-10}", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{{}", 1)); // stray '}'
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{}}", 1)); // stray '}'
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("}", 1, 1, 1, 1, 1));
+    REQUIRE(fmtxx::errc::index_out_of_range    == FormatErr("{1}", 1));
+    REQUIRE(fmtxx::errc::index_out_of_range    == FormatErr("{1}{2}", 1, 2));
+    REQUIRE(fmtxx::errc::index_out_of_range    == FormatErr("{0}{2}", 1, 2));
+    REQUIRE(fmtxx::errc::index_out_of_range    == FormatErr("{10}", 1));
+    REQUIRE(fmtxx::errc::index_out_of_range    == FormatErr("{2147483647}", 1));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{2147483648}", 0));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{99999999999}", 1));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{:99999999999.0}", 1));
+    REQUIRE(fmtxx::errc::invalid_format_string == FormatErr("{:.", 0));
+}
+
 TEST_CASE("General", "0")
 {
     SECTION("Format")

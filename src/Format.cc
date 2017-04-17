@@ -814,7 +814,8 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 //
 // PRE: IsDigit(*s) == true.
 //
-static int ParseInt(char const*& s, char const* end)
+template <typename It>
+static int ParseInt(It& s, It const end)
 {
     int x = *s - '0';
 
@@ -845,7 +846,8 @@ static void FixFormatSpec(FormatSpec& spec)
     }
 }
 
-static errc ParseFormatSpec(FormatSpec& spec, char const*& f, char const* end, int& nextarg, Types types, Arg const* args)
+template <typename It>
+static errc ParseFormatSpec(FormatSpec& spec, It& f, It const end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end);
 
@@ -960,7 +962,7 @@ static errc ParseFormatSpec(FormatSpec& spec, char const*& f, char const* end, i
         while (f != end && *f != '}')
             ++f;
 
-        spec.style = { f0, static_cast<size_t>(f - f0) };
+        spec.style = { &*f0, static_cast<size_t>(f - f0) };
     }
 
     if (f == end || *f != '}')
@@ -1020,21 +1022,25 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
 
     int nextarg = 0;
 
-    char const*       f   = format.data();
-    char const* const end = f + format.size();
-    char const*       s   = f;
+    auto       f   = format.begin();
+    auto const end = format.end();
+    auto       s   = f;
     for (;;)
     {
         while (f != end && *f != '{' && *f != '}')
             ++f;
 
-        if (f != s && !fb.Write(s, static_cast<size_t>(f - s)))
+        if (f != s && !fb.Write(&*s, static_cast<size_t>(f - s)))
             return errc::io_error;
 
         if (f == end) // done.
             break;
 
-        char const c = *f++; // skip '{' or '}'
+        char const c = *f;
+
+        ++f; // skip '{' or '}'
+        if (f == end)
+            return errc::invalid_format_string; // missing '}' or stray '}'
 
         if (*f == c) // '{{' or '}}'
         {
@@ -1044,8 +1050,6 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
 
         if (c == '}')
             return errc::invalid_format_string; // stray '}'
-        if (f == end)
-            return errc::invalid_format_string; // missing '}'
 
         int index = -1;
         if (IsDigit(*f))
@@ -1135,7 +1139,8 @@ static errc GetIntArg(int& value, int index, Types types, Arg const* args)
     return errc::success;
 }
 
-static errc ParseIntArg(int& value, char const*& f, char const* end, int& nextarg, Types types, Arg const* args)
+template <typename It>
+static errc ParseIntArg(int& value, It& f, It const end, int& nextarg, Types types, Arg const* args)
 {
     assert(IsDigit(*f) || *f == '*');
 
@@ -1188,7 +1193,8 @@ static errc ParseIntArg(int& value, char const*& f, char const* end, int& nextar
     return GetIntArg(value, index, types, args);
 }
 
-static errc ParsePrintfSpec(FormatSpec& spec, char const*& f, char const* end, int& nextarg, Types types, Arg const* args)
+template <typename It>
+static errc ParsePrintfSpec(FormatSpec& spec, It& f, It const end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end);
 
@@ -1324,32 +1330,31 @@ errc fmtxx::impl::DoPrintf(FormatBuffer& fb, std::string_view format, Types type
 
     int nextarg = 0;
 
-    char const*       f   = format.data();
-    char const* const end = f + format.size();
-    char const*       s   = f;
+    auto       f   = format.begin();
+    auto const end = format.end();
+    auto       s   = f;
     for (;;)
     {
         while (f != end && *f != '%')
             ++f;
 
-        if (f != s && !fb.Write(s, static_cast<size_t>(f - s)))
+        if (f != s && !fb.Write(&*s, static_cast<size_t>(f - s)))
             return errc::io_error;
 
         if (f == end) // done.
             break;
 
-        char const c = *f++; // skip '%'
+        ++f; // skip '%'
+        if (f == end)
+            return errc::invalid_format_string; // missing conversion
 
-        if (*f == c) // '%%'
+        if (*f == '%') // '%%'
         {
             s = f++;
             continue;
         }
 
-        if (f == end)
-            return errc::invalid_format_string; // missing conversion
-
-        char const* spec_start = f;
+        auto const spec_start = f;
 
         int index = -1;
         if (IsDigit(*f))

@@ -8,7 +8,7 @@
 
 #include <clocale>
 #include <algorithm>
-#include <iterator> // MSVC: [un]checked_array_iterator
+#include <iterator>
 #include <ostream>
 
 using namespace fmtxx;
@@ -841,8 +841,8 @@ static void FixFormatSpec(FormatSpec& spec)
     {
         if (spec.width < -INT_MAX)
             spec.width = -INT_MAX;
-        spec.align = '<';
         spec.width = -spec.width;
+        spec.align = '<';
     }
 }
 
@@ -1115,66 +1115,55 @@ static errc GetIntArg(int& value, int index, Types types, Arg const* args)
     {
     case Types::T_SCHAR:
         value = args[index].schar;
-        break;
+        return errc::success;
+
     case Types::T_SSHORT:
         value = args[index].sshort;
-        break;
+        return errc::success;
+
     case Types::T_SINT:
         value = args[index].sint;
-        break;
+        return errc::success;
+
     case Types::T_SLONGLONG:
         if (args[index].slonglong < INT_MIN || args[index].slonglong > INT_MAX)
             return errc::invalid_argument;
         value = static_cast<int>(args[index].slonglong);
-        break;
+        return errc::success;
+
     case Types::T_ULONGLONG:
         if (args[index].ulonglong > static_cast<unsigned long long>(INT_MAX))
             return errc::invalid_argument;
         value = static_cast<int>(args[index].ulonglong);
-        break;
+        return errc::success;
+
     default:
         return errc::invalid_argument; // not an integer type
     }
-
-    return errc::success;
 }
 
 template <typename It>
-static errc ParseIntArg(int& value, It& f, It const end, int& nextarg, Types types, Arg const* args)
+static errc ParseStar(int& value, It& f, It const end, int& nextarg, Types types, Arg const* args)
 {
-    assert(IsDigit(*f) || *f == '*');
+    assert(*f == '*');
 
-    bool is_dynamic = (*f == '*');
-    if (is_dynamic)
-    {
-        ++f;
-        if (f == end)
-            return errc::invalid_format_string; // missing conversion
-    }
+    ++f;
+    if (f == end)
+        return errc::invalid_format_string; // missing conversion
 
     int index;
     if (IsDigit(*f))
     {
         int const i = ParseInt(f, end);
         if (i < 0)
-            return errc::invalid_argument; // overflow
+            return errc::invalid_format_string; // overflow
         if (f == end)
             return errc::invalid_format_string; // missing conversion
 
         if (*f != '$')
-        {
-            if (is_dynamic)
-                return errc::invalid_format_string; // missing '$'
+            return errc::invalid_format_string; // missing '$'
 
-            // Argument is not using a '*' and does not end with a '$', i.e.,
-            // its not a positional argument, just an integer.
-            value = i;
-            return errc::success;
-        }
-
-        // Ends with a '$'. Its a positional argument.
-
-        ++f; // skip '$'
+        ++f;
         if (f == end)
             return errc::invalid_format_string; // missing conversion
 
@@ -1186,7 +1175,6 @@ static errc ParseIntArg(int& value, It& f, It const end, int& nextarg, Types typ
     }
     else
     {
-        assert(is_dynamic);
         index = nextarg++;
     }
 
@@ -1194,52 +1182,63 @@ static errc ParseIntArg(int& value, It& f, It const end, int& nextarg, Types typ
 }
 
 template <typename It>
-static errc ParsePrintfSpec(FormatSpec& spec, It& f, It const end, int& nextarg, Types types, Arg const* args)
+static errc ParsePrintfSpec(FormatSpec& spec, It& f, It const end, int& nextarg, Types types, Arg const* args, bool skip_flags_and_width)
 {
     assert(f != end);
 
-    // Flags
-    for (;;)
+    if (!skip_flags_and_width)
     {
-        if (*f == '-')
-            spec.align = '<';
-        else if (*f == '+')
-            spec.sign = '+';
-        else if (*f == ' ') {
-            // N1570 (p. 310):
-            // If the space and + flags both appear, the space flag is ignored.
-            if (spec.sign != '+')
-                spec.sign = ' ';
-        }
-        else if (*f == '#')
-            spec.hash = true;
-        else if (*f == '0')
-            spec.zero = true;
-        else if (*f == '\'' || *f == '_')
-            spec.tsep = *f;
-        else
-            break;
-
-        ++f;
-        if (f == end)
-            return errc::invalid_format_string; // missing conversion
-    }
-
-    // Field width
-    if (IsDigit(*f) || *f == '*')
-    {
-        assert(*f != '0');
-
-        errc const err = ParseIntArg(spec.width, f, end, nextarg, types, args);
-        if (err != errc::success)
-            return err;
-
-        if (spec.width < 0)
+        for (;;)
         {
-            if (spec.width == INT_MIN)
-                return errc::invalid_argument;
-            spec.width = -spec.width;
-            spec.align = '<';
+            if (*f == '-')
+                spec.align = '<';
+            else if (*f == '+')
+                spec.sign = '+';
+            else if (*f == ' ')
+            {
+                // N1570 (p. 310):
+                // If the space and + flags both appear, the space flag is ignored.
+                if (spec.sign != '+')
+                    spec.sign = ' ';
+            }
+            else if (*f == '#')
+                spec.hash = true;
+            else if (*f == '0')
+                spec.zero = true;
+            else if (*f == '\'' || *f == '_')
+                spec.tsep = *f;
+            else
+                break;
+
+            ++f;
+            if (f == end)
+                return errc::invalid_format_string; // missing conversion
+        }
+
+        // Field width
+        if (IsDigit(*f))
+        {
+            int const i = ParseInt(f, end);
+            if (i < 0)
+                return errc::invalid_format_string; // overflow
+            if (f == end)
+                return errc::invalid_format_string; // missing conversion
+
+            spec.width = i;
+        }
+        else if (*f == '*')
+        {
+            errc const err = ParseStar(spec.width, f, end, nextarg, types, args);
+            if (err != errc::success)
+                return err;
+
+            if (spec.width < 0)
+            {
+                if (spec.width < -INT_MAX)
+                    spec.width = -INT_MAX;
+                spec.width = -spec.width;
+                spec.align = '<';
+            }
         }
     }
 
@@ -1250,9 +1249,19 @@ static errc ParsePrintfSpec(FormatSpec& spec, It& f, It const end, int& nextarg,
         if (f == end)
             return errc::invalid_format_string; // missing conversion
 
-        if (IsDigit(*f) || *f == '*')
+        if (IsDigit(*f))
         {
-            errc const err = ParseIntArg(spec.prec, f, end, nextarg, types, args);
+            int const i = ParseInt(f, end);
+            if (i < 0)
+                return errc::invalid_format_string; // overflow
+            if (f == end)
+                return errc::invalid_format_string; // missing conversion
+
+            spec.prec = i;
+        }
+        else if (*f == '*')
+        {
+            errc const err = ParseStar(spec.prec, f, end, nextarg, types, args);
             if (err != errc::success)
                 return err;
 
@@ -1271,7 +1280,7 @@ static errc ParsePrintfSpec(FormatSpec& spec, It& f, It const end, int& nextarg,
     case 'h':
     case 'l':
         ++f;
-        if (f != end && f[-1] == f[0])
+        if (f != end && *f == *std::prev(f))
             ++f;
         if (f == end)
             return errc::invalid_format_string; // missing conversion
@@ -1354,22 +1363,23 @@ errc fmtxx::impl::DoPrintf(FormatBuffer& fb, std::string_view format, Types type
             continue;
         }
 
-        auto const spec_start = f;
+        FormatSpec spec;
+        bool skip_flags_and_width = false;
 
         int index = -1;
-        if (IsDigit(*f))
+        if (IsDigit(*f) && *f != '0')
         {
-            index = ParseInt(f, end);
-            if (index < 0)
+            int const i = ParseInt(f, end);
+            if (i < 0)
                 return errc::invalid_format_string; // overflow
             if (f == end)
                 return errc::invalid_format_string; // missing conversion
+
             if (*f != '$')
             {
-                // This is actually NOT an argument index.
-                // It is the 0-flag and/or the field width. Rescan in ParsePrintfSpec below...
-                f = spec_start;
-                index = -1;
+                // This is actually NOT an argument index. It is the field width.
+                spec.width = i;
+                skip_flags_and_width = true;
             }
             else
             {
@@ -1378,15 +1388,14 @@ errc fmtxx::impl::DoPrintf(FormatBuffer& fb, std::string_view format, Types type
                     return errc::invalid_format_string; // missing conversion
 
                 // Positional arguments are 1-based.
-                if (index < 1)
-                    return errc::index_out_of_range;
-                index -= 1;
+                assert(i >= 1);
+                index = i - 1;
             }
         }
 
-        FormatSpec spec;
+        // Parse (the rest of) the format specification.
         {
-            auto const ec = ParsePrintfSpec(spec, f, end, nextarg, types, args);
+            auto const ec = ParsePrintfSpec(spec, f, end, nextarg, types, args, skip_flags_and_width);
             if (ec != errc::success)
                 return ec;
         }

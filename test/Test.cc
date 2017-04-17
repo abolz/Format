@@ -823,10 +823,11 @@ TEST_CASE("Dynamic", "1")
     REQUIRE("......-123" == FormatArgs("{0*1}", -123, spec));
 
     REQUIRE("  3.14" == PrintfArgs("%*.*f", 6, 2, 3.1415));
+    REQUIRE("  3.14" == PrintfArgs("%6.*f", 2, 3.1415));
+    REQUIRE("3.14  " == PrintfArgs("%-6.*f", 2, 3.1415));
     REQUIRE("  3.14" == PrintfArgs("%3$*.*f", 6, 2, 3.1415));
-    REQUIRE("  3.14" == PrintfArgs("%1$2$.3$f", 3.1415, 6, 2));
-    REQUIRE("3.14  " == PrintfArgs("%1$2$.3$f", 3.1415, -6, 2));
     REQUIRE("  3.14" == PrintfArgs("%1$*2$.*3$f", 3.1415, 6, 2));
+    REQUIRE("3.14  " == PrintfArgs("%1$*2$.*3$f", 3.1415, -6, 2));
 }
 
 struct Foo {

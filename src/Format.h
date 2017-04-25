@@ -2,6 +2,11 @@
 
 #pragma once
 
+// 0: assert-no-check   (unsafe; invalid format strings -> UB)
+// 1: assert-check      (safe)
+// 2: throw             (safe)
+#define FMTXX_FORMAT_STRING_CHECK_POLICY 1
+
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
@@ -51,12 +56,10 @@ namespace fmtxx {
 // API
 //
 
-enum struct FMTXX_VISIBILITY_DEFAULT errc {
-    success                 =  0,
-    invalid_format_string   = -1,
-    invalid_argument        = -2,
-    io_error                = -3,
-    index_out_of_range      = -4,
+enum struct errc {
+    success,
+    io_error,
+    invalid_format_string,
 };
 
 enum struct Align : unsigned char {

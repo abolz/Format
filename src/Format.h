@@ -171,11 +171,19 @@ struct Util
     static FMTXX_API errc FormatDouble (FormatBuffer& fb, FormatSpec const& spec, double x);
 
     template <typename T>
-    static inline errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, T value)
-    {
-        return std::is_signed<T>::value
-            ? FormatInt(fb, spec, value, static_cast<std::make_unsigned_t<T>>(value))
-            : FormatInt(fb, spec, 0, value);
+    static inline errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, T value) {
+        return FormatInt(fb, spec, value, std::is_signed<T>{});
+    }
+
+private:
+    template <typename T>
+    static inline errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, T value, /*is_signed*/ std::true_type) {
+        return FormatInt(fb, spec, value, static_cast<std::make_unsigned_t<T>>(value));
+    }
+
+    template <typename T>
+    static inline errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, T value, /*is_signed*/ std::false_type) {
+        return FormatInt(fb, spec, 0, value);
     }
 };
 
@@ -363,9 +371,6 @@ private:
 class Arg
 {
 public:
-    template <bool>
-    struct BoolConst {};
-
     using Func = errc (*)(FormatBuffer& buf, FormatSpec const& spec, void const* value);
 
     template <typename T>
@@ -392,19 +397,19 @@ public:
     };
 
     template <typename T>
-    Arg(T const& v, BoolConst<true>) : string{ v.data(), v.size() }
+    Arg(T const& v, std::true_type) : string{ v.data(), v.size() }
     {
     }
 
     template <typename T>
-    Arg(T const& v, BoolConst<false>) : other{ &v, &FormatValue_fn<T> }
+    Arg(T const& v, std::false_type) : other{ &v, &FormatValue_fn<T> }
     {
     }
 
     // XXX:
     // Keep in sync with Types::GetId() above!!!
     template <typename T>
-    Arg(T const& v) : Arg(v, BoolConst<TreatAsString<T>::value>{}) {}
+    Arg(T const& v) : Arg(v, std::integral_constant<bool, TreatAsString<T>::value>{}) {}
 
     Arg(bool               const& v) : bool_(v) {}
     Arg(std::string_view   const& v) : string(v) {}

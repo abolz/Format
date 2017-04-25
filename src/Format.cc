@@ -2,9 +2,7 @@
 
 #include "Format.h"
 
-#if FMTXX_USE_DOUBLE_CONVERSION
 #include "Dtoa.h"
-#endif
 
 #include <clocale>
 #include <algorithm>
@@ -549,7 +547,6 @@ static errc HandleSpecialFloat(Double const d, FormatBuffer& fb, FormatSpec cons
 
 errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 {
-#if FMTXX_USE_DOUBLE_CONVERSION
     dtoa::Options options;
 
     options.use_upper_case_digits       = false;
@@ -675,137 +672,6 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 
     size_t const buflen = static_cast<size_t>(res.size);
     return PrintAndPadNumber(fb, spec, sign, prefix, prefix != nullptr ? 2u : 0u, buf, buflen);
-#else
-    char        conv = spec.conv;
-    int         prec = spec.prec;
-    char const* prefix = nullptr;
-
-    switch (conv)
-    {
-    default:
-    case 's':
-        conv = 'g';
-        prec = 17; // 's' is guaranteed to round-trip
-        break;
-    case 'S':
-        conv = 'G';
-        prec = 17; // 's' is guaranteed to round-trip
-        break;
-    case 'E':
-    case 'e':
-        if (prec < 0)
-            prec = 6;
-        break;
-    case 'F':
-    case 'f':
-        if (prec < 0)
-            prec = 6;
-        break;
-    case 'G':
-    case 'g':
-        if (prec < 0)
-            prec = 6;
-        break;
-    case 'A':
-        prefix = "0X"; // Always add a prefix. Like printf.
-        break;
-    case 'a':
-        prefix = "0x"; // Always add a prefix. Like printf.
-        break;
-    case 'X':
-        conv = 'A';
-        if (spec.hash) // Add a prefix only if '#' was specified. As with integers.
-            prefix = "0X";
-        break;
-    case 'x':
-        conv = 'a';
-        if (spec.hash) // Add a prefix only if '#' was specified. As with integers.
-            prefix = "0x";
-        break;
-    }
-
-    Double const d { x };
-
-    bool   const neg = (d.Sign() != 0);
-    double const abs_x = d.Abs();
-    char   const sign = ComputeSignChar(neg, spec.sign, spec.fill);
-
-    if (d.IsSpecial())
-    {
-        bool const upper = ('A' <= conv && conv <= 'Z');
-        return HandleSpecialFloat(d, fb, spec, sign, upper);
-    }
-
-    static int const kBufSize = 1500;
-    char buf[kBufSize];
-
-    int n;
-    if (spec.hash)
-    {
-        char const fmt[] = {'%', '#', '.', '*', conv, '\0'};
-        n = snprintf(buf, kBufSize, fmt, prec, abs_x);
-    }
-    else
-    {
-        char const fmt[] = {'%', '.', '*', conv, '\0'};
-        n = snprintf(buf, kBufSize, fmt, prec, abs_x);
-    }
-
-    if (n < 0)
-        return PrintAndPadString(fb, spec, "[[snprintf failed]]");
-
-    if (n >= kBufSize)
-        return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
-
-    // For 'a' or 'A' conversions remove the prefix!
-    // Will be added back iff required.
-    int const skip = (conv == 'a' || conv == 'A') ? 2 : 0;
-
-    char* repr = buf + skip;
-    assert(n >= skip);
-    n -= skip;
-
-    if (spec.tsep != '\0' && (conv == 'f' || conv == 'F' || conv == 'g' || conv == 'G'))
-    {
-        // Find the decimal point - if any.
-        char const decimal_point = ::localeconv()->decimal_point[0];
-        char const* const p = static_cast<char const*>(std::memchr(repr, decimal_point, static_cast<size_t>(n)));
-
-        int point;
-        if (p != nullptr)
-        {
-            // Found a decimal point: "12345.67" or "1.2345e+67"
-            // In the case of an exponential representation, point will be 1 and
-            // no thousand-separators will be inserted.
-            point = static_cast<int>(p - repr);
-
-            // Replace the locale-specific decimal-point with a '.'
-            repr[point] = '.';
-        }
-        else
-        {
-            // No decimal point found: "12345" or "1e+23"
-            // Don't insert separators in the exponential representation.
-            if (n > 1 && (repr[1] == 'e' || repr[1] == 'E'))
-                point = 1;
-            else
-                point = n;
-        }
-
-        if (point > 3)
-        {
-            int const nsep = (point - 1) / 3;
-            if (kBufSize < n + skip + nsep) {
-                return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
-            }
-
-            n += InsertThousandsSep(MakeArrayIterator(repr, kBufSize - skip), point, n, spec.tsep, 3);
-        }
-    }
-
-    assert(n >= 0);
-    return PrintAndPadNumber(fb, spec, sign, prefix, prefix != nullptr ? 2u : 0u, repr, static_cast<size_t>(n));
-#endif
 }
 
 //

@@ -473,7 +473,6 @@ TEST_CASE("Ints", "1")
 
 TEST_CASE("Floats", "1")
 {
-#if FMTXX_USE_DOUBLE_CONVERSION
     REQUIRE(
         "243546080556034731077856379609316893158278902575447060151047"
         "212703405344938119816206067372775299130836050315842578309818"
@@ -777,7 +776,6 @@ TEST_CASE("Floats", "1")
     REQUIRE("0x2.p+0"              == FormatArgs("{:#.0a}", 1.987));
     REQUIRE("0x2.0p+0"             == FormatArgs("{:#.1a}", 1.987));
     REQUIRE("0x1.fdp+0"            == FormatArgs("{:#.2a}", 1.987));
-#endif
 }
 
 TEST_CASE("Pointers", "1")

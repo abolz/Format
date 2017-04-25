@@ -1,7 +1,7 @@
 #include "Format.h"
 
 #define HAVE_FMTLIB 1
-#define HAVE_TINYFORMAT 1
+#define HAVE_TINYFORMAT 0
 
 #if HAVE_FMTLIB
 #include "fmt/format.h"
@@ -201,7 +201,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
         std::fwrite(str.data(), 1, str.size(), stdout);
     });
 #endif
-#if 0
+#if 1
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArrayBuffer fb { buf };
@@ -209,7 +209,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
         std::fwrite(buf, 1, static_cast<size_t>(fb.next - buf), stdout);
     });
 #endif
-#if 1
+#if 0
     std::string buf;
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         buf.clear();
@@ -284,7 +284,7 @@ int main()
 #endif
 
 #if 1 // ints
-#if 0
+#if 1
     TestInts<int32_t>("%d",     "{}");
     TestInts<int32_t>("%8d",    "{:8d}");
     TestInts<int32_t>("%24d",   "{:24d}");
@@ -298,7 +298,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestInts<uint32_t>("%u",     "{}");
     TestInts<uint32_t>("%8u",    "{:8d}");
     TestInts<uint32_t>("%24u",   "{:24d}");

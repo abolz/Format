@@ -10,6 +10,10 @@
 using namespace fmtxx;
 using namespace fmtxx::impl;
 
+// Maximum supported floating point precision.
+// Precision required for denorm_min (= [751 digits] 10^-323) when using %f
+enum { kMaxFloatPrec = 751 + 323 };
+
 template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
 template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
 
@@ -599,6 +603,9 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         break;
     }
 
+    if (prec > kMaxFloatPrec)
+        prec = kMaxFloatPrec;
+
     Double const d { x };
 
     bool   const neg = (d.Sign() != 0);
@@ -611,7 +618,8 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         return HandleSpecialFloat(d, fb, spec, sign, upper);
     }
 
-    static int const kBufSize = 1500;
+    // Allow printing *ALL* double-precision floating-point values with prec <= kMaxFloatPrec
+    enum { kBufSize = 309 + 1/*.*/ + kMaxFloatPrec };
     char buf[kBufSize];
 
     dtoa::Result res;

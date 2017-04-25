@@ -788,7 +788,7 @@ TEST_CASE("Pointers", "1")
 #endif
     REQUIRE("-1" == FormatArgs("{:d}", (void*)-1));
 #else
-    REQUIRE("0x1020304" == FormatArgs("{}", (void*)0x01020304));
+    REQUIRE("0x1020304" == FormatArgs("{:.}", (void*)0x01020304));
 #endif
 
     REQUIRE("(nil)"    == FormatArgs("{}", (void*)0));

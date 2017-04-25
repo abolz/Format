@@ -461,26 +461,76 @@ errc fmtxx::Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t se
     return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
 }
 
-errc Util::FormatBool(FormatBuffer& fb, FormatSpec const& spec, bool val)
+errc fmtxx::Util::FormatBool(FormatBuffer& fb, FormatSpec const& spec, bool val)
 {
-    return PrintAndPadString(fb, spec, val ? "true" : "false");
+    switch (spec.conv)
+    {
+    default:
+    case 's':
+    case 't':
+        return PrintAndPadString(fb, spec, val ? "true" : "false");
+    case 'y':
+        return PrintAndPadString(fb, spec, val ? "yes" : "no");
+    case 'o':
+        return PrintAndPadString(fb, spec, val ? "on" : "off");
+    }
 }
 
-errc Util::FormatChar(FormatBuffer& fb, FormatSpec const& spec, char ch)
+errc fmtxx::Util::FormatChar(FormatBuffer& fb, FormatSpec const& spec, char ch)
 {
-    return PrintAndPadString(fb, spec, &ch, 1u);
+    switch (spec.conv)
+    {
+    default:
+    case 's':
+    case 'c':
+        return PrintAndPadString(fb, spec, &ch, 1u);
+    case 'd':
+    case 'i':
+    case 'u':
+    case 'x':
+    case 'X':
+    case 'b':
+    case 'B':
+    case 'o':
+        return FormatInt(fb, spec, ch);
+    }
 }
 
-errc Util::FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer)
+errc fmtxx::Util::FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer)
 {
     if (pointer == nullptr)
         return PrintAndPadString(fb, spec, "(nil)");
 
-    FormatSpec f = spec;
-    f.hash = true;
-    f.conv = 'x';
+    FormatSpec fs = spec;
+    switch (fs.conv)
+    {
+    default:
+    case 's':
+    case 'p':
+        if (fs.prec < 0)
+            fs.prec = 2 * sizeof(uintptr_t);
+        fs.hash = true;
+        fs.conv = 'x';
+        break;
+    case 'S':
+    case 'P':
+        if (fs.prec < 0)
+            fs.prec = 2 * sizeof(uintptr_t);
+        fs.hash = true;
+        fs.conv = 'X';
+        break;
+    case 'd':
+    case 'i':
+    case 'u':
+    case 'x':
+    case 'X':
+    case 'b':
+    case 'B':
+    case 'o':
+        break;
+    }
 
-    return FormatInt(fb, f, 0, reinterpret_cast<uintptr_t>(pointer));
+    return FormatInt(fb, fs, reinterpret_cast<uintptr_t>(pointer));
 }
 
 struct Double

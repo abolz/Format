@@ -162,13 +162,26 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
 
 struct Util
 {
+    // Note:
+    // The string must not be null. This function prints len characters, including '\0's.
     static FMTXX_API errc FormatString (FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len);
+    // Note:
+    // This is different from just calling FormatString(str, strlen(str)):
+    // This function handles nullptr's and if a precision is specified uses strnlen instead of strlen.
     static FMTXX_API errc FormatString (FormatBuffer& fb, FormatSpec const& spec, char const* str);
     static FMTXX_API errc FormatInt    (FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uint64_t zext);
     static FMTXX_API errc FormatBool   (FormatBuffer& fb, FormatSpec const& spec, bool val);
     static FMTXX_API errc FormatChar   (FormatBuffer& fb, FormatSpec const& spec, char ch);
     static FMTXX_API errc FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer);
     static FMTXX_API errc FormatDouble (FormatBuffer& fb, FormatSpec const& spec, double x);
+
+    template <typename T>
+    static inline errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, T value)
+    {
+        return std::is_signed<T>::value
+            ? FormatInt(fb, spec, value, static_cast<std::make_unsigned_t<T>>(value))
+            : FormatInt(fb, spec, 0, value);
+    }
 };
 
 //

@@ -24,7 +24,7 @@ struct Result {
     bool success;
     // If success == false, this is a size hint: retry with a buffer of at least this size.
     // Otherwise this is equal to length of converted float.
-    int size; 
+    int size;
 };
 
 struct Options {

@@ -751,7 +751,7 @@ Result dtoa::ToShortest(char* first, char* last, double d, Style style, Options 
             CreateExponentialRepresentation(Vector(first, exponential_len), num_digits, exponent, exponential_precision, options);
             return { true, exponential_len };
         }
-        else 
+        else
         {
             return { false, exponential_len };
         }

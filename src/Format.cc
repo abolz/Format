@@ -10,13 +10,24 @@
 using namespace fmtxx;
 using namespace fmtxx::impl;
 
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
 // Maximum supported minimum field width.
 // This is not an implementation limit, but its just a sane upper bound.
 enum { kMaxFieldWidth = 1024 * 4 };
 
+// Maximum supported integer precision (= minimum number of digits).
+enum { kMaxIntPrec = 256 };
+
 // Maximum supported floating point precision.
 // Precision required for denorm_min (= [751 digits] 10^-323) when using %f
 enum { kMaxFloatPrec = 751 + 323 };
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
 
 template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
 template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
@@ -288,26 +299,27 @@ static errc PrintAndPadNumber(FormatBuffer& fb, FormatSpec const& spec, char sig
     return errc::success;
 }
 
+static constexpr char const* kDecDigits100/*[100*2 + 1]*/ =
+    "00010203040506070809"
+    "10111213141516171819"
+    "20212223242526272829"
+    "30313233343536373839"
+    "40414243444546474849"
+    "50515253545556575859"
+    "60616263646566676869"
+    "70717273747576777879"
+    "80818283848586878889"
+    "90919293949596979899";
+
 static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
 {
-    static char const* const kDecDigits100/*[100*2 + 1]*/ =
-        "00010203040506070809"
-        "10111213141516171819"
-        "20212223242526272829"
-        "30313233343536373839"
-        "40414243444546474849"
-        "50515253545556575859"
-        "60616263646566676869"
-        "70717273747576777879"
-        "80818283848586878889"
-        "90919293949596979899";
-
     while (n >= 100)
     {
-        uint64_t r = n % 100;
-        n /= 100;
+        auto const q = n / 100;
+        auto const r = n % 100;
         *--last = kDecDigits100[2*r + 1];
         *--last = kDecDigits100[2*r + 0];
+        n = q;
     }
 
     if (n >= 10)
@@ -323,11 +335,12 @@ static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
     return last;
 }
 
+static constexpr char const* kUpperHexDigits = "0123456789ABCDEF";
+static constexpr char const* kLowerHexDigits = "0123456789abcdef";
+
 static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool capitals)
 {
-    char const* const xdigits = capitals
-        ? "0123456789ABCDEF"
-        : "0123456789abcdef";
+    char const* const xdigits = capitals ? kUpperHexDigits : kLowerHexDigits;
 
     assert(base >= 2);
     assert(base <= 16);
@@ -347,7 +360,7 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
         return last;
     }
 
-    assert(!"not implemented");
+    assert(!"not implemented"); // internal error
     return last;
 }
 
@@ -377,13 +390,17 @@ static int InsertThousandsSep(char* buf, int pos, char sep, int group_len)
     return nsep;
 }
 
-errc Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uint64_t zext)
+errc fmtxx::Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
     uint64_t number = zext;
     char     conv = spec.conv;
     char     sign = '\0';
     int      base = 10;
     size_t   nprefix = 0;
+
+    // The result of converting a zero value with a precision of zero is no characters
+    if (spec.prec == 0 && number == 0)
+        return errc::success;
 
     switch (conv)
     {
@@ -402,36 +419,42 @@ errc Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
     case 'x':
     case 'X':
         base = 16;
-        if (spec.hash)
-            nprefix = 2;
+        nprefix = spec.hash ? 2 : 0;
         break;
     case 'b':
     case 'B':
         base = 2;
-        if (spec.hash)
-            nprefix = 2;
+        nprefix = spec.hash ? 2 : 0;
         break;
     case 'o':
         base = 8;
-        if (spec.hash && number != 0)
-            nprefix = 1;
+        nprefix = (spec.hash && number != 0) ? 1 : 0;
         break;
     }
 
     bool const upper = ('A' <= conv && conv <= 'Z');
 
-    // 64: Max. length of integer in base 2.
-    // 15: Max. number of grouping chars.
-    char buf[64 + 15];
-    char*       l = buf + 64;
-    char* const f = IntToAsciiBackwards(l, number, base, upper);
+    static constexpr int kMaxSeps = (kMaxIntPrec - 1) / 3;
+    static constexpr int kBufSize = kMaxIntPrec + kMaxSeps;
 
-    if (spec.tsep)
+    // Need at least 64-characters for UINT64_MAX in base 2.
+    static_assert(kMaxIntPrec >= 64, "invalid parameter");
+
+    char buf[kBufSize];
+
+    char* l = buf + kMaxIntPrec;
+    char* f = IntToAsciiBackwards(l, number, base, upper);
+
+    if (spec.prec >= 0)
     {
-        int const group_len = (base == 10) ? 3 : 4;
-        int const pos       = static_cast<int>(l - f);
+        int const prec = Min(spec.prec, static_cast<int>(kMaxIntPrec));
+        while (l - f < prec) {
+            *--f = '0';
+        }
+    }
 
-        l += InsertThousandsSep(f, pos, spec.tsep, group_len);
+    if (spec.tsep != '\0') {
+        l += InsertThousandsSep(f, static_cast<int>(l - f), spec.tsep, base == 10 ? 3 : 4);
     }
 
     char const prefix[] = {'0', conv};

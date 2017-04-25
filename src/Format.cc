@@ -166,25 +166,22 @@ bool fmtxx::CharArrayBuffer::Pad(char c, size_t count)
 //------------------------------------------------------------------------------
 
 static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
-static bool IsAlign(char ch) { return ch == '<' || ch == '>' || ch == '^' || ch == '='; }
-static bool IsSign (char ch) { return ch == ' ' || ch == '-' || ch == '+'; }
 
-static char ComputeSignChar(bool neg, char sign, char fill)
+static char ComputeSignChar(bool neg, Sign sign, char fill)
 {
     if (neg)
         return '-';
-    if (sign == '+')
+    if (sign == Sign::Plus)
         return '+';
-    if (sign == ' ')
+    if (sign == Sign::Space)
         return fill;
 
     return '\0';
 }
 
-static void ComputePadding(size_t len, char align, int width, size_t& lpad, size_t& spad, size_t& rpad)
+static void ComputePadding(size_t len, Align align, int width, size_t& lpad, size_t& spad, size_t& rpad)
 {
-    assert(IsAlign(align) && "internal error");
-    assert(width >= 0 && "internal error");
+    assert(width >= 0); // internal error
 
     size_t const w = static_cast<size_t>(width);
     if (w <= len)
@@ -193,17 +190,18 @@ static void ComputePadding(size_t len, char align, int width, size_t& lpad, size
     size_t const d = w - len;
     switch (align)
     {
-    case '>':
+    case Align::Default:
+    case Align::Right:
         lpad = d;
         break;
-    case '<':
+    case Align::Left:
         rpad = d;
         break;
-    case '^':
+    case Align::Center:
         lpad = d/2;
         rpad = d - d/2;
         break;
-    case '=':
+    case Align::PadAfterSign:
         spad = d;
         break;
     }
@@ -265,7 +263,7 @@ static errc PrintAndPadNumber(FormatBuffer& fb, FormatSpec const& spec, char sig
     size_t spad = 0;
     size_t rpad = 0;
 
-    ComputePadding(len, spec.zero ? '=' : spec.align, spec.width, lpad, spad, rpad);
+    ComputePadding(len, spec.zero ? Align::PadAfterSign : spec.align, spec.width, lpad, spad, rpad);
 
     if (lpad > 0     && !fb.Pad(spec.fill, lpad))
         return errc::io_error;
@@ -683,19 +681,33 @@ static int ParseInt(It& s, It const end)
 
 static void FixFormatSpec(FormatSpec& spec)
 {
-    if (spec.align != '\0' && !IsAlign(spec.align))
-        spec.align = '>';
-
-    if (spec.sign != '\0' && !IsSign(spec.sign))
-        spec.sign = '-';
-
     if (spec.width < 0)
     {
         if (spec.width < -INT_MAX)
             spec.width = -INT_MAX;
         spec.width = -spec.width;
-        spec.align = '<';
+        spec.align = Align::Left;
     }
+}
+
+static bool ParseAlign(FormatSpec& spec, char c)
+{
+    switch (c) {
+    case '<':
+        spec.align = Align::Left;
+        return true;
+    case '>':
+        spec.align = Align::Right;
+        return true;
+    case '^':
+        spec.align = Align::Center;
+        return true;
+    case '=':
+        spec.align = Align::PadAfterSign;
+        return true;
+    }
+
+    return false;
 }
 
 template <typename It>
@@ -736,24 +748,28 @@ static errc ParseFormatSpec(FormatSpec& spec, It& f, It const end, int& nextarg,
         if (f == end)
             return errc::invalid_format_string; // missing '}'
 
-        if (f + 1 != end && IsAlign(*(f + 1)))
+        if (f + 1 != end && ParseAlign(spec, *(f + 1)))
         {
-            spec.fill = *f++;
-            spec.align = *f++;
+            spec.fill = *f;
+            f += 2;
             if (f == end)
                 return errc::invalid_format_string; // missing '}'
         }
-        else if (IsAlign(*f))
+        else if (ParseAlign(spec, *f))
         {
-            spec.align = *f++;
+            ++f;
             if (f == end)
                 return errc::invalid_format_string; // missing '}'
         }
 
         for (;;) // Parse flags
         {
-            if (IsSign(*f))
-                spec.sign = *f;
+            if (*f == '-')
+                spec.sign = Sign::Minus;
+            else if (*f == '+')
+                spec.sign = Sign::Plus;
+            else if (*f == ' ')
+                spec.sign = Sign::Space;
             else if (*f == '#')
                 spec.hash = true;
             else if (*f == '0')
@@ -1043,15 +1059,15 @@ static errc ParsePrintfSpec(FormatSpec& spec, It& f, It const end, int& nextarg,
         for (;;)
         {
             if (*f == '-')
-                spec.align = '<';
+                spec.align = Align::Left;
             else if (*f == '+')
-                spec.sign = '+';
+                spec.sign = Sign::Plus;
             else if (*f == ' ')
             {
                 // N1570 (p. 310):
                 // If the space and + flags both appear, the space flag is ignored.
-                if (spec.sign != '+')
-                    spec.sign = ' ';
+                if (spec.sign != Sign::Plus)
+                    spec.sign = Sign::Space;
             }
             else if (*f == '#')
                 spec.hash = true;
@@ -1089,7 +1105,7 @@ static errc ParsePrintfSpec(FormatSpec& spec, It& f, It const end, int& nextarg,
                 if (spec.width < -INT_MAX)
                     spec.width = -INT_MAX;
                 spec.width = -spec.width;
-                spec.align = '<';
+                spec.align = Align::Left;
             }
         }
     }

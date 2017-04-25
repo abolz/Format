@@ -59,18 +59,33 @@ enum struct FMTXX_VISIBILITY_DEFAULT errc {
     index_out_of_range      = -4,
 };
 
+enum struct Align : unsigned char {
+    Default,
+    Left,
+    Right,
+    Center,
+    PadAfterSign,
+};
+
+enum struct Sign : unsigned char {
+    Default, // = Minus
+    Minus,   // => '-' if negative, nothing otherwise
+    Plus,    // => '-' if negative, '+' otherwise
+    Space,   // => '-' if negative, fill-char otherwise
+};
+
 struct FMTXX_VISIBILITY_DEFAULT FormatSpec
 {
     std::string_view style;
-    int  width = 0;
-    int  prec  = -1;
-    char fill  = ' ';
-    char align = '>';
-    char sign  = '-';
-    bool hash  = false;
-    bool zero  = false;
-    char tsep  = '\0';
-    char conv  = '\0';
+    int   width = 0;
+    int   prec  = -1;
+    char  fill  = ' ';
+    Align align = Align::Default;
+    Sign  sign  = Sign::Default;
+    bool  hash  = false;
+    bool  zero  = false;
+    char  tsep  = '\0';
+    char  conv  = '\0';
 };
 
 //

@@ -806,8 +806,8 @@ TEST_CASE("Dynamic", "1")
     spec.width  = 10;
     spec.prec   = -1;
     spec.fill   = '.';
-    spec.align  = '>';
-    spec.sign   = ' ';
+    spec.align  = fmtxx::Align::Right;
+    spec.sign   = fmtxx::Sign::Space;
     spec.zero   = false;
     spec.conv   = 'd';
 

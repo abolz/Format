@@ -53,7 +53,7 @@ struct FILEFormatter
     template <typename ...Args>
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
-        char buf[1000] = {0};
+        char buf[1024*4] = {0};
         FILE* f = fmemopen(buf, sizeof(buf), "w");
         const auto ec = Fn{}(f, format, args...);
         fclose(f); // flush!
@@ -68,7 +68,7 @@ struct CharArrayFormatter
     template <typename ...Args>
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
-        char buf[500];
+        char buf[1024*4];
         fmtxx::CharArray os { buf };
         const auto ec = Fn{}(os, format, args...);
         return { std::string(buf, os.next), ec };

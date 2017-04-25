@@ -10,6 +10,10 @@
 using namespace fmtxx;
 using namespace fmtxx::impl;
 
+// Maximum supported minimum field width.
+// This is not an implementation limit, but its just a sane upper bound.
+enum { kMaxFieldWidth = 1024 * 4 };
+
 // Maximum supported floating point precision.
 // Precision required for denorm_min (= [751 digits] 10^-323) when using %f
 enum { kMaxFloatPrec = 751 + 323 };
@@ -182,6 +186,9 @@ static char ComputeSignChar(bool neg, Sign sign, char fill)
 static void ComputePadding(size_t len, Align align, int width, size_t& lpad, size_t& spad, size_t& rpad)
 {
     assert(width >= 0); // internal error
+
+    if (width > kMaxFieldWidth)
+        width = kMaxFieldWidth;
 
     size_t const w = static_cast<size_t>(width);
     if (w <= len)

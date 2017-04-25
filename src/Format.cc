@@ -159,22 +159,20 @@ bool fmtxx::CharArrayBuffer::Put(char c) noexcept
 
 bool fmtxx::CharArrayBuffer::Write(char const* str, size_t len) noexcept
 {
-    if (static_cast<size_t>(os.last - os.next) < len)
-        return false;
+    size_t const n = Min(len, static_cast<size_t>(os.last - os.next));
 
-    std::memcpy(os.next, str, len);
-    os.next += len;
-    return true;
+    std::memcpy(os.next, str, n);
+    os.next += n;
+    return n == len;
 }
 
 bool fmtxx::CharArrayBuffer::Pad(char c, size_t count) noexcept
 {
-    if (static_cast<size_t>(os.last - os.next) < count)
-        return false;
+    size_t const n = Min(count, static_cast<size_t>(os.last - os.next));
 
-    std::memset(os.next, static_cast<unsigned char>(c), count);
-    os.next += count;
-    return true;
+    std::memset(os.next, static_cast<unsigned char>(c), n);
+    os.next += n;
+    return n == count;
 }
 
 //------------------------------------------------------------------------------
@@ -251,7 +249,7 @@ static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, std::str
     return PrintAndPadString(fb, spec, str.data(), str.size());
 }
 
-errc Util::FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
+errc fmtxx::Util::FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t const n = (spec.prec >= 0)
         ? Min(len, static_cast<size_t>(spec.prec))
@@ -260,7 +258,7 @@ errc Util::FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* st
     return PrintAndPadString(fb, spec, str, n);
 }
 
-errc Util::FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str)
+errc fmtxx::Util::FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str)
 {
     if (str == nullptr)
         return PrintAndPadString(fb, spec, "(null)");

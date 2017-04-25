@@ -4,6 +4,7 @@
 
 #include "Dtoa.h"
 
+#include <cstring>
 #include <algorithm>
 #include <ostream>
 
@@ -58,17 +59,17 @@ bool fmtxx::StringBuffer::Pad(char c, size_t count)
     return true;
 }
 
-bool fmtxx::FILEBuffer::Put(char c)
+bool fmtxx::FILEBuffer::Put(char c) noexcept
 {
     return EOF != std::fputc(c, os);
 }
 
-bool fmtxx::FILEBuffer::Write(char const* str, size_t len)
+bool fmtxx::FILEBuffer::Write(char const* str, size_t len) noexcept
 {
     return len == std::fwrite(str, 1, len, os);
 }
 
-bool fmtxx::FILEBuffer::Pad(char c, size_t count)
+bool fmtxx::FILEBuffer::Pad(char c, size_t count) noexcept
 {
     size_t const kBlockSize = 32;
 
@@ -533,12 +534,13 @@ errc fmtxx::Util::FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void c
     return FormatInt(fb, fs, reinterpret_cast<uintptr_t>(pointer));
 }
 
+namespace {
+
 struct Double
 {
     static uint64_t const kSignMask        = 0x8000000000000000;
     static uint64_t const kExponentMask    = 0x7FF0000000000000;
     static uint64_t const kSignificandMask = 0x000FFFFFFFFFFFFF;
-    static uint64_t const kHiddenBit       = 0x0010000000000000;
 
     static int const kExponentBias = 0x3FF;
 
@@ -587,6 +589,8 @@ struct Double
     }
 };
 
+} // namespace
+
 static errc HandleSpecialFloat(Double const d, FormatBuffer& fb, FormatSpec const& spec, char sign, bool upper)
 {
     assert(d.IsSpecial());
@@ -606,7 +610,7 @@ static errc HandleSpecialFloat(Double const d, FormatBuffer& fb, FormatSpec cons
     return PrintAndPadString(fb, spec, str);
 }
 
-errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
+errc fmtxx::Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
 {
     dtoa::Options options;
 
@@ -619,65 +623,64 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     options.exponent_char               = '\0';
     options.emit_positive_exponent_sign = true;
 
-    char        conv = spec.conv;
-    int         prec = spec.prec;
-    char const* prefix = nullptr;
+    char   conv = spec.conv;
+    int    prec = spec.prec;
+    size_t nprefix = 0;
 
     switch (conv)
     {
     default:
         conv = 's';
         //[[fallthrough]];
-    case 'S':
     case 's':
-        options.use_alternative_form = false;
+    case 'S':
         options.exponent_char = (conv == 's') ? 'e' : 'E';
         options.min_exponent_digits = 1;
         break;
-    case 'E':
     case 'e':
+    case 'E':
         options.exponent_char = conv;
         if (prec < 0)
             prec = 6;
         break;
-    case 'F':
     case 'f':
+    case 'F':
         if (prec < 0)
             prec = 6;
         break;
-    case 'G':
     case 'g':
+    case 'G':
         options.exponent_char = (conv == 'g') ? 'e' : 'E';
         if (prec < 0)
             prec = 6;
         break;
-    case 'A':
-        options.use_upper_case_digits = true;
-        options.exponent_char = 'P';
-        options.min_exponent_digits = 1;
-        prefix = "0X"; // Always add a prefix. Like printf.
-        break;
     case 'a':
-        options.exponent_char = 'p';
+        conv = 'x';
         options.min_exponent_digits = 1;
-        prefix = "0x"; // Always add a prefix. Like printf.
+        options.exponent_char = 'p';
+        nprefix = 2;
+        break;
+    case 'A':
+        conv = 'X';
+        options.use_upper_case_digits = true;
+        options.min_exponent_digits = 1;
+        options.exponent_char = 'P';
+        nprefix = 2;
+        break;
+    case 'x':
+        options.normalize = true;
+        options.use_alternative_form = false;
+        options.min_exponent_digits = 1;
+        options.exponent_char = 'p';
+        nprefix = spec.hash ? 2 : 0;
         break;
     case 'X':
         options.use_upper_case_digits = true;
         options.normalize = true;
         options.use_alternative_form = false;
+        options.min_exponent_digits = 1;
         options.exponent_char = 'P';
-        options.min_exponent_digits = 1;
-        if (spec.hash) // Add a prefix only if '#' was specified. As with integers.
-            prefix = "0X";
-        break;
-    case 'x':
-        options.normalize = true;
-        options.use_alternative_form = false;
-        options.exponent_char = 'p';
-        options.min_exponent_digits = 1;
-        if (spec.hash) // Add a prefix only if '#' was specified. As with integers.
-            prefix = "0x";
+        nprefix = spec.hash ? 2 : 0;
         break;
     }
 
@@ -719,8 +722,6 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     case 'G':
         res = dtoa::ToGeneral(buf, buf + kBufSize, abs_x, prec, options);
         break;
-    case 'a':
-    case 'A':
     case 'x':
     case 'X':
         res = dtoa::ToHex(buf, buf + kBufSize, abs_x, prec, options);
@@ -731,11 +732,12 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
         break;
     }
 
-    if (!res.success)
-        return PrintAndPadString(fb, spec, "[[internal buffer too small]]");
+    assert(res.success); // ouch :-(
 
     size_t const buflen = static_cast<size_t>(res.size);
-    return PrintAndPadNumber(fb, spec, sign, prefix, prefix != nullptr ? 2u : 0u, buf, buflen);
+
+    char const prefix[] = {'0', conv};
+    return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, buf, buflen);
 }
 
 //

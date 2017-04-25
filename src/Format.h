@@ -88,17 +88,6 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
     char  conv  = '\0';
 };
 
-//
-// Specialize this if you want your data-type to be treated as a string.
-//
-// T must have member functions data() and size() and their return values must
-// be convertible to char const* and size_t resp.
-//
-template <typename T>
-struct TreatAsString {
-    static constexpr bool value = false;
-};
-
 struct FMTXX_VISIBILITY_DEFAULT FormatBuffer
 {
     FMTXX_API virtual ~FormatBuffer();
@@ -111,6 +100,7 @@ struct FMTXX_VISIBILITY_DEFAULT FormatBuffer
 struct FMTXX_VISIBILITY_DEFAULT StringBuffer : public FormatBuffer
 {
     std::string& os;
+
     explicit StringBuffer(std::string& v) : os(v) {}
 
     FMTXX_API bool Put(char c) override;
@@ -121,16 +111,18 @@ struct FMTXX_VISIBILITY_DEFAULT StringBuffer : public FormatBuffer
 struct FMTXX_VISIBILITY_DEFAULT FILEBuffer : public FormatBuffer
 {
     std::FILE* os;
+
     explicit FILEBuffer(std::FILE* v) : os(v) {}
 
-    FMTXX_API bool Put(char c) override;
-    FMTXX_API bool Write(char const* str, size_t len) override;
-    FMTXX_API bool Pad(char c, size_t count) override;
+    FMTXX_API bool Put(char c) noexcept override;
+    FMTXX_API bool Write(char const* str, size_t len) noexcept override;
+    FMTXX_API bool Pad(char c, size_t count) noexcept override;
 };
 
 struct FMTXX_VISIBILITY_DEFAULT StreamBuffer : public FormatBuffer
 {
     std::ostream& os;
+
     explicit StreamBuffer(std::ostream& v) : os(v) {}
 
     FMTXX_API bool Put(char c) override;
@@ -185,6 +177,17 @@ struct Util
 };
 
 //
+// Specialize this if you want your data-type to be treated as a string.
+//
+// T must have member functions data() and size() and their return values must
+// be convertible to char const* and size_t resp.
+//
+template <typename T>
+struct TreatAsString {
+    static constexpr bool value = false;
+};
+
+//
 // Specialize this to format user-defined types.
 //
 // The default implementation uses std::ostringstream to convert the value into
@@ -219,27 +222,31 @@ errc Format(std::ostream& os, std::string_view format, Args const&... args);
 template <typename ...Args>
 errc Format(CharArray& os, std::string_view format, Args const&... args);
 
+//struct ArrayFormatResult {
+//    char* next;
+//    bool ec;
+//};
+
+//template <typename ...Args>
+//ArrayFormatResult ArrayFormat(char* next, char* last, std::string_view format, Args const&... args) noexcept;
+
 // Returns a std::string containing the formatted arguments.
 template <typename ...Args>
 std::string StringFormat(std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given output stream.
-// Using a printf-style format string.
 template <typename ...Args>
 errc Printf(FormatBuffer& fb, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given string.
-// Using a printf-style format string.
 template <typename ...Args>
 errc Printf(std::string& os, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
-// Using a printf-style format string.
 template <typename ...Args>
 errc Printf(std::FILE* os, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
-// Using a printf-style format string.
 template <typename ...Args>
 errc Printf(std::ostream& os, std::string_view format, Args const&... args);
 
@@ -247,8 +254,10 @@ errc Printf(std::ostream& os, std::string_view format, Args const&... args);
 template <typename ...Args>
 errc Printf(CharArray& os, std::string_view format, Args const&... args);
 
+//template <typename ...Args>
+//ArrayFormatResult ArrayPrintf(char* next, char* last, std::string_view format, Args const&... args) noexcept;
+
 // Returns a std::string containing the formatted arguments.
-// Using a printf-style format string.
 template <typename ...Args>
 std::string StringPrintf(std::string_view format, Args const&... args);
 
@@ -259,8 +268,8 @@ std::string StringPrintf(std::string_view format, Args const&... args);
 //------------------------------------------------------------------------------
 
 #include <cassert>
+#include <cstddef>
 #include <climits>
-#include <cstring>
 
 namespace fmtxx {
 namespace impl {
@@ -301,7 +310,7 @@ public:
     EType operator[](int index) const
     {
         assert(index >= 0);
-        if (index >= 16)
+        if (index < 0 || index >= 16)
             return T_NONE;
         return static_cast<EType>((types >> (4 * index)) & 0xF);
     }
@@ -460,12 +469,12 @@ inline errc Printf(Buffer& fb, std::string_view format)
     return fmtxx::impl::DoPrintf(fb, format, Types(), nullptr);
 }
 
-template <typename T, typename Stream = std::ostringstream>
+template <typename Stream = std::ostringstream, typename T>
 errc StreamValue(FormatBuffer& fb, FormatSpec const& spec, T const& value)
 {
     Stream stream;
     stream << value;
-    auto const& str = stream.str();
+    auto const& str = stream.str(); // Efficient read-only access would be nice...
     return Util::FormatString(fb, spec, str.data(), str.size());
 }
 
@@ -512,7 +521,7 @@ template <typename ...Args>
 std::string fmtxx::StringFormat(std::string_view format, Args const&... args)
 {
     std::string os;
-    fmtxx::Format(os, format, args...);
+    fmtxx::Format(os, format, args...); // Returns true or throws (OOM)
     return os;
 }
 
@@ -550,7 +559,7 @@ template <typename ...Args>
 std::string fmtxx::StringPrintf(std::string_view format, Args const&... args)
 {
     std::string os;
-    fmtxx::Printf(os, format, args...);
+    fmtxx::Printf(os, format, args...); // Returns true or throws (OOM)
     return os;
 }
 

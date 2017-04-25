@@ -86,7 +86,7 @@ struct VectorBuffer : public fmtxx::FormatBuffer
 // Tell the Format library that vector<char> should be handled as a string.
 // Possible because vector<char> has compatible data() and size() members.
 template <>
-struct fmtxx::IsString<std::vector<char>> : std::true_type {};
+struct fmtxx::TreatAsString<std::vector<char>> : std::true_type {};
 
 int main()
 {

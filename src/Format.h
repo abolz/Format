@@ -95,7 +95,7 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
 // be convertible to char const* and size_t resp.
 //
 template <typename T>
-struct IsString {
+struct TreatAsString {
     static constexpr bool value = false;
 };
 
@@ -281,7 +281,7 @@ private:
     // XXX:
     // Keep in sync with Arg::Arg() below!!!
     template <typename T>
-    static unsigned GetId(T                  const&) { return IsString<T>::value ? T_STRING : T_OTHER; }
+    static unsigned GetId(T                  const&) { return TreatAsString<T>::value ? T_STRING : T_OTHER; }
     static unsigned GetId(bool               const&) { return T_BOOL; }
     static unsigned GetId(std::string_view   const&) { return T_STRING; }
     static unsigned GetId(std::string        const&) { return T_STRING; }
@@ -363,7 +363,7 @@ public:
     // XXX:
     // Keep in sync with Types::GetId() above!!!
     template <typename T>
-    Arg(T const& v) : Arg(v, BoolConst<IsString<T>::value>{}) {}
+    Arg(T const& v) : Arg(v, BoolConst<TreatAsString<T>::value>{}) {}
 
     Arg(bool               const& v) : bool_(v) {}
     Arg(std::string_view   const& v) : string(v) {}

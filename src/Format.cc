@@ -4,9 +4,7 @@
 
 #include "Dtoa.h"
 
-#include <clocale>
 #include <algorithm>
-#include <iterator>
 #include <ostream>
 
 using namespace fmtxx;
@@ -14,17 +12,6 @@ using namespace fmtxx::impl;
 
 template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
 template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
-
-template <typename RanIt>
-inline auto MakeArrayIterator(RanIt first, intptr_t n)
-{
-#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
-    return stdext::make_checked_array_iterator(first, n);
-#else
-    static_cast<void>(n); // unused...
-    return first;
-#endif
-}
 
 //------------------------------------------------------------------------------
 //
@@ -355,34 +342,27 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
     return last;
 }
 
-// Inserts thousands separators into [buf, +pt).
+// Inserts thousands separators into [buf, +pos).
 // Returns the number of separators inserted.
-//
-// Example:
-//  "12345.6789" ---> "12'345.6789"
-//   ^    ^    ^
-//   0    pt   last
-//  Returns 1.
-//
-template <typename RanIt>
-static int InsertThousandsSep(RanIt buf, int pt, int last, char sep, int group_len)
+static int InsertThousandsSep(char* buf, int pos, char sep, int group_len)
 {
-    assert(pt >= 0);
-    assert(pt <= last);
+    assert(pos >= 0);
     assert(sep != '\0');
     assert(group_len > 0);
 
-    int const nsep = (pt - 1) / group_len;
+    int const nsep = (pos - 1) / group_len;
 
     if (nsep <= 0)
         return 0;
 
-    std::copy_backward(buf + pt, buf + last, buf + (last + nsep));
+    char* src = buf + pos;
+    char* dst = buf + (pos + nsep);
 
-    for (int l = pt, shift = nsep; shift > 0; --shift, l -= group_len)
+    for (int i = 0; i < nsep; ++i)
     {
-        auto p = std::copy_backward(buf + (l - group_len), buf + l, buf + (l + shift));
-        *--p = sep;
+        for (int i = 0; i < group_len; ++i)
+            *--dst = *--src;
+        *--dst = sep;
     }
 
     return nsep;
@@ -441,9 +421,8 @@ errc Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uin
     {
         int const group_len = (base == 10) ? 3 : 4;
         int const pos       = static_cast<int>(l - f);
-        int const last      = pos;
 
-        l += InsertThousandsSep(MakeArrayIterator(f, pos + 15), pos, last, spec.tsep, group_len);
+        l += InsertThousandsSep(f, pos, spec.tsep, group_len);
     }
 
     char const prefix[] = {'0', conv};

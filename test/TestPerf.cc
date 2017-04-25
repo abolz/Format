@@ -4,6 +4,7 @@
 #define HAVE_TINYFORMAT 0
 
 #if HAVE_FMTLIB
+#define FMT_SHARED 1
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 #endif
@@ -25,7 +26,7 @@
 #define NO_SYNC_WITH_STDIO  0
 #define NO_IOBUF            0
 
-using Clock = std::chrono::steady_clock;
+using Clock = std::chrono::high_resolution_clock;
 
 struct Times {
     double t_printf = 0.0;
@@ -134,11 +135,20 @@ inline int printf_buffered(VSNPrintf snpf, char const* fmt, ...)
 //
 //------------------------------------------------------------------------------
 
+static std::mt19937 rng(123456);
+
+// static void WarmUp()
+// {
+//     std::uniform_int_distribution<int> dist;
+//     for (int i = 0; i < 5000000; ++i) {
+//         auto x = dist(rng);
+//         static_cast<void>(x);
+//     }
+// }
+
 template <typename Distribution, typename F>
 static double GenerateNumbers(int n, Distribution& dist, F func)
 {
-    std::mt19937 rng;
-
     const auto start = Clock::now();
     while (n-- > 0)
     {
@@ -178,6 +188,17 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
+
+    // times.t_fmt = GenerateNumbers(n, dist, [&](auto i) {
+    //     const auto str = fmt::format(format_fmt, i);
+    //     std::fwrite(str.data(), 1, str.size(), stdout);
+    // });
+
+    //times.t_fmt = GenerateNumbers(n, dist, [&](auto i) {
+    //    fmt::MemoryWriter w;
+    //    w.write(format_fmt, i);
+    //    std::fwrite(w.data(), 1, w.size(), stdout);
+    //});
 #endif
 
 #if HAVE_TINYFORMAT
@@ -202,20 +223,38 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     });
 #endif
 #if 1
+  #if 1
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
-        fmtxx::CharArrayBuffer fb { buf };
-        fmtxx::Format(fb, format_fmtxx, i);
-        std::fwrite(buf, 1, static_cast<size_t>(fb.next - buf), stdout);
+        fmtxx::CharArray os{buf};
+        fmtxx::Format(os, format_fmtxx, i);
+        std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
     });
+  #else
+    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+        char buf[500];
+        fmtxx::CharArray os{buf};
+        fmtxx::Printf(os, format_printf, i);
+        std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
+    });
+  #endif
 #endif
 #if 0
+  #if 1
     std::string buf;
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         buf.clear();
         fmtxx::Format(buf, format_fmtxx, i);
         std::fwrite(buf.data(), 1, buf.size(), stdout);
     });
+  #else
+    std::string buf;
+    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+        buf.clear();
+        fmtxx::Printf(buf, format_printf, i);
+        std::fwrite(buf.data(), 1, buf.size(), stdout);
+    });
+  #endif
 #endif
 
 #if 1
@@ -244,7 +283,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 template <typename T>
 static void TestInts(char const* format_printf, char const* format_fmtxx, char const* format_fmt = nullptr)
 {
-    std::uniform_int_distribution<T> dist { std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max() };
+   std::uniform_int_distribution<T> dist { std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max() };
 
 #ifndef NDEBUG
     RunTest(500000, dist, format_printf, format_fmtxx, format_fmt);
@@ -281,6 +320,23 @@ int main()
 #endif
 #if !NO_IOBUF
     setvbuf(stdout, kIOBuf, _IOFBF, kIOBufSize);
+#endif
+
+#if 0
+//----------------------
+// when using clang (on linux), the first run takes almost twice as long as the following...
+// figure out whats going on...
+//
+// occurs only for ints...
+// branch prediction? clang does not generate a jump table...
+//----------------------
+    TestInts<uint32_t>("%16u",    "{:16d}");
+    // TestInts<uint32_t>("%16u",    "{:16d}");
+    // TestInts<uint32_t>("%16u",    "{:16d}");
+    // TestInts<uint32_t>("%16u",    "{:16d}");
+
+    PrintAvgTimes();
+    timing_results.clear();
 #endif
 
 #if 1 // ints
@@ -336,34 +392,40 @@ int main()
     TestInts<int64_t>("%016llx",  "{:016x}");
     TestInts<int64_t>("%0128llx", "{:0128x}");
 
-    //TestInts<int64_t>("%'lld",     "{:'}");
-    //TestInts<int64_t>("%'8lld",    "{:'8d}");
-    //TestInts<int64_t>("%'24lld",   "{:'24d}");
-    //TestInts<int64_t>("%'128lld",  "{:'128d}");
-    //TestInts<int64_t>("%'llx",     "{:'x}");
-    //TestInts<int64_t>("%'08llx",   "{:'08x}");
-    //TestInts<int64_t>("%'016llx",  "{:'016x}");
-    //TestInts<int64_t>("%'0128llx", "{:'0128x}");
+    PrintAvgTimes();
+    timing_results.clear();
+#endif
+
+#if 0
+    TestInts<int64_t>("%'lld",     "{:'}");
+    TestInts<int64_t>("%'8lld",    "{:'8d}");
+    TestInts<int64_t>("%'24lld",   "{:'24d}");
+    TestInts<int64_t>("%'128lld",  "{:'128d}");
+    TestInts<int64_t>("%'llx",     "{:'x}");
+    TestInts<int64_t>("%'08llx",   "{:'08x}");
+    TestInts<int64_t>("%'016llx",  "{:'016x}");
+    TestInts<int64_t>("%'0128llx", "{:'0128x}");
 
     PrintAvgTimes();
     timing_results.clear();
 #endif
+#endif // ints
+
+#if !FMTXX_NO_FLOAT
+#if 1 // floats
+#if 0
+    TestFloats(0.0,      1.0e-10,  "%.10f",  "{:.10f}");
+    TestFloats(1.0e-10,  1.0e-20,  "%.20f",  "{:.20f}");
+    TestFloats(1.0e-20,  1.0e-40,  "%.40f",  "{:.40f}");
+    TestFloats(1.0e-40,  1.0e-80,  "%.80f",  "{:.80f}");
+    TestFloats(1.0e-295, 1.0e-305, "%.305f", "{:.305f}");
+    TestFloats(0.0,      1.0e-308, "%.308f", "{:.308f}");
+
+    PrintAvgTimes();
+    timing_results.clear();
 #endif
 
-#if 1 // floats
-//#if 1
-//    TestFloats(0.0,      1.0e-10,  "%.10f",  "{:.10f}");
-//    TestFloats(1.0e-10,  1.0e-20,  "%.20f",  "{:.20f}");
-//    TestFloats(1.0e-20,  1.0e-40,  "%.40f",  "{:.40f}");
-//    TestFloats(1.0e-40,  1.0e-80,  "%.80f",  "{:.80f}");
-//    TestFloats(1.0e-295, 1.0e-305, "%.305f", "{:.305f}");
-//    TestFloats(0.0,      1.0e-308, "%.308f", "{:.308f}");
-//
-//    PrintAvgTimes();
-//    timing_results.clear();
-//#endif
-
-#if 1
+#if 0
     TestFloats(0.0,      1.0,      "%.17e", "{:.17e}");
     TestFloats(1.0,      1.0e+20,  "%.17e", "{:.17e}");
     TestFloats(1.0e+20,  1.0e+40,  "%.17e", "{:.17e}");
@@ -373,7 +435,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestFloats(0.0,      1.0,      "%.17g", "{:.17g}");
     TestFloats(1.0,      1.0e+20,  "%.17g", "{:.17g}");
     TestFloats(1.0e+20,  1.0e+40,  "%.17g", "{:.17g}");
@@ -383,7 +445,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0
+#if 1
     TestFloats(0.0,      1.0,      "%.17g", "{}", "{:.17g}");
     TestFloats(1.0,      1.0e+20,  "%.17g", "{}", "{:.17g}");
     TestFloats(1.0e+20,  1.0e+40,  "%.17g", "{}", "{:.17g}");
@@ -393,7 +455,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1
+#if 0
     TestFloats(0.0,      1.0,      "%a", "{:a}");
     TestFloats(1.0,      1.0e+20,  "%a", "{:a}");
     TestFloats(1.0e+20,  1.0e+40,  "%a", "{:a}");
@@ -402,5 +464,6 @@ int main()
     PrintAvgTimes();
     timing_results.clear();
 #endif
-#endif
+#endif // floats
+#endif // !FMTXX_NO_FLOAT
 }

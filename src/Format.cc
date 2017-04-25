@@ -640,8 +640,7 @@ errc Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
     {
     case 's':
     case 'S':
-        res = dtoa::ToShortest(buf, buf + kBufSize, abs_x, dtoa::Style::general, options);
-//      res = dtoa::ToECMAScript(buf, buf + kBufSize, abs_x);
+        res = dtoa::ToECMAScript(buf, buf + kBufSize, abs_x, options.decimal_point, options.exponent_char);
         break;
     case 'f':
     case 'F':

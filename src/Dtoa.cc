@@ -567,6 +567,8 @@ static int CountLeadingZeros64(uint64_t n)
 
 static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, Vector buffer, int* num_digits, int* binary_exponent)
 {
+    assert(buffer.length() >= 52/4 + 1);
+
     char const* const xdigits = upper ? "0123456789ABCDEF" : "0123456789abcdef";
 
     IEEEDouble const d{v};
@@ -654,12 +656,10 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
 
 Result dtoa::ToHex(char* first, char* last, double d, int precision, Options const& options)
 {
-    assert(last - first >= 52/4 + 1);
-
     int num_digits = 0;
     int binary_exponent = 0;
 
-    GenerateHexDigits(d, precision, options.normalize, options.use_upper_case_digits, Vector(first, 52/4 + 1), &num_digits, &binary_exponent);
+    GenerateHexDigits(d, precision, options.normalize, options.use_upper_case_digits, Vector(first, static_cast<int>(last - first)), &num_digits, &binary_exponent);
 
     assert(num_digits > 0);
 
@@ -718,7 +718,7 @@ Result dtoa::ToShortest(char* first, char* last, double d, Style style, Options 
     int num_digits = 0;
     int decpt = 0;
 
-    GenerateShortestDigits(d, Vector(first, 17 + 1), &num_digits, &decpt);
+    GenerateShortestDigits(d, Vector(first, static_cast<int>(last - first)), &num_digits, &decpt);
 
     assert(num_digits > 0);
 
@@ -758,7 +758,7 @@ Result dtoa::ToShortest(char* first, char* last, double d, Style style, Options 
     }
 }
 
-Result dtoa::ToECMAScript(char* first, char* last, double d)
+Result dtoa::ToECMAScript(char* first, char* last, double d, char decimal_point, char exponent_char)
 {
     Vector buf(first, static_cast<int>(last - first));
     assert(buf.length() >= 24);
@@ -788,7 +788,7 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
     {
         // dig.its
         std::copy_backward(I + n, I + k, I + (k + 1));
-        I[n] = '.';
+        I[n] = decimal_point;
         return { true, k + 1 };
     }
 
@@ -797,7 +797,7 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
         // 0.[000]digits
         std::copy_backward(I, I + k, I + (2 + -n + k));
         I[0] = '0';
-        I[1] = '.';
+        I[1] = decimal_point;
         std::fill_n(I + 2, -n, '0');
         return { true, 2 + (-n) + k };
     }
@@ -807,7 +807,7 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
     Options options;
 
     options.min_exponent_digits = 1;
-    options.exponent_char = 'e';
+    options.exponent_char = exponent_char;
     options.emit_positive_exponent_sign = true;
 
     if (k == 1)
@@ -820,7 +820,7 @@ Result dtoa::ToECMAScript(char* first, char* last, double d)
     {
         // d.igitsE+123
         std::copy_backward(I + 1, I + k, I + (k + 1));
-        I[1] = '.';
+        I[1] = decimal_point;
         int const endpos = AppendExponent(buf, /*pos*/ k + 1, n - 1, options);
         return { true, endpos };
     }

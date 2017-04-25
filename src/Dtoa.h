@@ -13,8 +13,6 @@
 
 namespace dtoa {
 
-enum { kMinBufferSize = 26 + 1 };
-
 enum struct Style {
     fixed,
     scientific,
@@ -33,10 +31,10 @@ struct Options {
     bool use_upper_case_digits       = true;  //       A
     bool normalize                   = true;  //       A
     char thousands_sep               = '\0';  // F   G
-    char decimal_point               = '.';   // F E G A
+    char decimal_point               = '.';   // F E G A J
     bool use_alternative_form        = false; // F E G A
     int  min_exponent_digits         = 2;     //   E G A
-    char exponent_char               = 'e';   //   E G A
+    char exponent_char               = 'e';   //   E G A J
     bool emit_positive_exponent_sign = true;  //   E G A
 };
 
@@ -220,7 +218,12 @@ Result ToShortest(
 
 // PRE: last - first >= 24.
 //  (Even if the actual result is shorter!)
-Result ToECMAScript(char* first, char* last, double d);
+Result ToECMAScript(
+    char*  first,
+    char*  last,
+    double d,
+    char   decimal_point = '.',
+    char   exponent_char = 'e');
 
 } // namespace dtoa
 

@@ -69,7 +69,7 @@ struct CharArrayFormatter
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
         char buf[500];
-        fmtxx::CharArrayBuffer os { buf };
+        fmtxx::CharArray os { buf };
         const auto ec = Fn{}(os, format, args...);
         return { std::string(buf, os.next), ec };
     }

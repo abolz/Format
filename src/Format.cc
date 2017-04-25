@@ -132,32 +132,32 @@ bool fmtxx::StreamBuffer::Pad(char c, size_t count)
     return true;
 }
 
-bool fmtxx::CharArrayBuffer::Put(char c)
+bool fmtxx::CharArrayBuffer::Put(char c) noexcept
 {
-    if (next >= last)
+    if (os.next >= os.last)
         return false;
 
-    *next++ = c;
+    *os.next++ = c;
     return true;
 }
 
-bool fmtxx::CharArrayBuffer::Write(char const* str, size_t len)
+bool fmtxx::CharArrayBuffer::Write(char const* str, size_t len) noexcept
 {
-    if (static_cast<size_t>(last - next) < len)
+    if (static_cast<size_t>(os.last - os.next) < len)
         return false;
 
-    std::memcpy(next, str, len);
-    next += len;
+    std::memcpy(os.next, str, len);
+    os.next += len;
     return true;
 }
 
-bool fmtxx::CharArrayBuffer::Pad(char c, size_t count)
+bool fmtxx::CharArrayBuffer::Pad(char c, size_t count) noexcept
 {
-    if (static_cast<size_t>(last - next) < count)
+    if (static_cast<size_t>(os.last - os.next) < count)
         return false;
 
-    std::memset(next, static_cast<unsigned char>(c), count);
-    next += count;
+    std::memset(os.next, static_cast<unsigned char>(c), count);
+    os.next += count;
     return true;
 }
 
@@ -977,6 +977,12 @@ errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types type
     return errc::io_error;
 }
 
+errc fmtxx::impl::DoFormat(CharArray& os, std::string_view format, Types types, Arg const* args)
+{
+    CharArrayBuffer fb { os };
+    return DoFormat(fb, format, types, args);
+}
+
 static errc GetIntArg(int& value, int index, Types types, Arg const* args)
 {
     switch (types[index])
@@ -1306,6 +1312,12 @@ errc fmtxx::impl::DoPrintf(std::ostream& os, std::string_view format, Types type
     }
 
     return errc::io_error;
+}
+
+errc fmtxx::impl::DoPrintf(CharArray& os, std::string_view format, Types types, Arg const* args)
+{
+    CharArrayBuffer fb { os };
+    return DoPrintf(fb, format, types, args);
 }
 
 //------------------------------------------------------------------------------

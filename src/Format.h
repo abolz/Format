@@ -138,18 +138,26 @@ struct FMTXX_VISIBILITY_DEFAULT StreamBuffer : public FormatBuffer
     FMTXX_API bool Pad(char c, size_t count) override;
 };
 
-struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT CharArray
 {
     char*       next;
     char* const last;
-    explicit CharArrayBuffer(char* f, char* l) : next(f), last(l) {}
+
+    explicit CharArray(char* f, char* l) : next(f), last(l) {}
 
     template <size_t N>
-    explicit CharArrayBuffer(char (&buf)[N]) : next(buf), last(buf + N) {}
+    explicit CharArray(char (&buf)[N]) : next(buf), last(buf + N) {}
+};
 
-    FMTXX_API bool Put(char c) override;
-    FMTXX_API bool Write(char const* str, size_t len) override;
-    FMTXX_API bool Pad(char c, size_t count) override;
+struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
+{
+    CharArray& os;
+
+    explicit CharArrayBuffer(CharArray& v) : os(v) {}
+
+    FMTXX_API bool Put(char c) noexcept override;
+    FMTXX_API bool Write(char const* str, size_t len) noexcept override;
+    FMTXX_API bool Pad(char c, size_t count) noexcept override;
 };
 
 struct Util
@@ -194,6 +202,10 @@ errc Format(std::FILE* os, std::string_view format, Args const&... args);
 template <typename ...Args>
 errc Format(std::ostream& os, std::string_view format, Args const&... args);
 
+// Appends the formatted arguments to the given stream.
+template <typename ...Args>
+errc Format(CharArray& os, std::string_view format, Args const&... args);
+
 // Returns a std::string containing the formatted arguments.
 template <typename ...Args>
 std::string StringFormat(std::string_view format, Args const&... args);
@@ -217,6 +229,10 @@ errc Printf(std::FILE* os, std::string_view format, Args const&... args);
 // Using a printf-style format string.
 template <typename ...Args>
 errc Printf(std::ostream& os, std::string_view format, Args const&... args);
+
+// Appends the formatted arguments to the given stream.
+template <typename ...Args>
+errc Printf(CharArray& os, std::string_view format, Args const&... args);
 
 // Returns a std::string containing the formatted arguments.
 // Using a printf-style format string.
@@ -397,6 +413,7 @@ FMTXX_API errc DoFormat(FormatBuffer& fb, std::string_view format, Types types, 
 FMTXX_API errc DoFormat(std::string&  os, std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoFormat(std::FILE*    os, std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(CharArray&    os, std::string_view format, Types types, Arg const* args);
 
 template <typename Buffer, typename ...Args>
 inline errc Format(Buffer& fb, std::string_view format, Args const&... args)
@@ -415,6 +432,7 @@ FMTXX_API errc DoPrintf(FormatBuffer& fb, std::string_view format, Types types, 
 FMTXX_API errc DoPrintf(std::string&  os, std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoPrintf(std::FILE*    os, std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoPrintf(std::ostream& os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf(CharArray&    os, std::string_view format, Types types, Arg const* args);
 
 template <typename Buffer, typename ...Args>
 inline errc Printf(Buffer& fb, std::string_view format, Args const&... args)
@@ -472,6 +490,12 @@ fmtxx::errc fmtxx::Format(std::ostream& os, std::string_view format, Args const&
 }
 
 template <typename ...Args>
+fmtxx::errc fmtxx::Format(CharArray& os, std::string_view format, Args const&... args)
+{
+    return fmtxx::impl::Format(os, format, args...);
+}
+
+template <typename ...Args>
 std::string fmtxx::StringFormat(std::string_view format, Args const&... args)
 {
     std::string os;
@@ -499,6 +523,12 @@ fmtxx::errc fmtxx::Printf(std::FILE* os, std::string_view format, Args const&...
 
 template <typename ...Args>
 fmtxx::errc fmtxx::Printf(std::ostream& os, std::string_view format, Args const&... args)
+{
+    return fmtxx::impl::Printf(os, format, args...);
+}
+
+template <typename ...Args>
+fmtxx::errc fmtxx::Printf(CharArray& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(os, format, args...);
 }

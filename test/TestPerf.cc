@@ -1,5 +1,6 @@
 #include "Format.h"
 
+#define HAVE_PRINTF 0
 #define HAVE_FMTLIB 1
 #define HAVE_TINYFORMAT 0
 
@@ -29,7 +30,9 @@
 using Clock = std::chrono::high_resolution_clock;
 
 struct Times {
+#if HAVE_PRINTF
     double t_printf = 0.0;
+#endif
 #if HAVE_FMTLIB
     double t_fmt    = 0.0;
 #endif
@@ -47,7 +50,9 @@ static void PrintAvgTimes()
 
     for (auto t : timing_results)
     {
+#if HAVE_PRINTF
         avg.t_printf += t.t_printf;
+#endif
 #if HAVE_FMTLIB
         avg.t_fmt    += t.t_fmt;
 #endif
@@ -57,14 +62,20 @@ static void PrintAvgTimes()
         avg.t_fmtxx  += t.t_fmtxx;
     }
 
+    // auto const ref = avg.t_printf;
+    auto const ref = avg.t_fmt;
+
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
+#if HAVE_PRINTF
+    fprintf(stderr, "printf:  x%.2f\n", ref / avg.t_printf);
+#endif
 #if HAVE_FMTLIB
-    fprintf(stderr, "fmt:     x%.2f\n", avg.t_printf / avg.t_fmt);
+    fprintf(stderr, "fmt:     x%.2f\n", ref / avg.t_fmt);
 #endif
 #if HAVE_TINYFORMAT
-    fprintf(stderr, "tiny:    x%.2f\n", avg.t_printf / avg.t_tiny);
+    fprintf(stderr, "tiny:    x%.2f\n", ref / avg.t_tiny);
 #endif
-    fprintf(stderr, "fmtxx:   x%.2f\n", avg.t_printf / avg.t_fmtxx);
+    fprintf(stderr, "fmtxx:   x%.2f\n", ref / avg.t_fmtxx);
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
 }
 
@@ -172,7 +183,9 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 
 #if NO_COMP
 
+#if HAVE_PRINTF
     times.t_printf  = 1.0;
+#endif
 #if HAVE_FMTLIB
     times.t_fmt     = 1.0;
 #endif
@@ -181,11 +194,13 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #endif
 
 #else
-    times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { PRINTF(format_printf, i); });
-	//times.t_printf  = 1.0;
+#if HAVE_PRINTF
+    //times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { PRINTF(format_printf, i); });
+	times.t_printf  = 1.0;
+#endif
 
 #if HAVE_FMTLIB
-    times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
+    //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 
@@ -199,6 +214,12 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     //    w.write(format_fmt, i);
     //    std::fwrite(w.data(), 1, w.size(), stdout);
     //});
+
+    times.t_fmt = GenerateNumbers(n, dist, [&](auto i) {
+        fmt::MemoryWriter w;
+        w << i;
+        std::fwrite(w.data(), 1, w.size(), stdout);
+    });
 #endif
 
 #if HAVE_TINYFORMAT
@@ -223,6 +244,12 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     });
 #endif
 #if 1
+    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+        fmtxx::FILEBuffer{stdout} << i;
+        //fmtxx::Format(stdout, "{}", i);
+    });
+#endif
+#if 0
   #if 1
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
@@ -257,9 +284,14 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
   #endif
 #endif
 
+    // auto const ref = times.t_printf;
+    auto const ref = times.t_fmt;
+
 #if 1
     fprintf(stderr,
-        "   printf:  %.2f sec\n"
+#if HAVE_PRINTF
+        "   printf:  %.2f sec (x%.2f)\n"
+#endif
 #if HAVE_FMTLIB
         "   fmt:     %.2f sec (x%.2f)\n"
 #endif
@@ -267,14 +299,16 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
         "   tiny:    %.2f sec (x%.2f)\n"
 #endif
         "   fmtxx:   %.2f sec (x%.2f)\n",
-        times.t_printf,
+#if HAVE_PRINTF
+        times.t_printf, ref / times.t_printf,
+#endif
 #if HAVE_FMTLIB
-        times.t_fmt,   times.t_printf / times.t_fmt,
+        times.t_fmt,   ref / times.t_fmt,
 #endif
 #if HAVE_TINYFORMAT
-        times.t_tiny, times.t_printf / times.t_tiny,
+        times.t_tiny, ref / times.t_tiny,
 #endif
-        times.t_fmtxx, times.t_printf / times.t_fmtxx);
+        times.t_fmtxx, ref / times.t_fmtxx);
 #endif
 
     timing_results.push_back(times);
@@ -339,7 +373,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 1 // ints
+#if 0 // ints
 #if 1
     TestInts<int32_t>("%d",     "{}");
     TestInts<int32_t>("%8d",    "{:8d}");

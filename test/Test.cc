@@ -328,19 +328,6 @@ TEST_CASE("Ints", "1")
     CHECK("+000074565" == FormatArgs("{: <+010}",   V));
     CHECK("-000074565" == FormatArgs("{: <+010}",  -V));
 
-    CHECK("74565     " == PrintfArgs("%-010s",    V)); // If the - and 0 flags both appear, the 0 flag is ignored
-    CHECK("-74565    " == PrintfArgs("%-010s",   -V)); // If the - and 0 flags both appear, the 0 flag is ignored
-    CHECK(" 74565    " == PrintfArgs("%- 010s",   V)); // If the - and 0 flags both appear, the 0 flag is ignored
-    CHECK("-74565    " == PrintfArgs("%- 010s",  -V)); // If the - and 0 flags both appear, the 0 flag is ignored
-    CHECK("74565     " == PrintfArgs("%--010s",   V)); // If the - and 0 flags both appear, the 0 flag is ignored
-    CHECK("-74565    " == PrintfArgs("%--010s",  -V)); // If the - and 0 flags both appear, the 0 flag is ignored
-    CHECK("+74565    " == PrintfArgs("%-+010s",   V)); // If the - and 0 flags both appear, the 0 flag is ignored
-    CHECK("-74565    " == PrintfArgs("%-+010s",  -V)); // If the - and 0 flags both appear, the 0 flag is ignored
-    CHECK("+74565    " == PrintfArgs("%-+ 010s",   V)); // If the space and + flags both appear, the space flag is ignored.
-    CHECK("-74565    " == PrintfArgs("%-+ 010s",  -V)); // If the space and + flags both appear, the space flag is ignored.
-    CHECK("+74565    " == PrintfArgs("%- +010s",   V)); // If the space and + flags both appear, the space flag is ignored.
-    CHECK("-74565    " == PrintfArgs("%- +010s",  -V)); // If the space and + flags both appear, the space flag is ignored.
-
     CHECK("0000074565" == FormatArgs("{: =010}",    V));
     CHECK("-000074565" == FormatArgs("{: =010}",   -V));
     CHECK(" 000074565" == FormatArgs("{: = 010}",   V));

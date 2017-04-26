@@ -433,10 +433,6 @@ errc fmtxx::Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t se
     int      base = 10;
     size_t   nprefix = 0;
 
-    // The result of converting a zero value with a precision of zero is no characters
-    if (spec.prec == 0 && number == 0)
-        return errc::success;
-
     switch (conv)
     {
     default:
@@ -1297,10 +1293,7 @@ static void ParsePrintfSpec(int& arg_index, FormatSpec& spec, std::string_view::
             ++f;
             break;
         case ' ':
-            // N1570 (p. 310):
-            // If the space and + flags both appear, the space flag is ignored
-            if (spec.sign != Sign::Plus)
-                spec.sign = Sign::Space;
+            spec.sign = Sign::Space;
             ++f;
             break;
         case '#':
@@ -1308,10 +1301,7 @@ static void ParsePrintfSpec(int& arg_index, FormatSpec& spec, std::string_view::
             ++f;
             break;
         case '0':
-            // N1570 (p. 310):
-            // If the 0 and - flags both appear, the 0 flag is ignored.
-            if (spec.align != Align::Left)
-                spec.zero = true;
+            spec.zero = true;
             ++f;
             break;
         case '\'':
@@ -1341,9 +1331,6 @@ static void ParsePrintfSpec(int& arg_index, FormatSpec& spec, std::string_view::
             break;
         case '*':
             ParseAsterisk(spec.width, f, end, nextarg, types, args);
-            // N1570 (p. 310):
-            // A negative field width argument is taken as a - flag followed by a
-            // positive field width.
             if (spec.width < 0) {
                 spec.width = (spec.width == INT_MIN) ? INT_MAX : -spec.width;
                 spec.align = Align::Left;

@@ -157,6 +157,11 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
 
 struct Util
 {
+    static FMTXX_API bool WriteSignedInt  (FormatBuffer& fb, int64_t val);
+    static FMTXX_API bool WriteUnsignedInt(FormatBuffer& fb, uint64_t val);
+    static FMTXX_API bool WriteHexInt     (FormatBuffer& fb, uint64_t val); // includes a "0x" prefix
+    static FMTXX_API bool WriteDouble     (FormatBuffer& fb, double val); // guaranteed to round-trip
+
     // Note:
     // The string must not be null. This function prints len characters, including '\0's.
     static FMTXX_API errc FormatString (FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len);
@@ -211,6 +216,11 @@ struct TreatAsString {
 template <typename T>
 struct FormatValue {
     errc operator()(FormatBuffer& fb, FormatSpec const& spec, T const& value) const;
+};
+
+template <typename T>
+struct WriteValue {
+    bool operator()(FormatBuffer& fb, T const& value) const;
 };
 
 // Appends the formatted arguments to the given output stream.
@@ -271,6 +281,117 @@ errc Printf(CharArray& os, std::string_view format, Args const&... args);
 // Returns a std::string containing the formatted arguments.
 template <typename ...Args>
 std::string StringPrintf(std::string_view format, Args const&... args);
+
+//------------------------------------------------------------------------------
+// Stream API
+
+inline FormatBuffer& operator<<(FormatBuffer& os, char ch) {
+    os.Put(ch);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, std::string_view str) {
+    os.Write(str.data(), str.size());
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, char const* str) {
+    return os << std::string_view(str != nullptr ? str : "(null)");
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, char* str) {
+    return os << std::string_view(str != nullptr ? str : "(null)");
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, bool val) {
+    return os << std::string_view(val ? "true" : "false");
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, void const* ptr) {
+    fmtxx::Util::WriteHexInt(os, reinterpret_cast<uintptr_t>(ptr));
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, void* ptr) {
+    fmtxx::Util::WriteHexInt(os, reinterpret_cast<uintptr_t>(ptr));
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, signed char val) {
+    fmtxx::Util::WriteSignedInt(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, signed short val) {
+    fmtxx::Util::WriteSignedInt(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, signed int val) {
+    fmtxx::Util::WriteSignedInt(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, signed long val) {
+    fmtxx::Util::WriteSignedInt(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, signed long long val) {
+    fmtxx::Util::WriteSignedInt(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, unsigned char val) {
+    fmtxx::Util::WriteUnsignedInt(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, unsigned short val) {
+    fmtxx::Util::WriteUnsignedInt(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, unsigned int val) {
+    fmtxx::Util::WriteUnsignedInt(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, unsigned long val) {
+    fmtxx::Util::WriteUnsignedInt(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, unsigned long long val) {
+    fmtxx::Util::WriteUnsignedInt(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, double val) {
+    fmtxx::Util::WriteDouble(os, val);
+    return os;
+}
+
+inline FormatBuffer& operator<<(FormatBuffer& os, float val) {
+    fmtxx::Util::WriteDouble(os, static_cast<double>(val));
+    return os;
+}
+
+template <typename T>
+inline FormatBuffer& operator<<(FormatBuffer& os, T const& value) {
+    fmtxx::WriteValue<T>{}(os, value);
+    return os;
+}
+
+template <
+    typename Buffer,
+    typename T,
+    typename = std::enable_if_t< !std::is_lvalue_reference<Buffer>::value && std::is_base_of<FormatBuffer, Buffer>::value >
+>
+inline Buffer&& operator<<(Buffer&& os, T const& val) {
+    os << val;
+    return std::move(os);
+}
 
 } // namespace fmtxx
 
@@ -486,6 +607,15 @@ errc StreamValue(FormatBuffer& fb, FormatSpec const& spec, T const& value)
     return Util::FormatString(fb, spec, str.data(), str.size());
 }
 
+template <typename Stream = std::ostringstream, typename T>
+bool StreamValue(FormatBuffer& fb, T const& value)
+{
+    Stream stream;
+    stream << value;
+    auto const& str = stream.str(); // Efficient read-only access would be nice...
+    return fb.Write(str.data(), str.size());
+}
+
 } // namespace impl
 } // namespace fmtxx
 
@@ -493,6 +623,12 @@ template <typename T>
 fmtxx::errc fmtxx::FormatValue<T>::operator()(FormatBuffer& fb, FormatSpec const& spec, T const& value) const
 {
     return fmtxx::impl::StreamValue(fb, spec, value);
+}
+
+template <typename T>
+bool fmtxx::WriteValue<T>::operator()(FormatBuffer& fb, T const& value) const
+{
+    return fmtxx::impl::StreamValue(fb, value);
 }
 
 template <typename ...Args>

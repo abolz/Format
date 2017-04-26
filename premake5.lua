@@ -188,3 +188,26 @@ project "TestPerf"
         "fmtxx",
         "fmt",
     }
+
+--project "Benchmark"
+--    language "C++"
+--    kind "ConsoleApp"
+--    files {
+--        "test/Benchmark.cc",
+--        "test/ext/benchmark/include/benchmark/*.h",
+--        "test/ext/benchmark/src/*.cc",
+--    }
+--    defines {
+--        "HAVE_STD_REGEX=1",
+--    }
+--    includedirs {
+--        "src/",
+--        "test/ext/",
+--        "test/ext/fmt/",
+--        "test/ext/benchmark/include/",
+--    }
+--    links {
+--        "pthread",
+--        "fmtxx",
+--        "fmt",
+--    }

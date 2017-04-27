@@ -841,23 +841,23 @@ namespace fmtxx
 {
     template <>
     struct FormatValue<Foo> {
-        auto operator()(FormatBuffer& os, FormatSpec const& spec, Foo const& value) const {
-            return fmtxx::Format(os, "{*}", spec, value.value);
+        auto operator()(Writer& w, FormatSpec const& spec, Foo const& value) const {
+            return fmtxx::Format(w, "{*}", spec, value.value);
         }
     };
 
     template <typename K, typename V>
     struct FormatValue<std::unordered_map<K, V>>
     {
-        auto operator()(FormatBuffer& os, FormatSpec const& spec, std::unordered_map<K, V> const& value) const
+        auto operator()(Writer& w, FormatSpec const& spec, std::unordered_map<K, V> const& value) const
         {
             //auto const key = spec.key;
             auto const key = spec.style;
             auto const I = value.find(key);
             if (I == value.end()) {
-                return fmtxx::Format(os, "[[key '{}' does not exist]]", key);
+                return fmtxx::Format(w, "[[key '{}' does not exist]]", key);
             }
-            return fmtxx::Format(os, "{*}", spec, I->second);
+            return fmtxx::Format(w, "{*}", spec, I->second);
         }
     };
 }
@@ -896,7 +896,7 @@ TEST_CASE("Chars", "1")
 
 #include <vector>
 
-class VectorBuffer : public fmtxx::FormatBuffer
+class VectorBuffer : public fmtxx::Writer
 {
     std::vector<char>& os;
 
@@ -923,8 +923,8 @@ namespace fmtxx
 {
     template <>
     struct FormatValue<std::vector<char>> {
-        auto operator()(FormatBuffer& fb, FormatSpec const& spec, std::vector<char> const& vec) const {
-            return fmtxx::Format(fb, "{*}", spec, std::string_view(vec.data(), vec.size()));
+        auto operator()(Writer& w, FormatSpec const& spec, std::vector<char> const& vec) const {
+            return fmtxx::Format(w, "{*}", spec, std::string_view(vec.data(), vec.size()));
         }
     };
 }

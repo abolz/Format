@@ -54,7 +54,7 @@ struct FormatSpec { {
 
 // Base class for formatting buffers. Can be implemented to provide formatting
 // into arbitrary buffers or streams.
-class FormatBuffer {
+class Writer {
     virtual bool Put(char c) = 0;
     virtual bool Write(char const* str, size_t len) = 0;
     virtual bool Pad(char c, size_t count) = 0;
@@ -62,10 +62,10 @@ class FormatBuffer {
 
 // Enables formatting of user-defined types. The default implementation uses
 // std::ostringstream to convert the argument into a string, and then appends
-// this string to the FormatBuffer.
+// this string to the Writer.
 template <typename T>
 struct FormatValue {
-    errc operator()(FormatBuffer& fb, FormatSpec const& spec, T const& value) const;
+    errc operator()(Writer& w, FormatSpec const& spec, T const& value) const;
 };
 
 // Specialize this if you want your data-type to be treated as a string.
@@ -80,7 +80,7 @@ struct TreatAsString {
 // The Printf-methods use a printf-style format string.
 
 template <typename ...Args>
-errc Format(FormatBuffer& fb, std::string_view format, Args const&... args);
+errc Format(Writer& w, std::string_view format, Args const&... args);
 
 template <typename ...Args>
 errc Format(std::string& os, std::string_view format, Args const&... args);
@@ -95,7 +95,7 @@ template <typename ...Args>
 std::string StringFormat(std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc Printf(FormatBuffer& fb, std::string_view format, Args const&... args);
+errc Printf(Writer& w, std::string_view format, Args const&... args);
 
 template <typename ...Args>
 errc Printf(std::string& os, std::string_view format, Args const&... args);
@@ -217,6 +217,8 @@ std::string StringPrintf(std::string_view format, Args const&... args);
     For string, integral and floating-point values has the same meaning as in
     printf.
     Ignored otherwise.
+
+    Note: Precision is applied before padding.
 
     **NOTE**: The maximum supported precision is `INT_MAX`.
 
@@ -352,7 +354,7 @@ struct Vector2D {
 template <>
 struct fmtxx::FormatValue<Vector2D>
 {
-    auto operator()(FormatBuffer& os, FormatSpec const& spec, Vector2D const& value) const
+    auto operator()(Writer& os, FormatSpec const& spec, Vector2D const& value) const
     {
         if (spec.conv == 'p' || spec.conv == 'P') // polar coordinates
         {
@@ -379,7 +381,7 @@ int main()
 #include "Format.h"
 #include <vector>
 
-struct VectorBuffer : public fmtxx::FormatBuffer
+struct VectorWriter : public fmtxx::Writer
 {
     std::vector<char> vec;
 
@@ -404,7 +406,7 @@ struct fmtxx::TreatAsString<std::vector<char>> : std::true_type {};
 
 int main()
 {
-    VectorBuffer buf;
+    VectorWriter buf;
     fmtxx::Format(buf, "{:5}", -123);
         // buf.vec = {' ', '-', '1', '2', '3'}
     fmtxx::Format(stdout, "{}\n", buf.vec);

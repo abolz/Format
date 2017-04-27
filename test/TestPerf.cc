@@ -245,7 +245,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #endif
 #if 1
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
-        fmtxx::FILEBuffer{stdout} << i;
+        fmtxx::FILEWriter{stdout} << i;
         //fmtxx::Format(stdout, "{}", i);
     });
 #endif
@@ -373,7 +373,7 @@ int main()
     timing_results.clear();
 #endif
 
-#if 0 // ints
+#if 1 // ints
 #if 1
     TestInts<int32_t>("%d",     "{}");
     TestInts<int32_t>("%8d",    "{:8d}");

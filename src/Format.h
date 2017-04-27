@@ -91,42 +91,42 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
     char  conv  = '\0';
 };
 
-struct FMTXX_VISIBILITY_DEFAULT FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT Writer
 {
-    FMTXX_API virtual ~FormatBuffer();
+    FMTXX_API virtual ~Writer();
 
     virtual bool Put(char c) = 0;
     virtual bool Write(char const* str, size_t len) = 0;
     virtual bool Pad(char c, size_t count) = 0;
 };
 
-struct FMTXX_VISIBILITY_DEFAULT StringBuffer : public FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT StringWriter : public Writer
 {
     std::string& os;
 
-    explicit StringBuffer(std::string& v) : os(v) {}
+    explicit StringWriter(std::string& v) : os(v) {}
 
     FMTXX_API bool Put(char c) override;
     FMTXX_API bool Write(char const* str, size_t len) override;
     FMTXX_API bool Pad(char c, size_t count) override;
 };
 
-struct FMTXX_VISIBILITY_DEFAULT FILEBuffer : public FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT FILEWriter : public Writer
 {
     std::FILE* os;
 
-    explicit FILEBuffer(std::FILE* v) : os(v) {}
+    explicit FILEWriter(std::FILE* v) : os(v) {}
 
     FMTXX_API bool Put(char c) noexcept override;
     FMTXX_API bool Write(char const* str, size_t len) noexcept override;
     FMTXX_API bool Pad(char c, size_t count) noexcept override;
 };
 
-struct FMTXX_VISIBILITY_DEFAULT StreamBuffer : public FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT StreamWriter : public Writer
 {
     std::ostream& os;
 
-    explicit StreamBuffer(std::ostream& v) : os(v) {}
+    explicit StreamWriter(std::ostream& v) : os(v) {}
 
     FMTXX_API bool Put(char c) override;
     FMTXX_API bool Write(char const* str, size_t len) override;
@@ -144,11 +144,11 @@ struct FMTXX_VISIBILITY_DEFAULT CharArray
     explicit CharArray(char (&buf)[N]) : next(buf), last(buf + N) {}
 };
 
-struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
+struct FMTXX_VISIBILITY_DEFAULT CharArrayWriter : public Writer
 {
     CharArray& os;
 
-    explicit CharArrayBuffer(CharArray& v) : os(v) {}
+    explicit CharArrayWriter(CharArray& v) : os(v) {}
 
     FMTXX_API bool Put(char c) noexcept override;
     FMTXX_API bool Write(char const* str, size_t len) noexcept override;
@@ -157,38 +157,38 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayBuffer : public FormatBuffer
 
 struct Util
 {
-    static FMTXX_API bool WriteSignedInt  (FormatBuffer& fb, int64_t val);
-    static FMTXX_API bool WriteUnsignedInt(FormatBuffer& fb, uint64_t val);
-    static FMTXX_API bool WriteHexInt     (FormatBuffer& fb, uint64_t val); // includes a "0x" prefix
-    static FMTXX_API bool WriteDouble     (FormatBuffer& fb, double val); // guaranteed to round-trip
+    static FMTXX_API bool WriteSignedInt  (Writer& w, int64_t val);
+    static FMTXX_API bool WriteUnsignedInt(Writer& w, uint64_t val);
+    static FMTXX_API bool WriteHexInt     (Writer& w, uint64_t val); // includes a "0x" prefix
+    static FMTXX_API bool WriteDouble     (Writer& w, double val); // guaranteed to round-trip
 
     // Note:
     // The string must not be null. This function prints len characters, including '\0's.
-    static FMTXX_API errc FormatString (FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len);
+    static FMTXX_API errc FormatString (Writer& w, FormatSpec const& spec, char const* str, size_t len);
     // Note:
     // This is different from just calling FormatString(str, strlen(str)):
     // This function handles nullptr's and if a precision is specified uses strnlen instead of strlen.
-    static FMTXX_API errc FormatString (FormatBuffer& fb, FormatSpec const& spec, char const* str);
-    static FMTXX_API errc FormatInt    (FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uint64_t zext);
-    static FMTXX_API errc FormatBool   (FormatBuffer& fb, FormatSpec const& spec, bool val);
-    static FMTXX_API errc FormatChar   (FormatBuffer& fb, FormatSpec const& spec, char ch);
-    static FMTXX_API errc FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer);
-    static FMTXX_API errc FormatDouble (FormatBuffer& fb, FormatSpec const& spec, double x);
+    static FMTXX_API errc FormatString (Writer& w, FormatSpec const& spec, char const* str);
+    static FMTXX_API errc FormatInt    (Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext);
+    static FMTXX_API errc FormatBool   (Writer& w, FormatSpec const& spec, bool val);
+    static FMTXX_API errc FormatChar   (Writer& w, FormatSpec const& spec, char ch);
+    static FMTXX_API errc FormatPointer(Writer& w, FormatSpec const& spec, void const* pointer);
+    static FMTXX_API errc FormatDouble (Writer& w, FormatSpec const& spec, double x);
 
     template <typename T>
-    static inline errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, T value) {
-        return FormatInt(fb, spec, value, std::is_signed<T>{});
+    static inline errc FormatInt(Writer& w, FormatSpec const& spec, T value) {
+        return FormatInt(w, spec, value, std::is_signed<T>{});
     }
 
 private:
     template <typename T>
-    static inline errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, T value, /*is_signed*/ std::true_type) {
-        return FormatInt(fb, spec, value, static_cast<std::make_unsigned_t<T>>(value));
+    static inline errc FormatInt(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::true_type) {
+        return FormatInt(w, spec, value, static_cast<std::make_unsigned_t<T>>(value));
     }
 
     template <typename T>
-    static inline errc FormatInt(FormatBuffer& fb, FormatSpec const& spec, T value, /*is_signed*/ std::false_type) {
-        return FormatInt(fb, spec, 0, value);
+    static inline errc FormatInt(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::false_type) {
+        return FormatInt(w, spec, 0, value);
     }
 };
 
@@ -215,17 +215,17 @@ struct TreatAsString {
 //
 template <typename T>
 struct FormatValue {
-    errc operator()(FormatBuffer& fb, FormatSpec const& spec, T const& value) const;
+    errc operator()(Writer& w, FormatSpec const& spec, T const& value) const;
 };
 
 template <typename T>
 struct WriteValue {
-    bool operator()(FormatBuffer& fb, T const& value) const;
+    bool operator()(Writer& w, T const& value) const;
 };
 
 // Appends the formatted arguments to the given output stream.
 template <typename ...Args>
-errc Format(FormatBuffer& fb, std::string_view format, Args const&... args);
+errc Format(Writer& w, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given string.
 template <typename ...Args>
@@ -257,7 +257,7 @@ std::string StringFormat(std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given output stream.
 template <typename ...Args>
-errc Printf(FormatBuffer& fb, std::string_view format, Args const&... args);
+errc Printf(Writer& w, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given string.
 template <typename ...Args>
@@ -285,112 +285,112 @@ std::string StringPrintf(std::string_view format, Args const&... args);
 //------------------------------------------------------------------------------
 // Stream API
 
-inline FormatBuffer& operator<<(FormatBuffer& os, char ch) {
-    os.Put(ch);
-    return os;
+inline Writer& operator<<(Writer& w, char ch) {
+    w.Put(ch);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, std::string_view str) {
-    os.Write(str.data(), str.size());
-    return os;
+inline Writer& operator<<(Writer& w, std::string_view str) {
+    w.Write(str.data(), str.size());
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, char const* str) {
-    return os << std::string_view(str != nullptr ? str : "(null)");
+inline Writer& operator<<(Writer& w, char const* str) {
+    return w << std::string_view(str != nullptr ? str : "(null)");
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, char* str) {
-    return os << std::string_view(str != nullptr ? str : "(null)");
+inline Writer& operator<<(Writer& w, char* str) {
+    return w << std::string_view(str != nullptr ? str : "(null)");
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, bool val) {
-    return os << std::string_view(val ? "true" : "false");
+inline Writer& operator<<(Writer& w, bool val) {
+    return w << std::string_view(val ? "true" : "false");
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, void const* ptr) {
-    fmtxx::Util::WriteHexInt(os, reinterpret_cast<uintptr_t>(ptr));
-    return os;
+inline Writer& operator<<(Writer& w, void const* ptr) {
+    fmtxx::Util::WriteHexInt(w, reinterpret_cast<uintptr_t>(ptr));
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, void* ptr) {
-    fmtxx::Util::WriteHexInt(os, reinterpret_cast<uintptr_t>(ptr));
-    return os;
+inline Writer& operator<<(Writer& w, void* ptr) {
+    fmtxx::Util::WriteHexInt(w, reinterpret_cast<uintptr_t>(ptr));
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, signed char val) {
-    fmtxx::Util::WriteSignedInt(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, signed char val) {
+    fmtxx::Util::WriteSignedInt(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, signed short val) {
-    fmtxx::Util::WriteSignedInt(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, signed short val) {
+    fmtxx::Util::WriteSignedInt(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, signed int val) {
-    fmtxx::Util::WriteSignedInt(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, signed int val) {
+    fmtxx::Util::WriteSignedInt(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, signed long val) {
-    fmtxx::Util::WriteSignedInt(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, signed long val) {
+    fmtxx::Util::WriteSignedInt(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, signed long long val) {
-    fmtxx::Util::WriteSignedInt(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, signed long long val) {
+    fmtxx::Util::WriteSignedInt(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, unsigned char val) {
-    fmtxx::Util::WriteUnsignedInt(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, unsigned char val) {
+    fmtxx::Util::WriteUnsignedInt(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, unsigned short val) {
-    fmtxx::Util::WriteUnsignedInt(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, unsigned short val) {
+    fmtxx::Util::WriteUnsignedInt(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, unsigned int val) {
-    fmtxx::Util::WriteUnsignedInt(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, unsigned int val) {
+    fmtxx::Util::WriteUnsignedInt(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, unsigned long val) {
-    fmtxx::Util::WriteUnsignedInt(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, unsigned long val) {
+    fmtxx::Util::WriteUnsignedInt(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, unsigned long long val) {
-    fmtxx::Util::WriteUnsignedInt(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, unsigned long long val) {
+    fmtxx::Util::WriteUnsignedInt(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, double val) {
-    fmtxx::Util::WriteDouble(os, val);
-    return os;
+inline Writer& operator<<(Writer& w, double val) {
+    fmtxx::Util::WriteDouble(w, val);
+    return w;
 }
 
-inline FormatBuffer& operator<<(FormatBuffer& os, float val) {
-    fmtxx::Util::WriteDouble(os, static_cast<double>(val));
-    return os;
+inline Writer& operator<<(Writer& w, float val) {
+    fmtxx::Util::WriteDouble(w, static_cast<double>(val));
+    return w;
 }
 
 template <typename T>
-inline FormatBuffer& operator<<(FormatBuffer& os, T const& value) {
-    fmtxx::WriteValue<T>{}(os, value);
-    return os;
+inline Writer& operator<<(Writer& w, T const& value) {
+    fmtxx::WriteValue<T>{}(w, value);
+    return w;
 }
 
 template <
-    typename Buffer,
+    typename WriterT,
     typename T,
-    typename = std::enable_if_t< !std::is_lvalue_reference<Buffer>::value && std::is_base_of<FormatBuffer, Buffer>::value >
+    typename = std::enable_if_t< !std::is_lvalue_reference<WriterT>::value && std::is_base_of<Writer, WriterT>::value >
 >
-inline Buffer&& operator<<(Buffer&& os, T const& val) {
-    os << val;
-    return std::move(os);
+inline WriterT&& operator<<(WriterT&& w, T const& val) {
+    w << val;
+    return std::move(w);
 }
 
 } // namespace fmtxx
@@ -492,10 +492,10 @@ private:
 class Arg
 {
 public:
-    using Func = errc (*)(FormatBuffer& buf, FormatSpec const& spec, void const* value);
+    using Func = errc (*)(Writer& buf, FormatSpec const& spec, void const* value);
 
     template <typename T>
-    static errc FormatValue_fn(FormatBuffer& buf, FormatSpec const& spec, void const* value)
+    static errc FormatValue_fn(Writer& buf, FormatSpec const& spec, void const* value)
     {
         return FormatValue<T>{}(buf, spec, *static_cast<T const*>(value));
     }
@@ -560,81 +560,81 @@ public:
     Arg(FormatSpec         const& v) : pvoid(&v) {}
 };
 
-FMTXX_API errc DoFormat(FormatBuffer& fb, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(std::string&  os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(std::FILE*    os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(Writer& w,        std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(std::string& os,  std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(std::FILE* os,    std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(CharArray&    os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(CharArray& os,    std::string_view format, Types types, Arg const* args);
 
-template <typename Buffer, typename ...Args>
-inline errc Format(Buffer& fb, std::string_view format, Args const&... args)
+template <typename WriterT, typename ...Args>
+inline errc Format(WriterT& w, std::string_view format, Args const&... args)
 {
     Arg arr[] = { args... };
-    return fmtxx::impl::DoFormat(fb, format, Types(args...), arr);
+    return fmtxx::impl::DoFormat(w, format, Types(args...), arr);
 }
 
-template <typename Buffer>
-inline errc Format(Buffer& fb, std::string_view format)
+template <typename WriterT>
+inline errc Format(WriterT& w, std::string_view format)
 {
-    return fmtxx::impl::DoFormat(fb, format, Types(), nullptr);
+    return fmtxx::impl::DoFormat(w, format, Types(), nullptr);
 }
 
-FMTXX_API errc DoPrintf(FormatBuffer& fb, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf(std::string&  os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf(std::FILE*    os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf(Writer& w,        std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf(std::string& os,  std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf(std::FILE* os,    std::string_view format, Types types, Arg const* args);
 FMTXX_API errc DoPrintf(std::ostream& os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf(CharArray&    os, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf(CharArray& os,    std::string_view format, Types types, Arg const* args);
 
-template <typename Buffer, typename ...Args>
-inline errc Printf(Buffer& fb, std::string_view format, Args const&... args)
+template <typename WriterT, typename ...Args>
+inline errc Printf(WriterT& w, std::string_view format, Args const&... args)
 {
     Arg arr[] = { args... };
-    return fmtxx::impl::DoPrintf(fb, format, Types(args...), arr);
+    return fmtxx::impl::DoPrintf(w, format, Types(args...), arr);
 }
 
-template <typename Buffer>
-inline errc Printf(Buffer& fb, std::string_view format)
+template <typename WriterT>
+inline errc Printf(WriterT& w, std::string_view format)
 {
-    return fmtxx::impl::DoPrintf(fb, format, Types(), nullptr);
+    return fmtxx::impl::DoPrintf(w, format, Types(), nullptr);
 }
 
 template <typename Stream = std::ostringstream, typename T>
-errc StreamValue(FormatBuffer& fb, FormatSpec const& spec, T const& value)
+errc StreamValue(Writer& w, FormatSpec const& spec, T const& value)
 {
     Stream stream;
     stream << value;
     auto const& str = stream.str(); // Efficient read-only access would be nice...
-    return Util::FormatString(fb, spec, str.data(), str.size());
+    return Util::FormatString(w, spec, str.data(), str.size());
 }
 
 template <typename Stream = std::ostringstream, typename T>
-bool StreamValue(FormatBuffer& fb, T const& value)
+bool StreamValue(Writer& w, T const& value)
 {
     Stream stream;
     stream << value;
     auto const& str = stream.str(); // Efficient read-only access would be nice...
-    return fb.Write(str.data(), str.size());
+    return w.Write(str.data(), str.size());
 }
 
 } // namespace impl
 } // namespace fmtxx
 
 template <typename T>
-fmtxx::errc fmtxx::FormatValue<T>::operator()(FormatBuffer& fb, FormatSpec const& spec, T const& value) const
+fmtxx::errc fmtxx::FormatValue<T>::operator()(Writer& w, FormatSpec const& spec, T const& value) const
 {
-    return fmtxx::impl::StreamValue(fb, spec, value);
+    return fmtxx::impl::StreamValue(w, spec, value);
 }
 
 template <typename T>
-bool fmtxx::WriteValue<T>::operator()(FormatBuffer& fb, T const& value) const
+bool fmtxx::WriteValue<T>::operator()(Writer& w, T const& value) const
 {
-    return fmtxx::impl::StreamValue(fb, value);
+    return fmtxx::impl::StreamValue(w, value);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Format(FormatBuffer& fb, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::Format(Writer& w, std::string_view format, Args const&... args)
 {
-    return fmtxx::impl::Format(fb, format, args...);
+    return fmtxx::impl::Format(w, format, args...);
 }
 
 template <typename ...Args>
@@ -670,9 +670,9 @@ std::string fmtxx::StringFormat(std::string_view format, Args const&... args)
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Printf(FormatBuffer& fb, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::Printf(Writer& w, std::string_view format, Args const&... args)
 {
-    return fmtxx::impl::Printf(fb, format, args...);
+    return fmtxx::impl::Printf(w, format, args...);
 }
 
 template <typename ...Args>

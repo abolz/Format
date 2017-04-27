@@ -34,7 +34,7 @@ struct Vector2D {
 template <>
 struct fmtxx::FormatValue<Vector2D>
 {
-    auto operator()(FormatBuffer& os, FormatSpec const& spec, Vector2D const& value) const
+    auto operator()(Writer& os, FormatSpec const& spec, Vector2D const& value) const
     {
         if (spec.conv == 'p' || spec.conv == 'P')
         {
@@ -65,7 +65,7 @@ int main()
 #include "Format.h"
 #include <vector>
 
-struct VectorBuffer : public fmtxx::FormatBuffer
+struct VectorBuffer : public fmtxx::Writer
 {
     std::vector<char> vec;
 

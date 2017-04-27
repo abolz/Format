@@ -40,39 +40,39 @@ static inline void UnusedParameter(T&&) {}
 //
 //------------------------------------------------------------------------------
 
-fmtxx::FormatBuffer::~FormatBuffer()
+fmtxx::Writer::~Writer()
 {
 }
 
-bool fmtxx::StringBuffer::Put(char c)
+bool fmtxx::StringWriter::Put(char c)
 {
     os.push_back(c);
     return true;
 }
 
-bool fmtxx::StringBuffer::Write(char const* str, size_t len)
+bool fmtxx::StringWriter::Write(char const* str, size_t len)
 {
     os.append(str, len);
     return true;
 }
 
-bool fmtxx::StringBuffer::Pad(char c, size_t count)
+bool fmtxx::StringWriter::Pad(char c, size_t count)
 {
     os.append(count, c);
     return true;
 }
 
-bool fmtxx::FILEBuffer::Put(char c) noexcept
+bool fmtxx::FILEWriter::Put(char c) noexcept
 {
     return EOF != std::fputc(c, os);
 }
 
-bool fmtxx::FILEBuffer::Write(char const* str, size_t len) noexcept
+bool fmtxx::FILEWriter::Write(char const* str, size_t len) noexcept
 {
     return len == std::fwrite(str, 1, len, os);
 }
 
-bool fmtxx::FILEBuffer::Pad(char c, size_t count) noexcept
+bool fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
 {
     size_t const kBlockSize = 32;
 
@@ -92,7 +92,7 @@ bool fmtxx::FILEBuffer::Pad(char c, size_t count) noexcept
     return true;
 }
 
-bool fmtxx::StreamBuffer::Put(char c)
+bool fmtxx::StreamWriter::Put(char c)
 {
     using traits_type = std::ostream::traits_type;
 
@@ -105,7 +105,7 @@ bool fmtxx::StreamBuffer::Put(char c)
     return true;
 }
 
-bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
+bool fmtxx::StreamWriter::Write(char const* str, size_t len)
 {
     auto const kMaxLen = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
 
@@ -127,7 +127,7 @@ bool fmtxx::StreamBuffer::Write(char const* str, size_t len)
     return true;
 }
 
-bool fmtxx::StreamBuffer::Pad(char c, size_t count)
+bool fmtxx::StreamWriter::Pad(char c, size_t count)
 {
     size_t const kBlockSize = 32;
 
@@ -151,7 +151,7 @@ bool fmtxx::StreamBuffer::Pad(char c, size_t count)
     return true;
 }
 
-bool fmtxx::CharArrayBuffer::Put(char c) noexcept
+bool fmtxx::CharArrayWriter::Put(char c) noexcept
 {
     if (os.next >= os.last)
         return false;
@@ -160,7 +160,7 @@ bool fmtxx::CharArrayBuffer::Put(char c) noexcept
     return true;
 }
 
-bool fmtxx::CharArrayBuffer::Write(char const* str, size_t len) noexcept
+bool fmtxx::CharArrayWriter::Write(char const* str, size_t len) noexcept
 {
     size_t const n = Min(len, static_cast<size_t>(os.last - os.next));
 
@@ -169,7 +169,7 @@ bool fmtxx::CharArrayBuffer::Write(char const* str, size_t len) noexcept
     return n == len;
 }
 
-bool fmtxx::CharArrayBuffer::Pad(char c, size_t count) noexcept
+bool fmtxx::CharArrayWriter::Pad(char c, size_t count) noexcept
 {
     size_t const n = Min(count, static_cast<size_t>(os.last - os.next));
 
@@ -227,7 +227,7 @@ static void ComputePadding(size_t len, Align align, int width, size_t& lpad, siz
 
 // Prints out exactly LEN characters (including '\0's) starting at STR,
 // possibly padding on the left and/or right.
-static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
+static errc PrintAndPadString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t lpad = 0;
     size_t spad = 0;
@@ -235,34 +235,34 @@ static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, char con
 
     ComputePadding(len, spec.align, spec.width, lpad, spad, rpad);
 
-    if (lpad > 0 && !fb.Pad(spec.fill, lpad))
+    if (lpad > 0 && !w.Pad(spec.fill, lpad))
         return errc::io_error;
-    if (len > 0  && !fb.Write(str, len))
+    if (len > 0  && !w.Write(str, len))
         return errc::io_error;
-    if (rpad > 0 && !fb.Pad(spec.fill, rpad))
+    if (rpad > 0 && !w.Pad(spec.fill, rpad))
         return errc::io_error;
 
     return errc::success;
 }
 
-static errc PrintAndPadString(FormatBuffer& fb, FormatSpec const& spec, std::string_view str)
+static errc PrintAndPadString(Writer& w, FormatSpec const& spec, std::string_view str)
 {
-    return PrintAndPadString(fb, spec, str.data(), str.size());
+    return PrintAndPadString(w, spec, str.data(), str.size());
 }
 
-errc fmtxx::Util::FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str, size_t len)
+errc fmtxx::Util::FormatString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t const n = (spec.prec >= 0)
         ? Min(len, static_cast<size_t>(spec.prec))
         : len;
 
-    return PrintAndPadString(fb, spec, str, n);
+    return PrintAndPadString(w, spec, str, n);
 }
 
-errc fmtxx::Util::FormatString(FormatBuffer& fb, FormatSpec const& spec, char const* str)
+errc fmtxx::Util::FormatString(Writer& w, FormatSpec const& spec, char const* str)
 {
     if (str == nullptr)
-        return PrintAndPadString(fb, spec, "(null)");
+        return PrintAndPadString(w, spec, "(null)");
 
     // Use strnlen if a precision was specified.
     // The string may not be null-terminated!
@@ -270,10 +270,10 @@ errc fmtxx::Util::FormatString(FormatBuffer& fb, FormatSpec const& spec, char co
         ? ::strnlen(str, static_cast<size_t>(spec.prec))
         : ::strlen(str);
 
-    return PrintAndPadString(fb, spec, str, len);
+    return PrintAndPadString(w, spec, str, len);
 }
 
-static errc PrintAndPadNumber(FormatBuffer& fb, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
+static errc PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
 {
     size_t const len = (sign ? 1u : 0u) + nprefix + ndigits;
 
@@ -283,17 +283,17 @@ static errc PrintAndPadNumber(FormatBuffer& fb, FormatSpec const& spec, char sig
 
     ComputePadding(len, spec.zero ? Align::PadAfterSign : spec.align, spec.width, lpad, spad, rpad);
 
-    if (lpad > 0     && !fb.Pad(spec.fill, lpad))
+    if (lpad > 0     && !w.Pad(spec.fill, lpad))
         return errc::io_error;
-    if (sign != '\0' && !fb.Put(sign))
+    if (sign != '\0' && !w.Put(sign))
         return errc::io_error;
-    if (nprefix > 0  && !fb.Write(prefix, nprefix))
+    if (nprefix > 0  && !w.Write(prefix, nprefix))
         return errc::io_error;
-    if (spad > 0     && !fb.Pad(spec.zero ? '0' : spec.fill, spad))
+    if (spad > 0     && !w.Pad(spec.zero ? '0' : spec.fill, spad))
         return errc::io_error;
-    if (ndigits > 0  && !fb.Write(digits, ndigits))
+    if (ndigits > 0  && !w.Write(digits, ndigits))
         return errc::io_error;
-    if (rpad > 0     && !fb.Pad(spec.fill, rpad))
+    if (rpad > 0     && !w.Pad(spec.fill, rpad))
         return errc::io_error;
 
     return errc::success;
@@ -335,7 +335,7 @@ static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
     return last;
 }
 
-bool fmtxx::Util::WriteSignedInt(FormatBuffer& fb, int64_t val)
+bool fmtxx::Util::WriteSignedInt(Writer& w, int64_t val)
 {
     uint64_t n = (val >= 0) ? static_cast<uint64_t>(val) : 0 - static_cast<uint64_t>(val);
 
@@ -346,16 +346,16 @@ bool fmtxx::Util::WriteSignedInt(FormatBuffer& fb, int64_t val)
     if (val < 0)
         *--f = '-';
 
-    return fb.Write(f, static_cast<size_t>(l - f));
+    return w.Write(f, static_cast<size_t>(l - f));
 }
 
-bool fmtxx::Util::WriteUnsignedInt(FormatBuffer& fb, uint64_t val)
+bool fmtxx::Util::WriteUnsignedInt(Writer& w, uint64_t val)
 {
     char buf[64];
     char* const l = buf + 64;
     char* const f = DecIntToAsciiBackwards(l, val);
 
-    return fb.Write(f, static_cast<size_t>(l - f));
+    return w.Write(f, static_cast<size_t>(l - f));
 }
 
 static constexpr char const* kUpperHexDigits = "0123456789ABCDEF";
@@ -387,7 +387,7 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
     return last;
 }
 
-bool fmtxx::Util::WriteHexInt(FormatBuffer& fb, uint64_t val)
+bool fmtxx::Util::WriteHexInt(Writer& w, uint64_t val)
 {
     char buf[64];
     char* const l = buf + 64;
@@ -396,7 +396,7 @@ bool fmtxx::Util::WriteHexInt(FormatBuffer& fb, uint64_t val)
     *--f = 'x';
     *--f = '0';
 
-    return fb.Write(f, static_cast<size_t>(l - f));
+    return w.Write(f, static_cast<size_t>(l - f));
 }
 
 // Inserts thousands separators into [buf, +pos).
@@ -425,7 +425,7 @@ static int InsertThousandsSep(char* buf, int pos, char sep, int group_len)
     return nsep;
 }
 
-errc fmtxx::Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t sext, uint64_t zext)
+errc fmtxx::Util::FormatInt(Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
     uint64_t number = zext;
     char     conv = spec.conv;
@@ -465,8 +465,8 @@ errc fmtxx::Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t se
 
     bool const upper = ('A' <= conv && conv <= 'Z');
 
-    static constexpr int kMaxSeps = (kMaxIntPrec - 1) / 3;
-    static constexpr int kBufSize = kMaxIntPrec + kMaxSeps;
+    enum { kMaxSeps = (kMaxIntPrec - 1) / 3 };
+    enum { kBufSize = kMaxIntPrec + kMaxSeps };
 
     // Need at least 64-characters for UINT64_MAX in base 2.
     static_assert(kMaxIntPrec >= 64, "invalid parameter");
@@ -489,32 +489,32 @@ errc fmtxx::Util::FormatInt(FormatBuffer& fb, FormatSpec const& spec, int64_t se
     }
 
     char const prefix[] = {'0', conv};
-    return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
+    return PrintAndPadNumber(w, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
 }
 
-errc fmtxx::Util::FormatBool(FormatBuffer& fb, FormatSpec const& spec, bool val)
+errc fmtxx::Util::FormatBool(Writer& w, FormatSpec const& spec, bool val)
 {
     switch (spec.conv)
     {
     default:
     case 's':
     case 't':
-        return PrintAndPadString(fb, spec, val ? "true" : "false");
+        return PrintAndPadString(w, spec, val ? "true" : "false");
     case 'y':
-        return PrintAndPadString(fb, spec, val ? "yes" : "no");
+        return PrintAndPadString(w, spec, val ? "yes" : "no");
     case 'o':
-        return PrintAndPadString(fb, spec, val ? "on" : "off");
+        return PrintAndPadString(w, spec, val ? "on" : "off");
     }
 }
 
-errc fmtxx::Util::FormatChar(FormatBuffer& fb, FormatSpec const& spec, char ch)
+errc fmtxx::Util::FormatChar(Writer& w, FormatSpec const& spec, char ch)
 {
     switch (spec.conv)
     {
     default:
     case 's':
     case 'c':
-        return PrintAndPadString(fb, spec, &ch, 1u);
+        return PrintAndPadString(w, spec, &ch, 1u);
     case 'd':
     case 'i':
     case 'u':
@@ -523,14 +523,14 @@ errc fmtxx::Util::FormatChar(FormatBuffer& fb, FormatSpec const& spec, char ch)
     case 'b':
     case 'B':
     case 'o':
-        return FormatInt(fb, spec, ch);
+        return FormatInt(w, spec, ch);
     }
 }
 
-errc fmtxx::Util::FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void const* pointer)
+errc fmtxx::Util::FormatPointer(Writer& w, FormatSpec const& spec, void const* pointer)
 {
     if (pointer == nullptr)
-        return PrintAndPadString(fb, spec, "(nil)");
+        return PrintAndPadString(w, spec, "(nil)");
 
     FormatSpec fs = spec;
     switch (fs.conv)
@@ -561,7 +561,7 @@ errc fmtxx::Util::FormatPointer(FormatBuffer& fb, FormatSpec const& spec, void c
         break;
     }
 
-    return FormatInt(fb, fs, reinterpret_cast<uintptr_t>(pointer));
+    return FormatInt(w, fs, reinterpret_cast<uintptr_t>(pointer));
 }
 
 namespace {
@@ -621,7 +621,7 @@ struct Double
 
 } // namespace
 
-bool fmtxx::Util::WriteDouble(FormatBuffer& fb, double x)
+bool fmtxx::Util::WriteDouble(Writer& w, double x)
 {
     Double const d { x };
 
@@ -629,9 +629,9 @@ bool fmtxx::Util::WriteDouble(FormatBuffer& fb, double x)
     double const abs_x = d.Abs();
 
     if (d.IsNaN())
-        return fb.Write("nan", 3);
+        return w.Write("nan", 3);
     if (d.IsInf())
-        return fb.Write(neg ? "-inf" : "inf", neg ? 4u : 3u);
+        return w.Write(neg ? "-inf" : "inf", neg ? 4u : 3u);
 
     char buf[64];
     buf[0] = '-';
@@ -639,15 +639,15 @@ bool fmtxx::Util::WriteDouble(FormatBuffer& fb, double x)
     auto const res = dtoa::ToECMAScript(buf + 1 /*sign*/, buf + 64, abs_x);
     assert(res.success); // cannot fail with a large enough buffer
 
-    return fb.Write(neg ? buf : buf + 1, static_cast<size_t>(res.size) + (neg ? 1u : 0u));
+    return w.Write(neg ? buf : buf + 1, static_cast<size_t>(res.size) + (neg ? 1u : 0u));
 }
 
-static errc HandleSpecialFloat(Double const d, FormatBuffer& fb, FormatSpec const& spec, char sign, bool upper)
+static errc HandleSpecialFloat(Double const d, Writer& w, FormatSpec const& spec, char sign, bool upper)
 {
     assert(d.IsSpecial());
 
     if (d.IsNaN())
-        return PrintAndPadString(fb, spec, upper ? "NAN" : "nan");
+        return PrintAndPadString(w, spec, upper ? "NAN" : "nan");
 
     char  inf_lower[] = " inf";
     char  inf_upper[] = " INF";
@@ -658,10 +658,10 @@ static errc HandleSpecialFloat(Double const d, FormatBuffer& fb, FormatSpec cons
     else
         ++str; // skip leading space
 
-    return PrintAndPadString(fb, spec, str);
+    return PrintAndPadString(w, spec, str);
 }
 
-errc fmtxx::Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double x)
+errc fmtxx::Util::FormatDouble(Writer& w, FormatSpec const& spec, double x)
 {
     dtoa::Options options;
 
@@ -747,11 +747,12 @@ errc fmtxx::Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double 
     if (d.IsSpecial())
     {
         bool const upper = ('A' <= conv && conv <= 'Z');
-        return HandleSpecialFloat(d, fb, spec, sign, upper);
+        return HandleSpecialFloat(d, w, spec, sign, upper);
     }
 
     // Allow printing *ALL* double-precision floating-point values with prec <= kMaxFloatPrec
     enum { kBufSize = 309 + 1/*.*/ + kMaxFloatPrec };
+
     char buf[kBufSize];
 
     dtoa::Result res;
@@ -788,7 +789,7 @@ errc fmtxx::Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double 
     size_t const buflen = static_cast<size_t>(res.size);
 
     char const prefix[] = {'0', conv};
-    return PrintAndPadNumber(fb, spec, sign, prefix, nprefix, buf, buflen);
+    return PrintAndPadNumber(w, spec, sign, prefix, nprefix, buf, buflen);
 }
 
 //------------------------------------------------------------------------------
@@ -803,7 +804,7 @@ errc fmtxx::Util::FormatDouble(FormatBuffer& fb, FormatSpec const& spec, double 
 #define EXPECT(EXPR, MSG) ((EXPR) ? true : throw std::runtime_error(MSG))
 #endif
 
-static errc CallFormatFunc(FormatBuffer& fb, FormatSpec const& spec, Types::value_type type, Arg const& arg)
+static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Types::value_type type, Arg const& arg)
 {
     switch (type)
     {
@@ -811,29 +812,29 @@ static errc CallFormatFunc(FormatBuffer& fb, FormatSpec const& spec, Types::valu
         assert(!"internal error");
         return errc::success;
     case Types::T_OTHER:
-        return arg.other.func(fb, spec, arg.other.value);
+        return arg.other.func(w, spec, arg.other.value);
     case Types::T_STRING:
-        return fmtxx::Util::FormatString(fb, spec, arg.string.data(), arg.string.size());
+        return fmtxx::Util::FormatString(w, spec, arg.string.data(), arg.string.size());
     case Types::T_PVOID:
-        return fmtxx::Util::FormatPointer(fb, spec, arg.pvoid);
+        return fmtxx::Util::FormatPointer(w, spec, arg.pvoid);
     case Types::T_PCHAR:
-        return fmtxx::Util::FormatString(fb, spec, arg.pchar);
+        return fmtxx::Util::FormatString(w, spec, arg.pchar);
     case Types::T_CHAR:
-        return fmtxx::Util::FormatChar(fb, spec, arg.char_);
+        return fmtxx::Util::FormatChar(w, spec, arg.char_);
     case Types::T_BOOL:
-        return fmtxx::Util::FormatBool(fb, spec, arg.bool_);
+        return fmtxx::Util::FormatBool(w, spec, arg.bool_);
     case Types::T_SCHAR:
-        return fmtxx::Util::FormatInt(fb, spec, arg.schar);
+        return fmtxx::Util::FormatInt(w, spec, arg.schar);
     case Types::T_SSHORT:
-        return fmtxx::Util::FormatInt(fb, spec, arg.sshort);
+        return fmtxx::Util::FormatInt(w, spec, arg.sshort);
     case Types::T_SINT:
-        return fmtxx::Util::FormatInt(fb, spec, arg.sint);
+        return fmtxx::Util::FormatInt(w, spec, arg.sint);
     case Types::T_SLONGLONG:
-        return fmtxx::Util::FormatInt(fb, spec, arg.slonglong);
+        return fmtxx::Util::FormatInt(w, spec, arg.slonglong);
     case Types::T_ULONGLONG:
-        return fmtxx::Util::FormatInt(fb, spec, arg.ulonglong);
+        return fmtxx::Util::FormatInt(w, spec, arg.ulonglong);
     case Types::T_DOUBLE:
-        return fmtxx::Util::FormatDouble(fb, spec, arg.double_);
+        return fmtxx::Util::FormatDouble(w, spec, arg.double_);
     case Types::T_FORMATSPEC:
         assert(!"internal error");
         return errc::success;
@@ -936,9 +937,7 @@ static void ParseFormatSpecArg(FormatSpec& spec, std::string_view::iterator& f, 
     if (!EXPECT(f != end, "unexpected end of format-string"))
         return;
 
-    int const index = IsDigit(*f)
-        ? ParseInt(f, end)
-        : nextarg++;
+    int const index = IsDigit(*f) ? ParseInt(f, end) : nextarg++;
 
     if (!EXPECT(types[index] == Types::T_FORMATSPEC, "invalid argument: FormatSpec expected"))
         return;
@@ -1094,7 +1093,8 @@ static void ParseStyle(FormatSpec& spec, std::string_view::iterator& f, std::str
         return;
 
     while (*f != '}' && ++f != end)
-        ;
+    {
+    }
 
     spec.style = { &*f0, static_cast<size_t>(f - f0) };
 }
@@ -1141,7 +1141,7 @@ static void ParseReplacementField(FormatSpec& spec, std::string_view::iterator& 
     ++f;
 }
 
-errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types types, Arg const* args)
+errc fmtxx::impl::DoFormat(Writer& w, std::string_view format, Types types, Arg const* args)
 {
     if (format.empty())
         return errc::success;
@@ -1156,7 +1156,7 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
         while (f != end && *f != '{' && *f != '}')
             ++f;
 
-        if (f != s && !fb.Write(&*s, static_cast<size_t>(f - s)))
+        if (f != s && !w.Write(&*s, static_cast<size_t>(f - s)))
             return errc::io_error; // io-error
 
         if (f == end) // done.
@@ -1166,7 +1166,7 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
         ++f; // skip '{' or '}'
 
         if (!EXPECT(f != end, "missing '}' or stray '}'"))
-            return fb.Put(*prev) ? errc::success : errc::io_error;
+            return w.Put(*prev) ? errc::success : errc::io_error;
 
         if (*prev == *f) // '{{' or '}}'
         {
@@ -1207,7 +1207,7 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
         if (!EXPECT(arg_type != Types::T_FORMATSPEC, "invalid formatting argument (FormatSpec)"))
             continue;
 
-        auto const err = CallFormatFunc(fb, spec, arg_type, args[arg_index]);
+        auto const err = CallFormatFunc(w, spec, arg_type, args[arg_index]);
         if (err != errc::success)
             return err;
     }
@@ -1217,14 +1217,14 @@ errc fmtxx::impl::DoFormat(FormatBuffer& fb, std::string_view format, Types type
 
 errc fmtxx::impl::DoFormat(std::string& os, std::string_view format, Types types, Arg const* args)
 {
-    StringBuffer fb { os };
-    return DoFormat(fb, format, types, args);
+    StringWriter w { os };
+    return DoFormat(w, format, types, args);
 }
 
 errc fmtxx::impl::DoFormat(std::FILE* os, std::string_view format, Types types, Arg const* args)
 {
-    FILEBuffer fb { os };
-    return DoFormat(fb, format, types, args);
+    FILEWriter w { os };
+    return DoFormat(w, format, types, args);
 }
 
 errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args)
@@ -1232,8 +1232,8 @@ errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types type
     std::ostream::sentry const se(os);
     if (se)
     {
-        StreamBuffer fb { os };
-        return DoFormat(fb, format, types, args);
+        StreamWriter w { os };
+        return DoFormat(w, format, types, args);
     }
 
     return errc::io_error;
@@ -1241,8 +1241,8 @@ errc fmtxx::impl::DoFormat(std::ostream& os, std::string_view format, Types type
 
 errc fmtxx::impl::DoFormat(CharArray& os, std::string_view format, Types types, Arg const* args)
 {
-    CharArrayBuffer fb { os };
-    return DoFormat(fb, format, types, args);
+    CharArrayWriter w { os };
+    return DoFormat(w, format, types, args);
 }
 
 static void ParseAsterisk(int& value, std::string_view::iterator& f, std::string_view::iterator const end, int& nextarg, Types types, Arg const* args)
@@ -1425,7 +1425,7 @@ static void ParsePrintfSpec(int& arg_index, FormatSpec& spec, std::string_view::
     }
 }
 
-errc fmtxx::impl::DoPrintf(FormatBuffer& fb, std::string_view format, Types types, Arg const* args)
+errc fmtxx::impl::DoPrintf(Writer& w, std::string_view format, Types types, Arg const* args)
 {
     if (format.empty())
         return errc::success;
@@ -1440,7 +1440,7 @@ errc fmtxx::impl::DoPrintf(FormatBuffer& fb, std::string_view format, Types type
         while (f != end && *f != '%')
             ++f;
 
-        if (f != s && !fb.Write(&*s, static_cast<size_t>(f - s)))
+        if (f != s && !w.Write(&*s, static_cast<size_t>(f - s)))
             return errc::io_error;
 
         if (f == end) // done.
@@ -1450,7 +1450,7 @@ errc fmtxx::impl::DoPrintf(FormatBuffer& fb, std::string_view format, Types type
         ++f; // skip '%'
 
         if (!EXPECT(f != end, "unexpected end of format-string"))
-            return fb.Put(*prev) ? errc::success : errc::io_error;
+            return w.Put(*prev) ? errc::success : errc::io_error;
 
         if (*f == '%') // '%%'
         {
@@ -1479,7 +1479,7 @@ errc fmtxx::impl::DoPrintf(FormatBuffer& fb, std::string_view format, Types type
         if (!EXPECT(arg_type != Types::T_FORMATSPEC, "invalid formatting argument (FormatSpec)"))
             continue;
 
-        auto const err = CallFormatFunc(fb, spec, arg_type, args[arg_index]);
+        auto const err = CallFormatFunc(w, spec, arg_type, args[arg_index]);
         if (err != errc::success)
             return err;
     }
@@ -1489,14 +1489,14 @@ errc fmtxx::impl::DoPrintf(FormatBuffer& fb, std::string_view format, Types type
 
 errc fmtxx::impl::DoPrintf(std::string& os, std::string_view format, Types types, Arg const* args)
 {
-    StringBuffer fb { os };
-    return DoPrintf(fb, format, types, args);
+    StringWriter w { os };
+    return DoPrintf(w, format, types, args);
 }
 
 errc fmtxx::impl::DoPrintf(std::FILE* os, std::string_view format, Types types, Arg const* args)
 {
-    FILEBuffer fb { os };
-    return DoPrintf(fb, format, types, args);
+    FILEWriter w { os };
+    return DoPrintf(w, format, types, args);
 }
 
 errc fmtxx::impl::DoPrintf(std::ostream& os, std::string_view format, Types types, Arg const* args)
@@ -1504,8 +1504,8 @@ errc fmtxx::impl::DoPrintf(std::ostream& os, std::string_view format, Types type
     std::ostream::sentry const se(os);
     if (se)
     {
-        StreamBuffer fb { os };
-        return DoPrintf(fb, format, types, args);
+        StreamWriter w { os };
+        return DoPrintf(w, format, types, args);
     }
 
     return errc::io_error;
@@ -1513,8 +1513,8 @@ errc fmtxx::impl::DoPrintf(std::ostream& os, std::string_view format, Types type
 
 errc fmtxx::impl::DoPrintf(CharArray& os, std::string_view format, Types types, Arg const* args)
 {
-    CharArrayBuffer fb { os };
-    return DoPrintf(fb, format, types, args);
+    CharArrayWriter w { os };
+    return DoPrintf(w, format, types, args);
 }
 
 //------------------------------------------------------------------------------

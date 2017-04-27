@@ -200,7 +200,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #endif
 
 #if HAVE_FMTLIB
-    //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
+    times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
     //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 
@@ -215,11 +215,11 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     //    std::fwrite(w.data(), 1, w.size(), stdout);
     //});
 
-    times.t_fmt = GenerateNumbers(n, dist, [&](auto i) {
-        fmt::MemoryWriter w;
-        w << i;
-        std::fwrite(w.data(), 1, w.size(), stdout);
-    });
+    //times.t_fmt = GenerateNumbers(n, dist, [&](auto i) {
+    //    fmt::MemoryWriter w;
+    //    w << i;
+    //    std::fwrite(w.data(), 1, w.size(), stdout);
+    //});
 #endif
 
 #if HAVE_TINYFORMAT
@@ -243,13 +243,13 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
         std::fwrite(str.data(), 1, str.size(), stdout);
     });
 #endif
-#if 1
+#if 0
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         fmtxx::FILEWriter{stdout} << i;
         //fmtxx::Format(stdout, "{}", i);
     });
 #endif
-#if 0
+#if 1
   #if 1
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];

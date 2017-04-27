@@ -283,6 +283,8 @@ TEST_CASE("Ints", "1")
     CHECK("74565"     == PrintfArgs("%ts",     V));
     CHECK("74565"     == PrintfArgs("%Ls",     V));
 
+    CHECK("123" == PrintfArgs("%5$d", 1, 2, 3, 4, 123));
+
     CHECK("74565"     == FormatArgs("{}",     V));
     CHECK("-74565"    == FormatArgs("{}",    -V));
     CHECK(" 74565"    == FormatArgs("{: }",   V));

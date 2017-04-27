@@ -1319,14 +1319,21 @@ static void ParsePrintfSpec(int& arg_index, FormatSpec& spec, std::string_view::
         case '7':
         case '8':
         case '9':
-            spec.width = ParseInt(f, end);
-            if (!EXPECT(f != end, "unexpected end of format-string"))
-                return;
-            // If this number ends with a '$' its actually a positional argument
-            // index and not the field width.
-            if (*f == '$') {
-                ++f;
-                arg_index = spec.width - 1;
+            {
+                int const n = ParseInt(f, end);
+                if (!EXPECT(f != end, "unexpected end of format-string"))
+                    return;
+                // If this number ends with a '$' its actually a positional argument
+                // index and not the field width.
+                if (*f == '$')
+                {
+                    ++f;
+                    arg_index = n - 1;
+                }
+                else
+                {
+                    spec.width = n;
+                }
             }
             break;
         case '*':

@@ -194,7 +194,13 @@ static char ComputeSignChar(bool neg, Sign sign, char fill)
     return '\0';
 }
 
-static void ComputePadding(size_t len, Align align, int width, size_t& lpad, size_t& spad, size_t& rpad)
+struct Padding {
+    size_t left       = 0;
+    size_t after_sign = 0;
+    size_t right      = 0;
+};
+
+static Padding ComputePadding(size_t len, Align align, int width)
 {
     assert(width >= 0); // internal error
 
@@ -202,44 +208,37 @@ static void ComputePadding(size_t len, Align align, int width, size_t& lpad, siz
         width = kMaxFieldWidth;
 
     size_t const w = static_cast<size_t>(width);
-    if (w <= len)
-        return;
-
-    size_t const d = w - len;
-    switch (align)
+    if (w > len)
     {
-    case Align::Default:
-    case Align::Right:
-        lpad = d;
-        break;
-    case Align::Left:
-        rpad = d;
-        break;
-    case Align::Center:
-        lpad = d/2;
-        rpad = d - d/2;
-        break;
-    case Align::PadAfterSign:
-        spad = d;
-        break;
+        size_t const d = w - len;
+        switch (align)
+        {
+        case Align::Default:
+        case Align::Right:
+            return { d, 0, 0 };
+        case Align::Left:
+            return { 0, 0, d };
+        case Align::Center:
+            return { d/2, 0, d - d/2 };
+        case Align::PadAfterSign:
+            return { 0, d, 0 };
+        }
     }
+
+    return { 0, 0, 0 };
 }
 
 // Prints out exactly LEN characters (including '\0's) starting at STR,
 // possibly padding on the left and/or right.
 static errc PrintAndPadString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
-    size_t lpad = 0;
-    size_t spad = 0;
-    size_t rpad = 0;
+    auto const pad = ComputePadding(len, spec.align, spec.width);
 
-    ComputePadding(len, spec.align, spec.width, lpad, spad, rpad);
-
-    if (lpad > 0 && !w.Pad(spec.fill, lpad))
+    if (pad.left > 0  && !w.Pad(spec.fill, pad.left))
         return errc::io_error;
-    if (len > 0  && !w.Write(str, len))
+    if (len > 0       && !w.Write(str, len))
         return errc::io_error;
-    if (rpad > 0 && !w.Pad(spec.fill, rpad))
+    if (pad.right > 0 && !w.Pad(spec.fill, pad.right))
         return errc::io_error;
 
     return errc::success;
@@ -277,23 +276,19 @@ static errc PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign, char
 {
     size_t const len = (sign ? 1u : 0u) + nprefix + ndigits;
 
-    size_t lpad = 0;
-    size_t spad = 0;
-    size_t rpad = 0;
+    auto const pad = ComputePadding(len, spec.zero ? Align::PadAfterSign : spec.align, spec.width);
 
-    ComputePadding(len, spec.zero ? Align::PadAfterSign : spec.align, spec.width, lpad, spad, rpad);
-
-    if (lpad > 0     && !w.Pad(spec.fill, lpad))
+    if (pad.left > 0       && !w.Pad(spec.fill, pad.left))
         return errc::io_error;
-    if (sign != '\0' && !w.Put(sign))
+    if (sign != '\0'       && !w.Put(sign))
         return errc::io_error;
-    if (nprefix > 0  && !w.Write(prefix, nprefix))
+    if (nprefix > 0        && !w.Write(prefix, nprefix))
         return errc::io_error;
-    if (spad > 0     && !w.Pad(spec.zero ? '0' : spec.fill, spad))
+    if (pad.after_sign > 0 && !w.Pad(spec.zero ? '0' : spec.fill, pad.after_sign))
         return errc::io_error;
-    if (ndigits > 0  && !w.Write(digits, ndigits))
+    if (ndigits > 0        && !w.Write(digits, ndigits))
         return errc::io_error;
-    if (rpad > 0     && !w.Pad(spec.fill, rpad))
+    if (pad.right > 0      && !w.Pad(spec.fill, pad.right))
         return errc::io_error;
 
     return errc::success;
@@ -758,27 +753,27 @@ static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Types::value_type 
     case Types::T_OTHER:
         return arg.other.func(w, spec, arg.other.value);
     case Types::T_STRING:
-        return fmtxx::Util::FormatString(w, spec, arg.string.data(), arg.string.size());
+        return Util::FormatString(w, spec, arg.string.data(), arg.string.size());
     case Types::T_PVOID:
-        return fmtxx::Util::FormatPointer(w, spec, arg.pvoid);
+        return Util::FormatPointer(w, spec, arg.pvoid);
     case Types::T_PCHAR:
-        return fmtxx::Util::FormatString(w, spec, arg.pchar);
+        return Util::FormatString(w, spec, arg.pchar);
     case Types::T_CHAR:
-        return fmtxx::Util::FormatChar(w, spec, arg.char_);
+        return Util::FormatChar(w, spec, arg.char_);
     case Types::T_BOOL:
-        return fmtxx::Util::FormatBool(w, spec, arg.bool_);
+        return Util::FormatBool(w, spec, arg.bool_);
     case Types::T_SCHAR:
-        return fmtxx::Util::FormatInt(w, spec, arg.schar);
+        return Util::FormatInt(w, spec, arg.schar);
     case Types::T_SSHORT:
-        return fmtxx::Util::FormatInt(w, spec, arg.sshort);
+        return Util::FormatInt(w, spec, arg.sshort);
     case Types::T_SINT:
-        return fmtxx::Util::FormatInt(w, spec, arg.sint);
+        return Util::FormatInt(w, spec, arg.sint);
     case Types::T_SLONGLONG:
-        return fmtxx::Util::FormatInt(w, spec, arg.slonglong);
+        return Util::FormatInt(w, spec, arg.slonglong);
     case Types::T_ULONGLONG:
-        return fmtxx::Util::FormatInt(w, spec, arg.ulonglong);
+        return Util::FormatInt(w, spec, arg.ulonglong);
     case Types::T_DOUBLE:
-        return fmtxx::Util::FormatDouble(w, spec, arg.double_);
+        return Util::FormatDouble(w, spec, arg.double_);
     case Types::T_FORMATSPEC:
         assert(!"internal error");
         return errc::success;

@@ -59,7 +59,6 @@ namespace fmtxx {
 enum struct errc {
     success,
     io_error,
-    invalid_format_string,
 };
 
 enum struct Align : unsigned char {
@@ -157,11 +156,6 @@ struct FMTXX_VISIBILITY_DEFAULT CharArrayWriter : public Writer
 
 struct Util
 {
-    static FMTXX_API bool WriteSignedInt  (Writer& w, int64_t val);
-    static FMTXX_API bool WriteUnsignedInt(Writer& w, uint64_t val);
-    static FMTXX_API bool WriteHexInt     (Writer& w, uint64_t val); // includes a "0x" prefix
-    static FMTXX_API bool WriteDouble     (Writer& w, double val); // guaranteed to round-trip
-
     // Note:
     // The string must not be null. This function prints len characters, including '\0's.
     static FMTXX_API errc FormatString (Writer& w, FormatSpec const& spec, char const* str, size_t len);
@@ -176,19 +170,11 @@ struct Util
     static FMTXX_API errc FormatDouble (Writer& w, FormatSpec const& spec, double x);
 
     template <typename T>
-    static inline errc FormatInt(Writer& w, FormatSpec const& spec, T value) {
-        return FormatInt(w, spec, value, std::is_signed<T>{});
-    }
-
-private:
-    template <typename T>
-    static inline errc FormatInt(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::true_type) {
-        return FormatInt(w, spec, value, static_cast<std::make_unsigned_t<T>>(value));
-    }
-
-    template <typename T>
-    static inline errc FormatInt(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::false_type) {
-        return FormatInt(w, spec, 0, value);
+    static inline errc FormatInt(Writer& w, FormatSpec const& spec, T value)
+    {
+        return std::is_signed<T>::value
+            ? FormatInt(w, spec, value, static_cast<std::make_unsigned_t<T>>(value))
+            : FormatInt(w, spec, 0, value);
     }
 };
 
@@ -214,13 +200,156 @@ struct TreatAsString {
 // !!!
 //
 template <typename T>
-struct FormatValue {
-    errc operator()(Writer& w, FormatSpec const& spec, T const& value) const;
+struct FormatValue
+{
+    template <typename Stream = std::ostringstream>
+    errc operator()(Writer& w, FormatSpec const& spec, T const& val) const
+    {
+        Stream stream;
+        stream << val;
+        auto const& str = stream.str();
+        return Util::FormatString(w, spec, str.data(), str.size());
+    }
 };
 
-template <typename T>
-struct WriteValue {
-    bool operator()(Writer& w, T const& value) const;
+template <>
+struct FormatValue<bool> {
+    errc operator()(Writer& w, FormatSpec const& spec, bool val) const {
+        return Util::FormatBool(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<std::string_view> {
+    errc operator()(Writer& w, FormatSpec const& spec, std::string_view val) const {
+        return Util::FormatString(w, spec, val.data(), val.size());
+    }
+};
+
+template <>
+struct FormatValue<std::string> {
+    errc operator()(Writer& w, FormatSpec const& spec, std::string const& val) const {
+        return Util::FormatString(w, spec, val.data(), val.size());
+    }
+};
+
+template <>
+struct FormatValue<char const*> {
+    errc operator()(Writer& w, FormatSpec const& spec, char const* val) const {
+        return Util::FormatString(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<char*> {
+    errc operator()(Writer& w, FormatSpec const& spec, char* val) const {
+        return Util::FormatString(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<char> {
+    errc operator()(Writer& w, FormatSpec const& spec, char val) const {
+        return Util::FormatChar(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<void const*> {
+    errc operator()(Writer& w, FormatSpec const& spec, void const* val) const {
+        return Util::FormatPointer(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<void*> {
+    errc operator()(Writer& w, FormatSpec const& spec, void* val) const {
+        return Util::FormatPointer(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<signed char> {
+    errc operator()(Writer& w, FormatSpec const& spec, signed char val) const {
+        return Util::FormatInt(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<signed short> {
+    errc operator()(Writer& w, FormatSpec const& spec, signed short val) const {
+        return Util::FormatInt(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<signed int> {
+    errc operator()(Writer& w, FormatSpec const& spec, signed int val) const {
+        return Util::FormatInt(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<signed long> {
+    errc operator()(Writer& w, FormatSpec const& spec, signed long val) const {
+        return Util::FormatInt(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<signed long long> {
+    errc operator()(Writer& w, FormatSpec const& spec, signed long long val) const {
+        return Util::FormatInt(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<unsigned char> {
+    errc operator()(Writer& w, FormatSpec const& spec, unsigned char val) const {
+        return Util::FormatInt(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<unsigned short> {
+    errc operator()(Writer& w, FormatSpec const& spec, unsigned short val) const {
+        return Util::FormatInt(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<unsigned int> {
+    errc operator()(Writer& w, FormatSpec const& spec, unsigned int val) const {
+        return Util::FormatInt(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<unsigned long> {
+    errc operator()(Writer& w, FormatSpec const& spec, unsigned long val) const {
+        return Util::FormatInt(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<unsigned long long> {
+    errc operator()(Writer& w, FormatSpec const& spec, unsigned long long val) const {
+        return Util::FormatInt(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<double> {
+    errc operator()(Writer& w, FormatSpec const& spec, double val) const {
+        return Util::FormatDouble(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<float> {
+    errc operator()(Writer& w, FormatSpec const& spec, float val) const {
+        return Util::FormatDouble(w, spec, static_cast<double>(val));
+    }
 };
 
 // Appends the formatted arguments to the given output stream.
@@ -242,14 +371,6 @@ errc Format(std::ostream& os, std::string_view format, Args const&... args);
 // Appends the formatted arguments to the given stream.
 template <typename ...Args>
 errc Format(CharArray& os, std::string_view format, Args const&... args);
-
-//struct ArrayFormatResult {
-//    char* next;
-//    bool ec;
-//};
-
-//template <typename ...Args>
-//ArrayFormatResult ArrayFormat(char* next, char* last, std::string_view format, Args const&... args) noexcept;
 
 // Returns a std::string containing the formatted arguments.
 template <typename ...Args>
@@ -275,9 +396,6 @@ errc Printf(std::ostream& os, std::string_view format, Args const&... args);
 template <typename ...Args>
 errc Printf(CharArray& os, std::string_view format, Args const&... args);
 
-//template <typename ...Args>
-//ArrayFormatResult ArrayPrintf(char* next, char* last, std::string_view format, Args const&... args) noexcept;
-
 // Returns a std::string containing the formatted arguments.
 template <typename ...Args>
 std::string StringPrintf(std::string_view format, Args const&... args);
@@ -285,101 +403,9 @@ std::string StringPrintf(std::string_view format, Args const&... args);
 //------------------------------------------------------------------------------
 // Stream API
 
-inline Writer& operator<<(Writer& w, char ch) {
-    w.Put(ch);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, std::string_view str) {
-    w.Write(str.data(), str.size());
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, char const* str) {
-    return w << std::string_view(str != nullptr ? str : "(null)");
-}
-
-inline Writer& operator<<(Writer& w, char* str) {
-    return w << std::string_view(str != nullptr ? str : "(null)");
-}
-
-inline Writer& operator<<(Writer& w, bool val) {
-    return w << std::string_view(val ? "true" : "false");
-}
-
-inline Writer& operator<<(Writer& w, void const* ptr) {
-    fmtxx::Util::WriteHexInt(w, reinterpret_cast<uintptr_t>(ptr));
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, void* ptr) {
-    fmtxx::Util::WriteHexInt(w, reinterpret_cast<uintptr_t>(ptr));
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, signed char val) {
-    fmtxx::Util::WriteSignedInt(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, signed short val) {
-    fmtxx::Util::WriteSignedInt(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, signed int val) {
-    fmtxx::Util::WriteSignedInt(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, signed long val) {
-    fmtxx::Util::WriteSignedInt(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, signed long long val) {
-    fmtxx::Util::WriteSignedInt(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, unsigned char val) {
-    fmtxx::Util::WriteUnsignedInt(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, unsigned short val) {
-    fmtxx::Util::WriteUnsignedInt(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, unsigned int val) {
-    fmtxx::Util::WriteUnsignedInt(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, unsigned long val) {
-    fmtxx::Util::WriteUnsignedInt(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, unsigned long long val) {
-    fmtxx::Util::WriteUnsignedInt(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, double val) {
-    fmtxx::Util::WriteDouble(w, val);
-    return w;
-}
-
-inline Writer& operator<<(Writer& w, float val) {
-    fmtxx::Util::WriteDouble(w, static_cast<double>(val));
-    return w;
-}
-
 template <typename T>
 inline Writer& operator<<(Writer& w, T const& value) {
-    fmtxx::WriteValue<T>{}(w, value);
+    FormatValue<T>{}(w, FormatSpec{}, value);
     return w;
 }
 
@@ -530,8 +556,7 @@ public:
     // XXX:
     // Keep in sync with Types::GetId() above!!!
     template <typename T>
-    Arg(T const& v) : Arg(v, std::integral_constant<bool, TreatAsString<T>::value>{}) {}
-
+    Arg(T                  const& v) : Arg(v, std::integral_constant<bool, TreatAsString<T>::value>{}) {}
     Arg(bool               const& v) : bool_(v) {}
     Arg(std::string_view   const& v) : string(v) {}
     Arg(std::string        const& v) : string(v) {}
@@ -598,38 +623,8 @@ inline errc Printf(WriterT& w, std::string_view format)
     return fmtxx::impl::DoPrintf(w, format, Types(), nullptr);
 }
 
-template <typename Stream = std::ostringstream, typename T>
-errc StreamValue(Writer& w, FormatSpec const& spec, T const& value)
-{
-    Stream stream;
-    stream << value;
-    auto const& str = stream.str(); // Efficient read-only access would be nice...
-    return Util::FormatString(w, spec, str.data(), str.size());
-}
-
-template <typename Stream = std::ostringstream, typename T>
-bool StreamValue(Writer& w, T const& value)
-{
-    Stream stream;
-    stream << value;
-    auto const& str = stream.str(); // Efficient read-only access would be nice...
-    return w.Write(str.data(), str.size());
-}
-
 } // namespace impl
 } // namespace fmtxx
-
-template <typename T>
-fmtxx::errc fmtxx::FormatValue<T>::operator()(Writer& w, FormatSpec const& spec, T const& value) const
-{
-    return fmtxx::impl::StreamValue(w, spec, value);
-}
-
-template <typename T>
-bool fmtxx::WriteValue<T>::operator()(Writer& w, T const& value) const
-{
-    return fmtxx::impl::StreamValue(w, value);
-}
 
 template <typename ...Args>
 fmtxx::errc fmtxx::Format(Writer& w, std::string_view format, Args const&... args)

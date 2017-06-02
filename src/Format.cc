@@ -335,29 +335,6 @@ static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
     return last;
 }
 
-bool fmtxx::Util::WriteSignedInt(Writer& w, int64_t val)
-{
-    uint64_t n = (val >= 0) ? static_cast<uint64_t>(val) : 0 - static_cast<uint64_t>(val);
-
-    char buf[64];
-    char* const l = buf + 64;
-    char*       f = DecIntToAsciiBackwards(l, n);
-
-    if (val < 0)
-        *--f = '-';
-
-    return w.Write(f, static_cast<size_t>(l - f));
-}
-
-bool fmtxx::Util::WriteUnsignedInt(Writer& w, uint64_t val)
-{
-    char buf[64];
-    char* const l = buf + 64;
-    char* const f = DecIntToAsciiBackwards(l, val);
-
-    return w.Write(f, static_cast<size_t>(l - f));
-}
-
 static constexpr char const* kUpperHexDigits = "0123456789ABCDEF";
 static constexpr char const* kLowerHexDigits = "0123456789abcdef";
 
@@ -376,27 +353,15 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
         do *--last = xdigits[n & 15]; while (n >>= 4);
         return last;
     case 8:
-        do *--last = xdigits[n & 7]; while (n >>= 3);
+        do *--last = kUpperHexDigits[n & 7]; while (n >>= 3);
         return last;
     case 2:
-        do *--last = xdigits[n & 1]; while (n >>= 1);
+        do *--last = kUpperHexDigits[n & 1]; while (n >>= 1);
         return last;
     }
 
     assert(!"not implemented"); // internal error
     return last;
-}
-
-bool fmtxx::Util::WriteHexInt(Writer& w, uint64_t val)
-{
-    char buf[64];
-    char* const l = buf + 64;
-    char*       f = IntToAsciiBackwards(l, val, /*base*/ 16, /*capitals*/ false);
-
-    *--f = 'x';
-    *--f = '0';
-
-    return w.Write(f, static_cast<size_t>(l - f));
 }
 
 // Inserts thousands separators into [buf, +pos).
@@ -620,27 +585,6 @@ struct Double
 };
 
 } // namespace
-
-bool fmtxx::Util::WriteDouble(Writer& w, double x)
-{
-    Double const d { x };
-
-    bool   const neg = (d.Sign() != 0);
-    double const abs_x = d.Abs();
-
-    if (d.IsNaN())
-        return w.Write("nan", 3);
-    if (d.IsInf())
-        return w.Write(neg ? "-inf" : "inf", neg ? 4u : 3u);
-
-    char buf[64];
-    buf[0] = '-';
-
-    auto const res = dtoa::ToECMAScript(buf + 1 /*sign*/, buf + 64, abs_x);
-    assert(res.success); // cannot fail with a large enough buffer
-
-    return w.Write(neg ? buf : buf + 1, static_cast<size_t>(res.size) + (neg ? 1u : 0u));
-}
 
 static errc HandleSpecialFloat(Double const d, Writer& w, FormatSpec const& spec, char sign, bool upper)
 {
@@ -1125,18 +1069,7 @@ static void ParseReplacementField(FormatSpec& spec, std::string_view::iterator& 
     }
 
     if (!EXPECT(*f == '}', "unexpected characters in format-spec"))
-    {
-#if 0
-        for (;;) {
-            if (++f == end)
-                return;
-            if (*f == '}')
-                break;
-        }
-#else
         return;
-#endif
-    }
 
     ++f;
 }

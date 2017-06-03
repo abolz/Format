@@ -342,6 +342,13 @@ struct FormatValue<float> {
 };
 
 template <>
+struct FormatValue<long double> {
+    errc operator()(Writer& w, FormatSpec const& spec, long double val) const {
+        return Util::FormatDouble(w, spec, static_cast<double>(val));
+    }
+};
+
+template <>
 struct FormatValue<void>
 {
     template <typename T>
@@ -514,6 +521,7 @@ private:
     static unsigned GetId(unsigned long long const&) { return T_ULONGLONG; }
     static unsigned GetId(double             const&) { return T_DOUBLE; }
     static unsigned GetId(float              const&) { return T_DOUBLE; }
+    static unsigned GetId(long double        const&) { return T_DOUBLE; }
     static unsigned GetId(FormatSpec         const&) { return T_FORMATSPEC; }
 
     static value_type Make() { return 0; }
@@ -583,6 +591,7 @@ public:
     Arg(unsigned long long const& v) : ulonglong(v) {}
     Arg(double             const& v) : double_(v) {}
     Arg(float              const& v) : double_(static_cast<double>(v)) {}
+    Arg(long double        const& v) : double_(static_cast<double>(v)) {}
     Arg(FormatSpec         const& v) : pvoid(&v) {}
 };
 

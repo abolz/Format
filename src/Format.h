@@ -179,17 +179,6 @@ struct Util
 };
 
 //
-// Specialize this if you want your data-type to be treated as a string.
-//
-// T must have member functions data() and size() and their return values must
-// be convertible to char const* and size_t resp.
-//
-template <typename T>
-struct TreatAsString {
-    static constexpr bool value = false;
-};
-
-//
 // Specialize this to format user-defined types.
 //
 // The default implementation uses std::ostringstream to convert the value into
@@ -499,7 +488,7 @@ private:
     // XXX:
     // Keep in sync with Arg::Arg() below!!!
     template <typename T>
-    static unsigned GetId(T                  const&) { return TreatAsString<T>::value ? T_STRING : T_OTHER; }
+    static unsigned GetId(T                  const&) { return T_OTHER; }
     static unsigned GetId(bool               const&) { return T_BOOL; }
     static unsigned GetId(std::string_view   const&) { return T_STRING; }
     static unsigned GetId(std::string        const&) { return T_STRING; }
@@ -565,20 +554,10 @@ public:
         double double_;
     };
 
-    template <typename T>
-    Arg(T const& v, std::true_type) : string{ v.data(), v.size() }
-    {
-    }
-
-    template <typename T>
-    Arg(T const& v, std::false_type) : other{ &v, &FormatValue_fn<T> }
-    {
-    }
-
     // XXX:
     // Keep in sync with Types::GetId() above!!!
     template <typename T>
-    Arg(T                  const& v) : Arg(v, std::integral_constant<bool, TreatAsString<T>::value>{}) {}
+    Arg(T                  const& v) : other{ &v, &FormatValue_fn<T> } {}
     Arg(bool               const& v) : bool_(v) {}
     Arg(std::string_view   const& v) : string(v) {}
     Arg(std::string        const& v) : string(v) {}

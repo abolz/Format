@@ -845,7 +845,7 @@ namespace fmtxx
     template <>
     struct FormatValue<Foo> {
         auto operator()(Writer& w, FormatSpec const& spec, Foo const& value) const {
-            return fmtxx::format(w, "{*}", spec, value.value);
+            return fmtxx::format_value(w, spec, value.value);
         }
     };
 
@@ -860,7 +860,7 @@ namespace fmtxx
             if (I == value.end()) {
                 return fmtxx::format(w, "[[key '{}' does not exist]]", key);
             }
-            return fmtxx::format(w, "{*}", spec, I->second);
+			return FormatValue<>{}(w, spec, I->second);
         }
     };
 }

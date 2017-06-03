@@ -199,7 +199,7 @@ struct TreatAsString {
 //      #include <sstream>
 // !!!
 //
-template <typename T>
+template <typename T = void>
 struct FormatValue
 {
     template <typename Stream = std::ostringstream>
@@ -351,6 +351,21 @@ struct FormatValue<float> {
         return Util::FormatDouble(w, spec, static_cast<double>(val));
     }
 };
+
+template <>
+struct FormatValue<void>
+{
+	template <typename T>
+	errc operator()(Writer& w, FormatSpec const& spec, T const& val) const {
+		return FormatValue<T>{}(w, spec, val);
+	}
+};
+
+template <typename T>
+errc format_value(Writer& w, FormatSpec const& spec, T const& value)
+{
+    return FormatValue<T>{}(w, spec, value);
+}
 
 // Appends the formatted arguments to the given output stream.
 template <typename ...Args>

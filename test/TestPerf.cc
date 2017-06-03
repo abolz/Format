@@ -2,15 +2,11 @@
 
 #define HAVE_PRINTF 0
 #define HAVE_FMTLIB 1
-#define HAVE_TINYFORMAT 0
 
 #if HAVE_FMTLIB
 #define FMT_SHARED 1
 #include "fmt/format.h"
 #include "fmt/ostream.h"
-#endif
-#if HAVE_TINYFORMAT
-#include "tinyformat/tinyformat.h"
 #endif
 
 #include <chrono>
@@ -36,9 +32,6 @@ struct Times {
 #if HAVE_FMTLIB
     double t_fmt    = 0.0;
 #endif
-#if HAVE_TINYFORMAT
-    double t_tiny   = 0.0;
-#endif
     double t_fmtxx  = 0.0;
 };
 
@@ -56,9 +49,6 @@ static void PrintAvgTimes()
 #if HAVE_FMTLIB
         avg.t_fmt    += t.t_fmt;
 #endif
-#if HAVE_TINYFORMAT
-        avg.t_tiny   += t.t_tiny;
-#endif
         avg.t_fmtxx  += t.t_fmtxx;
     }
 
@@ -71,9 +61,6 @@ static void PrintAvgTimes()
 #endif
 #if HAVE_FMTLIB
     fprintf(stderr, "fmt:     x%.2f\n", ref / avg.t_fmt);
-#endif
-#if HAVE_TINYFORMAT
-    fprintf(stderr, "tiny:    x%.2f\n", ref / avg.t_tiny);
 #endif
     fprintf(stderr, "fmtxx:   x%.2f\n", ref / avg.t_fmtxx);
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
@@ -191,9 +178,6 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #if HAVE_FMTLIB
     times.t_fmt     = 1.0;
 #endif
-#if HAVE_TINYFORMAT
-    times.t_tiny    = 1.0;
-#endif
 
 #else
 #if HAVE_PRINTF
@@ -222,10 +206,6 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     //    w << i;
     //    std::fwrite(w.data(), 1, w.size(), stdout);
     //});
-#endif
-
-#if HAVE_TINYFORMAT
-    times.t_tiny    = GenerateNumbers(n, dist, [=](auto i) { tinyformat::printf(format_printf, i); });
 #endif
 
 #endif // NO_COMP
@@ -308,18 +288,12 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #if HAVE_FMTLIB
         "   fmt:     %.2f sec (x%.2f)\n"
 #endif
-#if HAVE_TINYFORMAT
-        "   tiny:    %.2f sec (x%.2f)\n"
-#endif
         "   fmtxx:   %.2f sec (x%.2f)\n",
 #if HAVE_PRINTF
         times.t_printf, ref / times.t_printf,
 #endif
 #if HAVE_FMTLIB
         times.t_fmt,   ref / times.t_fmt,
-#endif
-#if HAVE_TINYFORMAT
-        times.t_tiny, ref / times.t_tiny,
 #endif
         times.t_fmtxx, ref / times.t_fmtxx);
 #endif

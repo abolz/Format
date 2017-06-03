@@ -231,24 +231,24 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #endif // NO_COMP
 
 #if 0
-    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(stdout, format_fmtxx, i); });
+    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::format(stdout, format_fmtxx, i); });
 #endif
 #if 0
-    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::Format(std::cout, format_fmtxx, i); });
+    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::format(std::cout, format_fmtxx, i); });
 #endif
 #if 0
-    times.t_fmtxx   = GenerateNumbers(n, dist, [&](auto i) { std::cout << fmtxx::StringFormat(format_fmtxx, i); });
+    times.t_fmtxx   = GenerateNumbers(n, dist, [&](auto i) { std::cout << fmtxx::sformat(format_fmtxx, i); });
 #endif
 #if 0
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
-        const auto str = fmtxx::StringFormat(format_fmtxx, i);
+        const auto str = fmtxx::sformat(format_fmtxx, i);
         std::fwrite(str.data(), 1, str.size(), stdout);
     });
 #endif
 #if 0
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         fmtxx::FILEWriter{stdout} << i;
-        //fmtxx::Format(stdout, "{}", i);
+        //fmtxx::format(stdout, "{}", i);
     });
 #endif
 #if 1
@@ -256,14 +256,14 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArray os{buf};
-        fmtxx::Format(os, format_fmtxx, i);
+        fmtxx::format(os, format_fmtxx, i);
         std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
     });
   #else
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArray os{buf};
-        fmtxx::Printf(os, format_printf, i);
+        fmtxx::printf(os, format_printf, i);
         std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
     });
   #endif
@@ -273,14 +273,14 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     std::string buf;
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         buf.clear();
-        fmtxx::Format(buf, format_fmtxx, i);
+        fmtxx::format(buf, format_fmtxx, i);
         std::fwrite(buf.data(), 1, buf.size(), stdout);
     });
   #else
     std::string buf;
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         buf.clear();
-        fmtxx::Printf(buf, format_printf, i);
+        fmtxx::printf(buf, format_printf, i);
         std::fwrite(buf.data(), 1, buf.size(), stdout);
     });
   #endif

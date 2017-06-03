@@ -354,51 +354,55 @@ struct FormatValue<float> {
 
 // Appends the formatted arguments to the given output stream.
 template <typename ...Args>
-errc Format(Writer& w, std::string_view format, Args const&... args);
+errc format(Writer& w, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given string.
 template <typename ...Args>
-errc Format(std::string& os, std::string_view format, Args const&... args);
+errc format(std::string& os, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
 template <typename ...Args>
-errc Format(std::FILE* os, std::string_view format, Args const&... args);
+errc format(std::FILE* os, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
 template <typename ...Args>
-errc Format(std::ostream& os, std::string_view format, Args const&... args);
+errc format(std::ostream& os, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
 template <typename ...Args>
-errc Format(CharArray& os, std::string_view format, Args const&... args);
+errc format(CharArray& os, std::string_view format, Args const&... args);
 
 // Returns a std::string containing the formatted arguments.
 template <typename ...Args>
-std::string StringFormat(std::string_view format, Args const&... args);
+std::string sformat(std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given output stream.
 template <typename ...Args>
-errc Printf(Writer& w, std::string_view format, Args const&... args);
+errc printf(Writer& w, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given string.
 template <typename ...Args>
-errc Printf(std::string& os, std::string_view format, Args const&... args);
+errc printf(std::string& os, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
 template <typename ...Args>
-errc Printf(std::FILE* os, std::string_view format, Args const&... args);
+errc printf(std::FILE* os, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
 template <typename ...Args>
-errc Printf(std::ostream& os, std::string_view format, Args const&... args);
+errc fprintf(std::FILE* os, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
 template <typename ...Args>
-errc Printf(CharArray& os, std::string_view format, Args const&... args);
+errc printf(std::ostream& os, std::string_view format, Args const&... args);
+
+// Appends the formatted arguments to the given stream.
+template <typename ...Args>
+errc printf(CharArray& os, std::string_view format, Args const&... args);
 
 // Returns a std::string containing the formatted arguments.
 template <typename ...Args>
-std::string StringPrintf(std::string_view format, Args const&... args);
+std::string sprintf(std::string_view format, Args const&... args);
 
 //------------------------------------------------------------------------------
 // Stream API
@@ -627,78 +631,84 @@ inline errc Printf(WriterT& w, std::string_view format)
 } // namespace fmtxx
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Format(Writer& w, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::format(Writer& w, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Format(w, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Format(std::string& os, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::format(std::string& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Format(std::FILE* os, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::format(std::FILE* os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Format(std::ostream& os, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::format(std::ostream& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Format(CharArray& os, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::format(CharArray& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
-std::string fmtxx::StringFormat(std::string_view format, Args const&... args)
+std::string fmtxx::sformat(std::string_view format, Args const&... args)
 {
     std::string os;
-    fmtxx::Format(os, format, args...); // Returns true or throws (OOM)
+    fmtxx::format(os, format, args...); // Returns true or throws (OOM)
     return os;
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Printf(Writer& w, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::printf(Writer& w, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(w, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Printf(std::string& os, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::printf(std::string& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Printf(std::FILE* os, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::printf(std::FILE* os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Printf(std::ostream& os, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::fprintf(std::FILE* os, std::string_view format, Args const&... args)
+{
+	return fmtxx::impl::Printf(os, format, args...);
+}
+
+template <typename ...Args>
+fmtxx::errc fmtxx::printf(std::ostream& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::Printf(CharArray& os, std::string_view format, Args const&... args)
+fmtxx::errc fmtxx::printf(CharArray& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(os, format, args...);
 }
 
 template <typename ...Args>
-std::string fmtxx::StringPrintf(std::string_view format, Args const&... args)
+std::string fmtxx::sprintf(std::string_view format, Args const&... args)
 {
     std::string os;
-    fmtxx::Printf(os, format, args...); // Returns true or throws (OOM)
+    fmtxx::printf(os, format, args...); // Returns true or throws (OOM)
     return os;
 }
 

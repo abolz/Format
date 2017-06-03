@@ -81,14 +81,14 @@ static std::string FormatArgs1(std::string_view format, Args const&... args)
 struct FormatFn {
     template <typename Buffer, typename ...Args>
     auto operator()(Buffer& fb, std::string_view format, Args const&... args) const {
-        return fmtxx::Format(fb, format, args...);
+        return fmtxx::format(fb, format, args...);
     }
 };
 
 struct PrintfFn {
     template <typename Buffer, typename ...Args>
     auto operator()(Buffer& fb, std::string_view format, Args const&... args) const {
-        return fmtxx::Printf(fb, format, args...);
+        return fmtxx::printf(fb, format, args...);
     }
 };
 
@@ -845,7 +845,7 @@ namespace fmtxx
     template <>
     struct FormatValue<Foo> {
         auto operator()(Writer& w, FormatSpec const& spec, Foo const& value) const {
-            return fmtxx::Format(w, "{*}", spec, value.value);
+            return fmtxx::format(w, "{*}", spec, value.value);
         }
     };
 
@@ -858,9 +858,9 @@ namespace fmtxx
             auto const key = spec.style;
             auto const I = value.find(key);
             if (I == value.end()) {
-                return fmtxx::Format(w, "[[key '{}' does not exist]]", key);
+                return fmtxx::format(w, "[[key '{}' does not exist]]", key);
             }
-            return fmtxx::Format(w, "{*}", spec, I->second);
+            return fmtxx::format(w, "{*}", spec, I->second);
         }
     };
 }
@@ -936,7 +936,7 @@ TEST_CASE("Vector", "1")
 {
     std::vector<char> os;
     VectorBuffer buf { os };
-    fmtxx::Format(buf, "{:6}", -1234);
+    fmtxx::format(buf, "{:6}", -1234);
     REQUIRE(os.size() == 6);
     CHECK(os[0] == ' '); // pad
     CHECK(os[1] == '-'); // put
@@ -963,7 +963,7 @@ TEST_CASE("FormatPretty", "1")
         {2, "zwei"},
     };
 
-    std::string s = fmtxx::StringFormat("  {}  ", fmtxx::Pretty(map));
+    std::string s = fmtxx::sformat("  {}  ", fmtxx::pretty(map));
 	CHECK(s == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
 }
 #endif

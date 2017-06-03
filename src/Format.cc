@@ -6,6 +6,7 @@
 
 #include <cstring>
 #include <algorithm>
+#include <limits>
 #include <ostream>
 
 using namespace fmtxx;
@@ -32,6 +33,11 @@ enum { kMaxFloatPrec = 751 + 323 };
 
 template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
 template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
+
+template <typename T>
+static constexpr T Clip(T x, std::add_const_t<T> lower, std::add_const_t<T> upper) {
+    return Max(lower, Min(x, upper));
+}
 
 template <typename T>
 static inline void UnusedParameter(T&&) {}
@@ -377,7 +383,7 @@ static int InsertThousandsSep(char* buf, int pos, char sep, int group_len)
 
     for (int i = 0; i < nsep; ++i)
     {
-        for (int i = 0; i < group_len; ++i)
+        for (int j = 0; j < group_len; ++j)
             *--dst = *--src;
         *--dst = sep;
     }
@@ -743,6 +749,15 @@ errc fmtxx::Util::FormatDouble(Writer& w, FormatSpec const& spec, double x)
 #define EXPECT(EXPR, MSG) ((EXPR) ? true : throw std::runtime_error(MSG))
 #endif
 
+static void FixNegativeFieldWidth(FormatSpec& spec)
+{
+    if (spec.width >= 0)
+        return;
+
+    spec.width = (spec.width == INT_MIN) ? INT_MAX : -spec.width;
+    spec.align = Align::Left;
+}
+
 static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Types::value_type type, Arg const& arg)
 {
     switch (type)
@@ -787,15 +802,19 @@ static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
 static int ParseInt(std::string_view::iterator& f, std::string_view::iterator const end)
 {
     assert(f != end && IsDigit(*f)); // internal error
+    auto const f0 = f;
 
     int x = *f - '0';
 
     while (++f != end && IsDigit(*f))
     {
-        if (!EXPECT( x <= INT_MAX / 10 && *f - '0' <= INT_MAX - 10 * x, "integer overflow" ))
+        if ((f - f0) + 1 > std::numeric_limits<int>::digits10)
         {
-            while (++f != end && IsDigit(*f)) {}
-            return INT_MAX;
+            if (!EXPECT( x <= INT_MAX / 10 && *f - '0' <= INT_MAX - 10 * x, "integer overflow" ))
+            {
+                while (++f != end && IsDigit(*f)) {}
+                return INT_MAX;
+            }
         }
 
         x = 10 * x + (*f - '0');
@@ -821,18 +840,10 @@ static void GetIntArg(int& value, int index, Types types, Arg const* args)
         value = args[index].sint;
         break;
     case Types::T_SLONGLONG:
-        if (args[index].slonglong < INT_MIN)
-            value = INT_MIN;
-        else if (args[index].slonglong > INT_MAX)
-            value = INT_MAX;
-        else
-            value = static_cast<int>(args[index].slonglong);
+        value = static_cast<int>(Clip(args[index].slonglong, INT_MIN, INT_MAX));
         break;
     case Types::T_ULONGLONG:
-        if (args[index].ulonglong > INT_MAX)
-            value = INT_MAX;
-        else
-            value = static_cast<int>(args[index].ulonglong);
+        value = static_cast<int>(Clip(args[index].ulonglong, 0, INT_MAX));
         break;
     default:
         static_cast<void>(EXPECT(false, "argument is not an integer type"));
@@ -882,11 +893,7 @@ static void ParseFormatSpecArg(FormatSpec& spec, std::string_view::iterator& f, 
         return;
 
     spec = *static_cast<FormatSpec const*>(args[index].pvoid);
-
-    if (spec.width < 0) {
-        spec.width = (spec.width == INT_MIN) ? INT_MAX : -spec.width;
-        spec.align = Align::Left;
-    }
+    FixNegativeFieldWidth(spec);
 }
 
 static bool ParseAlign(FormatSpec& spec, char c)
@@ -975,10 +982,7 @@ static void ParseFormatSpec(FormatSpec& spec, std::string_view::iterator& f, std
             break;
         case '{':
             ParseLBrace(spec.width, f, end, nextarg, types, args);
-            if (spec.width < 0) {
-                spec.width = (spec.width == INT_MIN) ? INT_MAX : -spec.width;
-                spec.align = Align::Left;
-            }
+            FixNegativeFieldWidth(spec);
             break;
 // Precision
         case '.':
@@ -1266,10 +1270,7 @@ static void ParsePrintfSpec(int& arg_index, FormatSpec& spec, std::string_view::
             break;
         case '*':
             ParseAsterisk(spec.width, f, end, nextarg, types, args);
-            if (spec.width < 0) {
-                spec.width = (spec.width == INT_MIN) ? INT_MAX : -spec.width;
-                spec.align = Align::Left;
-            }
+            FixNegativeFieldWidth(spec);
             break;
 // Precision
         case '.':

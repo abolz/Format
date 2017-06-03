@@ -165,10 +165,11 @@ TEST_CASE("Invalid", "1")
     CHECK_THROWS(FormatArgs("{0}{2}", 1, 2));
     CHECK_THROWS(FormatArgs("{10}", 1));
     CHECK_THROWS(FormatArgs("{2147483647}", 1));
-    CHECK_THROWS(FormatArgs("{2147483648}", 0));
-    CHECK_THROWS(FormatArgs("{99999999999}", 1));
-    CHECK_THROWS(FormatArgs("{:99999999999.0}", 1));
-    CHECK_THROWS(FormatArgs("{:.99999999999}", 1));
+	CHECK_THROWS(FormatArgs("{2147483648}", 0));
+	CHECK_NOTHROW(FormatArgs("{:2147483647}", 0));
+	CHECK_THROWS(FormatArgs("{:2147483648}", 0));
+	CHECK_NOTHROW(FormatArgs("{:.2147483647}", 0));
+	CHECK_THROWS(FormatArgs("{:.2147483648}", 0));
     CHECK_THROWS(FormatArgs("{:.", 0));
 }
 #endif
@@ -926,7 +927,7 @@ namespace fmtxx
     template <>
     struct FormatValue<std::vector<char>> {
         auto operator()(Writer& w, FormatSpec const& spec, std::vector<char> const& vec) const {
-            return fmtxx::Format(w, "{*}", spec, std::string_view(vec.data(), vec.size()));
+            return fmtxx::Util::FormatString(w, spec, vec.data(), vec.size());
         }
     };
 }
@@ -947,3 +948,22 @@ TEST_CASE("Vector", "1")
     std::vector<char> str = { '1', '2', '3', '4' };
     CHECK("1234" == FormatArgs("{}", str));
 }
+
+//------------------------------------------------------------------------------
+
+#if 0
+#include "FormatPretty.h"
+#include <map>
+
+TEST_CASE("FormatPretty", "1")
+{
+    std::map<int, std::string> map = {
+        {0, "null"},
+        {1, "eins"},
+        {2, "zwei"},
+    };
+
+    std::string s = fmtxx::StringFormat("  {}  ", fmtxx::Pretty(map));
+	CHECK(s == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
+}
+#endif

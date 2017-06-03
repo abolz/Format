@@ -174,7 +174,9 @@ static double GenerateNumbers(int n, Distribution& dist, F func)
 template <typename Distribution>
 static void RunTest(int n, Distribution& dist, char const* format_printf, char const* format_fmtxx, char const* format_fmt = nullptr)
 {
-    if (format_fmt == nullptr)
+	static_cast<void>(format_printf); // maybe unused
+
+	if (format_fmt == nullptr)
         format_fmt = format_fmtxx;
 
     fprintf(stderr, "Test <%s> %s\n", typeid(typename Distribution::result_type).name(), format_fmtxx);

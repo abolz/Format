@@ -355,15 +355,18 @@ struct FormatValue<float> {
 template <>
 struct FormatValue<void>
 {
-	template <typename T>
-	errc operator()(Writer& w, FormatSpec const& spec, T const& val) const {
-		return FormatValue<T>{}(w, spec, val);
-	}
+    template <typename T>
+    errc operator()(Writer& w, FormatSpec const& spec, T const& val) const {
+        return FormatValue<T>{}(w, spec, val);
+    }
 };
 
-template <typename T>
-errc format_value(Writer& w, FormatSpec const& spec, T const& value)
-{
+template <
+    typename WriterT,
+    typename T,
+    typename = std::enable_if_t< std::is_base_of<Writer, std::remove_reference_t<WriterT>>::value >
+>
+errc format_value(WriterT&& w, FormatSpec const& spec, T const& value) {
     return FormatValue<T>{}(w, spec, value);
 }
 
@@ -537,12 +540,12 @@ private:
 class Arg
 {
 public:
-    using Func = errc (*)(Writer& buf, FormatSpec const& spec, void const* value);
+    using Func = errc (*)(Writer& w, FormatSpec const& spec, void const* value);
 
     template <typename T>
-    static errc FormatValue_fn(Writer& buf, FormatSpec const& spec, void const* value)
+    static errc FormatValue_fn(Writer& w, FormatSpec const& spec, void const* value)
     {
-        return FormatValue<T>{}(buf, spec, *static_cast<T const*>(value));
+        return FormatValue<T>{}(w, spec, *static_cast<T const*>(value));
     }
 
     struct Other { void const* value; Func func; };
@@ -704,7 +707,7 @@ fmtxx::errc fmtxx::printf(std::FILE* os, std::string_view format, Args const&...
 template <typename ...Args>
 fmtxx::errc fmtxx::fprintf(std::FILE* os, std::string_view format, Args const&... args)
 {
-	return fmtxx::impl::Printf(os, format, args...);
+    return fmtxx::impl::Printf(os, format, args...);
 }
 
 template <typename ...Args>

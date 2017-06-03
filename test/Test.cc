@@ -860,7 +860,7 @@ namespace fmtxx
             if (I == value.end()) {
                 return fmtxx::format(w, "[[key '{}' does not exist]]", key);
             }
-			return FormatValue<>{}(w, spec, I->second);
+            return FormatValue<>{}(w, spec, I->second);
         }
     };
 }

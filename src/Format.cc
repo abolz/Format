@@ -31,16 +31,26 @@ enum { kMaxFloatPrec = 751 + 323 };
 //
 //------------------------------------------------------------------------------
 
-template <typename T> static constexpr T Min(T x, T y) { return y < x ? y : x; }
-template <typename T> static constexpr T Max(T x, T y) { return y < x ? x : y; }
+template <typename T> inline constexpr T Min(T x, T y) { return y < x ? y : x; }
+template <typename T> inline constexpr T Max(T x, T y) { return y < x ? x : y; }
 
 template <typename T>
-static constexpr T Clip(T x, std::add_const_t<T> lower, std::add_const_t<T> upper) {
-    return Max(lower, Min(x, upper));
+inline constexpr T Clip(T x, std::add_const_t<T> lower, std::add_const_t<T> upper) {
+    return Min(Max(lower, x), upper);
 }
 
 template <typename T>
-static inline void UnusedParameter(T&&) {}
+inline constexpr T ClipLower(T x, std::add_const_t<T> lower) {
+    return Max(lower, x);
+}
+
+template <typename T>
+inline constexpr T ClipUpper(T x, std::add_const_t<T> upper) {
+    return Min(x, upper);
+}
+
+template <typename T>
+inline void UnusedParameter(T&&) {}
 
 //------------------------------------------------------------------------------
 //
@@ -843,7 +853,7 @@ static void GetIntArg(int& value, int index, Types types, Arg const* args)
         value = static_cast<int>(Clip(args[index].slonglong, INT_MIN, INT_MAX));
         break;
     case Types::T_ULONGLONG:
-        value = static_cast<int>(Clip(args[index].ulonglong, 0, INT_MAX));
+        value = static_cast<int>(ClipUpper(args[index].ulonglong, INT_MAX));
         break;
     default:
         static_cast<void>(EXPECT(false, "argument is not an integer type"));
@@ -1012,7 +1022,7 @@ static void ParseFormatSpec(FormatSpec& spec, std::string_view::iterator& f, std
             }
             break;
 // Conversion
-        case ',':
+        case '!':
         case '}':
             return;
         default:
@@ -1028,7 +1038,7 @@ static void ParseFormatSpec(FormatSpec& spec, std::string_view::iterator& f, std
 
 static void ParseStyle(FormatSpec& spec, std::string_view::iterator& f, std::string_view::iterator const end)
 {
-    assert(f != end && *f == ',');
+    assert(f != end && *f == '!');
 
     auto const f0 = ++f;
 
@@ -1060,7 +1070,7 @@ static void ParseReplacementField(FormatSpec& spec, std::string_view::iterator& 
             return;
     }
 
-    if (*f == ',')
+    if (*f == '!')
     {
         ParseStyle(spec, f, end);
         if (!EXPECT(f != end, "unexpected end of format-string"))

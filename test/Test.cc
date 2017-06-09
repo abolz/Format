@@ -849,10 +849,15 @@ namespace fmtxx
         }
     };
 
+#if 1
+    //
+    // XXX:
+    // Must be a separate function like vformat(format, map)...
+    //
     template <typename K, typename V>
-    struct FormatValue<std::unordered_map<K, V>>
+    struct FormatValue<std::map<K, V>>
     {
-        auto operator()(Writer& w, FormatSpec const& spec, std::unordered_map<K, V> const& value) const
+        auto operator()(Writer& w, FormatSpec const& spec, std::map<K, V> const& value) const
         {
             //auto const key = spec.key;
             auto const key = spec.style;
@@ -863,6 +868,7 @@ namespace fmtxx
             return FormatValue<>{}(w, spec, I->second);
         }
     };
+#endif
 }
 
 namespace foo2_ns
@@ -881,8 +887,14 @@ TEST_CASE("Custom", "1")
     CHECK("struct Foo '   123'"  == FormatArgs("struct Foo '{:6}'", Foo{123}));
     CHECK("struct Foo2 '   123'" == FormatArgs("struct Foo2 '{:6}'", foo2_ns::Foo2{123}));
 
-    std::unordered_map<std::string_view, int> map = {{"eins", 1}, {"zwei", 2}};
-    CHECK("1, 2" == FormatArgs("{0,eins}, {0,zwei}", map));
+#if 1
+    std::map<std::string_view, int> map = {{"eins", 1}, {"zwei", 2}};
+    //
+    // XXX:
+    // Must be a separate function like vformat(format, map)...
+    //
+    CHECK("1, 2" == FormatArgs("{0!eins}, {0!zwei}", map));
+#endif
 }
 
 TEST_CASE("Chars", "1")
@@ -953,7 +965,6 @@ TEST_CASE("Vector", "1")
 
 #if 0
 #include "FormatPretty.h"
-#include <map>
 
 TEST_CASE("FormatPretty", "1")
 {

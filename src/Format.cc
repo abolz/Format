@@ -975,6 +975,7 @@ static void ParseFormatSpec(FormatSpec& spec, std::string_view::iterator& f, std
             break;
         case '\'':
         case '_':
+        case ',':
             spec.tsep = *f;
             ++f;
             break;
@@ -1248,6 +1249,7 @@ static void ParsePrintfSpec(int& arg_index, FormatSpec& spec, std::string_view::
             break;
         case '\'':
         case '_':
+        case ',':
             spec.tsep = *f;
             ++f;
             break;

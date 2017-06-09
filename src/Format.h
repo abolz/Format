@@ -418,25 +418,6 @@ errc printf(CharArray& os, std::string_view format, Args const&... args);
 template <typename ...Args>
 std::string sprintf(std::string_view format, Args const&... args);
 
-//------------------------------------------------------------------------------
-// Stream API
-
-template <typename T>
-inline Writer& operator<<(Writer& w, T const& value) {
-    FormatValue<T>{}(w, FormatSpec{}, value);
-    return w;
-}
-
-template <
-    typename WriterT,
-    typename T,
-    typename = std::enable_if_t< !std::is_lvalue_reference<WriterT>::value && std::is_base_of<Writer, WriterT>::value >
->
-inline WriterT&& operator<<(WriterT&& w, T const& val) {
-    w << val;
-    return std::move(w);
-}
-
 } // namespace fmtxx
 
 //------------------------------------------------------------------------------

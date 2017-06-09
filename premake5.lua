@@ -1,7 +1,7 @@
 local build_dir = "build/" .. _ACTION
 
 --------------------------------------------------------------------------------
-solution "Libs"
+solution "Format"
     configurations { "release", "debug" }
 
     architecture "x64"

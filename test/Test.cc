@@ -963,7 +963,7 @@ TEST_CASE("Vector", "1")
 
 //------------------------------------------------------------------------------
 
-#if 0
+#if 1
 #include "FormatPretty.h"
 
 TEST_CASE("FormatPretty", "1")

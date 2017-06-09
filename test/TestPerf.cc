@@ -1,10 +1,13 @@
-#include "Format.h"
-
-#define HAVE_PRINTF 0
+#define HAVE_PRINTF 1
 #define HAVE_FMTLIB 1
+#define HAVE_FMTXX  1
+
+#if HAVE_FMTXX
+#include "Format.h"
+#endif
 
 #if HAVE_FMTLIB
-#define FMT_SHARED 1
+#define FMT_HEADER_ONLY 1 // FMT_SHARED 1
 #include "fmt/format.h"
 #include "fmt/ostream.h"
 #endif
@@ -32,7 +35,9 @@ struct Times {
 #if HAVE_FMTLIB
     double t_fmt    = 0.0;
 #endif
+#if HAVE_FMTXX
     double t_fmtxx  = 0.0;
+#endif
 };
 
 static std::vector<Times> timing_results;
@@ -49,11 +54,16 @@ static void PrintAvgTimes()
 #if HAVE_FMTLIB
         avg.t_fmt    += t.t_fmt;
 #endif
+#if HAVE_FMTXX
         avg.t_fmtxx  += t.t_fmtxx;
+#endif
     }
 
-    // auto const ref = avg.t_printf;
-    auto const ref = avg.t_fmt;
+#ifdef HAVE_PRINTF
+    auto const ref = avg.t_printf;
+#else
+    auto const ref = 1.0;
+#endif
 
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
 #if HAVE_PRINTF
@@ -62,7 +72,9 @@ static void PrintAvgTimes()
 #if HAVE_FMTLIB
     fprintf(stderr, "fmt:     x%.2f\n", ref / avg.t_fmt);
 #endif
+#if HAVE_FMTXX
     fprintf(stderr, "fmtxx:   x%.2f\n", ref / avg.t_fmtxx);
+#endif
     fprintf(stderr, "--------------------------------------------------------------------------------\n");
 }
 
@@ -170,25 +182,16 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 
     Times times;
 
-#if NO_COMP
-
 #if HAVE_PRINTF
-    times.t_printf  = 1.0;
-#endif
-#if HAVE_FMTLIB
-    times.t_fmt     = 1.0;
-#endif
-
-#else
-#if HAVE_PRINTF
-    //times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { PRINTF(format_printf, i); });
-    times.t_printf  = 1.0;
+    times.t_printf  = GenerateNumbers(n, dist, [=](auto i) { PRINTF(format_printf, i); });
 #endif
 
 #if HAVE_FMTLIB
-    times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
-    //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
-    //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
+    // times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
+    times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
+    // times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
+
+    // times.t_fmt = GenerateNumbers(n, dist, [=](auto i) { std::cout << fmt::format(format_fmt, i); });
 
     // times.t_fmt = GenerateNumbers(n, dist, [&](auto i) {
     //     const auto str = fmt::format(format_fmt, i);
@@ -208,13 +211,12 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     //});
 #endif
 
-#endif // NO_COMP
-
-#if 0
+#if HAVE_FMTXX
+#if 1
     times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::format(stdout, format_fmtxx, i); });
-#endif
-#if 0
-    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::format(std::cout, format_fmtxx, i); });
+    // times.t_fmtxx = GenerateNumbers(n, dist, [=](auto i) { std::cout << fmtxx::sformat(format_fmtxx, i); });
+    // times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::format(std::cout, format_fmtxx, i); });
+    //times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::printf(std::cout, format_printf, i); });
 #endif
 #if 0
     times.t_fmtxx   = GenerateNumbers(n, dist, [&](auto i) { std::cout << fmtxx::sformat(format_fmtxx, i); });
@@ -243,7 +245,7 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     // });
 #endif
 #if 1
-  #if 1
+  #if 0
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArray os{buf};
@@ -276,9 +278,13 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
     });
   #endif
 #endif
+#endif
 
-    // auto const ref = times.t_printf;
-    auto const ref = times.t_fmt;
+#if HAVE_PRINTF
+    auto const ref = times.t_printf;
+#else
+    auto const ref = 1.0;
+#endif
 
 #if 1
     fprintf(stderr,
@@ -288,14 +294,21 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #if HAVE_FMTLIB
         "   fmt:     %.2f sec (x%.2f)\n"
 #endif
-        "   fmtxx:   %.2f sec (x%.2f)\n",
+#if HAVE_FMTXX
+        "   fmtxx:   %.2f sec (x%.2f)\n"
+#endif
+        "%s"
+        ,
 #if HAVE_PRINTF
         times.t_printf, ref / times.t_printf,
 #endif
 #if HAVE_FMTLIB
         times.t_fmt,   ref / times.t_fmt,
 #endif
-        times.t_fmtxx, ref / times.t_fmtxx);
+#if HAVE_FMTXX
+        times.t_fmtxx, ref / times.t_fmtxx,
+#endif
+        "");
 #endif
 
     timing_results.push_back(times);

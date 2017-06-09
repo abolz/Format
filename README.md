@@ -55,6 +55,7 @@ struct FormatSpec { {
 // Base class for formatting buffers. Can be implemented to provide formatting
 // into arbitrary buffers or streams.
 class Writer {
+    virtual ~Writer();
     virtual bool Put(char c) = 0;
     virtual bool Write(char const* str, size_t len) = 0;
     virtual bool Pad(char c, size_t count) = 0;
@@ -63,51 +64,47 @@ class Writer {
 // Enables formatting of user-defined types. The default implementation uses
 // std::ostringstream to convert the argument into a string, and then appends
 // this string to the Writer.
+// This class is already specialized for all built-in types.
 template <typename T>
 struct FormatValue {
     errc operator()(Writer& w, FormatSpec const& spec, T const& value) const;
-};
-
-// Specialize this if you want your data-type to be treated as a string.
-// T must have member functions data() and size() and their return values must
-// be convertible to char const* and size_t resp.
-template <typename T>
-struct TreatAsString {
-    static constexpr bool value = false;
 };
 
 // The Format-methods use a python-style format string (see below).
 // The Printf-methods use a printf-style format string.
 
 template <typename ...Args>
-errc Format(Writer& w, std::string_view format, Args const&... args);
+errc format(Writer& w, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc Format(std::string& os, std::string_view format, Args const&... args);
+errc format(std::string& os, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc Format(std::FILE* os, std::string_view format, Args const&... args);
+errc format(std::FILE* os, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc Format(std::ostream& os, std::string_view format, Args const&... args);
+errc format(std::ostream& os, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-std::string StringFormat(std::string_view format, Args const&... args);
+std::string sformat(std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc Printf(Writer& w, std::string_view format, Args const&... args);
+errc printf(Writer& w, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc Printf(std::string& os, std::string_view format, Args const&... args);
+errc printf(std::string& os, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc Printf(std::FILE* os, std::string_view format, Args const&... args);
+errc printf(std::FILE* os, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc Printf(std::ostream& os, std::string_view format, Args const&... args);
+errc fprintf(std::FILE* os, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-std::string StringPrintf(std::string_view format, Args const&... args);
+errc printf(std::ostream& os, std::string_view format, Args const&... args);
+
+template <typename ...Args>
+std::string sprintf(std::string_view format, Args const&... args);
 
 }
 ```
@@ -118,7 +115,7 @@ std::string StringPrintf(std::string_view format, Args const&... args);
 
 ### Format string syntax
 
-    '{' [arg-index] ['*' [format-spec-index]] [':' [format-spec]] [',' [style]] '}'
+    '{' [arg-index] ['*' [format-spec-index]] [':' [format-spec]] ['!' [style]] '}'
 
 * `arg-index`
 
@@ -201,19 +198,21 @@ std::string StringPrintf(std::string_view format, Args const&... args);
     - `'`: Display thousands-separators. For non-decimal presentation types
            separators will be inserted every 4 digits.
     - `_`: Same as `'`, but uses an underscore as the separator.
+    - `,`: Same as `'`, but uses a comma as the separator.
 
     Note: Separators are inserted before padding is applied.
 
 * `width`
 
-    Minimum field width; a positive integer.
+
+    Minimum field width; an integer. Same meaning as in printf.
     The default is 0.
 
     **NOTE**: The maximum supported minimum field width is 4096.
 
 * `precision`
 
-    A non-negative integer.
+    An integer.
     For string, integral and floating-point values has the same meaning as in
     printf.
     Ignored otherwise.
@@ -228,7 +227,7 @@ std::string StringPrintf(std::string_view format, Args const&... args);
 
 * `conv`
 
-    Any character except digits, '`,`' and '`}`' and any of the `flags`.
+    Any character except digits, '`!`' and '`}`' and any of the `flags`.
 
     Specifies how the argument should be presented. Defaults to `s` if omitted
     (or if the conversion does not apply to the type of the argument being
@@ -296,130 +295,3 @@ std::string StringPrintf(std::string_view format, Args const&... args);
     - `X`: Same as `A`, except the result is normalized (i.e. the leading
            digit will be '`1`') and a prefix is only printed if `#` is
            specified.
-
-### Examples
-
-```c++
-#include "Format.h"
-#include <iostream>
-
-int main()
-{
-    fmtxx::Format(std::cout, "{1} {} {0} {}\n", 1, 2);
-        // "2 1 1 2"
-    fmtxx::Format(std::cout, "{0:d} {0:x} {0:o} {0:b}\n", 42);
-        // "42 2a 52 101010"
-    fmtxx::Format(std::cout, "{:-<16}\n", "left");
-        // "left------------"
-    fmtxx::Format(std::cout, "{:.^16}\n", "center");
-        // ".....center....."
-    fmtxx::Format(std::cout, "{:~>16}\n", "right");
-        // "~~~~~~~~~~~right"
-    fmtxx::Format(std::cout, "{:s}\n", 3.1415927);
-        // "3.1415927"
-}
-```
-
-```c++
-#include "Format.h"
-#include <sstream> // This is required to use operator<< below!
-
-struct Vector2D {
-    float x;
-    float y;
-};
-
-std::ostream& operator<<(std::ostream& os, Vector2D const& value) {
-    os << "(" << value.x << ", " << value.y << ")";
-    return os;
-}
-
-int main()
-{
-    Vector2D vec { 3.0, 4.0 };
-    fmtxx::Format(stdout, "{}", vec);
-        // "(3, 4)"
-}
-```
-
-```c++
-#include "Format.h"
-#include <cmath>
-
-struct Vector2D {
-    float x;
-    float y;
-};
-
-template <>
-struct fmtxx::FormatValue<Vector2D>
-{
-    auto operator()(Writer& os, FormatSpec const& spec, Vector2D const& value) const
-    {
-        if (spec.conv == 'p' || spec.conv == 'P') // polar coordinates
-        {
-            auto r   = std::hypot(value.x, value.y);
-            auto phi = std::atan2(value.y, value.x);
-            return Format(os, "(r={:.3g}, phi={:.3g})", r, phi);
-        }
-
-        return Format(os, "({}, {})", value.x, value.y);
-    }
-};
-
-int main()
-{
-    Vector2D vec { 3.0, 4.0 };
-    fmtxx::Format(stdout, "{}\n", vec);
-        // "(3, 4)"
-    fmtxx::Format(stdout, "{:p}\n", vec);
-        // "(r=5, phi=0.927)"
-}
-```
-
-```c++
-#include "Format.h"
-#include <vector>
-
-struct VectorWriter : public fmtxx::Writer
-{
-    std::vector<char> vec;
-
-    bool Put(char c) override {
-        vec.push_back(c);
-        return true;
-    }
-    bool Write(char const* str, size_t len) override {
-        vec.insert(vec.end(), str, str + len);
-        return true;
-    }
-    bool Pad(char c, size_t count) override {
-        vec.resize(vec.size() + count, c);
-        return true;
-    }
-};
-
-// Tell the Format library that vector<char> should be handled as a string.
-// Possible because vector<char> has compatible data() and size() members.
-template <>
-struct fmtxx::TreatAsString<std::vector<char>> : std::true_type {};
-
-int main()
-{
-    VectorWriter buf;
-    fmtxx::Format(buf, "{:5}", -123);
-        // buf.vec = {' ', '-', '1', '2', '3'}
-    fmtxx::Format(stdout, "{}\n", buf.vec);
-        // " -123"
-}
-```
-
-# Limitations
-
-- Only up to 16 arguments may be provided.
-- No wide string support
-- ...
-
-# License
-
-MIT

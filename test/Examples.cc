@@ -83,20 +83,12 @@ struct VectorBuffer : public fmtxx::Writer
     }
 };
 
-// Tell the Format library that vector<char> should be handled as a string.
-// Possible because vector<char> has compatible data() and size() members.
-template <>
-struct fmtxx::TreatAsString<std::vector<char>> : std::true_type {};
-
 int main()
 {
     VectorBuffer buf;
 
     fmtxx::Format(buf, "{:5}", -123);
         // buf.vec = {' ', '-', '1', '2', '3'}
-
-    fmtxx::Format(stdout, "{}\n", buf.vec);
-        // " -123"
 }
 
 #endif

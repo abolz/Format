@@ -78,12 +78,8 @@ project "fmtxx"
     language "C++"
     kind "SharedLib"
     files {
-        "src/double-conversion/**.h",
-        "src/double-conversion/**.cc",
-        "src/Dtoa.h",
-        "src/Dtoa.cc",
-        "src/Format.h",
-        "src/Format.cc",
+        "src/**.h",
+        "src/**.cc",
     }
     defines {
         "FMTXX_SHARED",
@@ -105,12 +101,8 @@ project "fmtxx-static"
     language "C++"
     kind "StaticLib"
     files {
-        "src/double-conversion/**.h",
-        "src/double-conversion/**.cc",
-        "src/Dtoa.h",
-        "src/Dtoa.cc",
-        "src/Format.h",
-        "src/Format.cc",
+        "src/**.h",
+        "src/**.cc",
     }
     includedirs {
         "src/",

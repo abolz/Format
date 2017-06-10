@@ -266,6 +266,13 @@ TEST_CASE("String", "1")
 
     std::string spad = std::string(128, ' ');
     CHECK(spad.c_str() == FormatArgs("{:128}", ' '));
+
+    //CHECK(R"( "hello \"world\"" )"    == FormatArgs(" {:q} ", R"(hello "world")")); // VC bug? https://developercommunity.visualstudio.com/content/problem/67300/stringifying-raw-string-literal.html
+    CHECK(" \"hello \\\"world\\\"\" " == FormatArgs(" {:q} ", R"(hello "world")"));
+    CHECK(" \"hello \\\"world\\\"\" " == PrintfArgs(" %q ",   "hello \"world\""));
+    CHECK(R"("hello")"                == FormatArgs("{:q}", "hello"));
+    //CHECK(R"("\"\"hello")"            == FormatArgs("{:q}", R"(""hello)")); // VC bug?
+    CHECK("\"\\\"\\\"hello\""         == FormatArgs("{:q}", R"(""hello)"));
 }
 
 TEST_CASE("Ints", "1")

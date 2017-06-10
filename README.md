@@ -236,6 +236,7 @@ std::string sprintf(std::string_view format, Args const&... args);
     Strings (`std::string[_view]`) and C-Strings (`char const*`):
 
     - `s`: Nothing special.
+    - `q`: Quoted (like [std::quoted](http://en.cppreference.com/w/cpp/io/manip/quoted))
 
     Pointers (`void const*`):
 

@@ -265,13 +265,54 @@ static errc PrintAndPadString(Writer& w, FormatSpec const& spec, std::string_vie
     return PrintAndPadString(w, spec, str.data(), str.size());
 }
 
+static errc PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
+{
+    size_t num_escaped = static_cast<size_t>(std::count_if(str, str + len, [](char ch) { return ch == '"' || ch == '\\'; }));
+    size_t quoted_len  = len + 2 + num_escaped;
+
+    auto const pad = ComputePadding(quoted_len, spec.align, spec.width);
+
+    if (pad.left > 0 && !w.Pad(spec.fill, pad.left))
+        return errc::io_error;
+    if (!w.Put('"'))
+        return errc::io_error;
+    if (len > 0)
+    {
+        if (num_escaped > 0)
+        {
+            for (size_t i = 0; i < len; ++i)
+            {
+                if ((str[i] == '"' || str[i] == '\\') && !w.Put('\\'))
+                    return errc::io_error;
+                if (!w.Put(str[i]))
+                    return errc::io_error;
+            }
+        }
+        else if (!w.Write(str, len))
+        {
+            return errc::io_error;
+        }
+    }
+    if (!w.Put('"'))
+        return errc::io_error;
+    if (pad.right > 0 && !w.Pad(spec.fill, pad.right))
+        return errc::io_error;
+
+    return errc::success;
+}
+
 errc fmtxx::Util::FormatString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t const n = (spec.prec >= 0)
         ? Min(len, static_cast<size_t>(spec.prec))
         : len;
 
-    return PrintAndPadString(w, spec, str, n);
+    switch (spec.conv) {
+    default:
+        return PrintAndPadString(w, spec, str, n);
+    case 'q':
+        return PrintAndPadQuotedString(w, spec, str, n);
+    }
 }
 
 errc fmtxx::Util::FormatString(Writer& w, FormatSpec const& spec, char const* str)
@@ -285,7 +326,12 @@ errc fmtxx::Util::FormatString(Writer& w, FormatSpec const& spec, char const* st
         ? ::strnlen(str, static_cast<size_t>(spec.prec))
         : ::strlen(str);
 
-    return PrintAndPadString(w, spec, str, len);
+    switch (spec.conv) {
+    default:
+        return PrintAndPadString(w, spec, str, len);
+    case 'q':
+        return PrintAndPadQuotedString(w, spec, str, len);
+    }
 }
 
 static errc PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
@@ -473,8 +519,6 @@ errc fmtxx::Util::FormatBool(Writer& w, FormatSpec const& spec, bool val)
     switch (spec.conv)
     {
     default:
-    case 's':
-    case 't':
         return PrintAndPadString(w, spec, val ? "true" : "false");
     case 'y':
         return PrintAndPadString(w, spec, val ? "yes" : "no");
@@ -488,8 +532,6 @@ errc fmtxx::Util::FormatChar(Writer& w, FormatSpec const& spec, char ch)
     switch (spec.conv)
     {
     default:
-    case 's':
-    case 'c':
         return PrintAndPadString(w, spec, &ch, 1u);
     case 'd':
     case 'i':
@@ -512,8 +554,6 @@ errc fmtxx::Util::FormatPointer(Writer& w, FormatSpec const& spec, void const* p
     switch (fs.conv)
     {
     default:
-    case 's':
-    case 'p':
         if (fs.prec < 0)
             fs.prec = 2 * sizeof(uintptr_t);
         fs.hash = true;
@@ -1320,12 +1360,6 @@ static void ParsePrintfSpec(int& arg_index, FormatSpec& spec, std::string_view::
         case 'L':
             ++f;
             break;
-        case 'I':
-            // I32 and I64 are Microsoft extensions.
-            if (end - f >= 3 && ((f[1] == '3' && f[2] == '2') || (f[1] == '6' && f[2] == '4'))) {
-                f += 3;
-            }
-            break;
 // Conversion
         case 'd':
         case 'i':
@@ -1345,7 +1379,9 @@ static void ParsePrintfSpec(int& arg_index, FormatSpec& spec, std::string_view::
         case 'A':
         case 'c':
         case 's':
+        case 'S':
         case 'p':
+        case 'q': // quoted strings
             spec.conv = *f;
             ++f;
             return;

@@ -254,6 +254,13 @@ struct FormatValue<void*> {
 };
 
 template <>
+struct FormatValue<std::nullptr_t> {
+    errc operator()(Writer& w, FormatSpec const& spec, std::nullptr_t) const {
+        return Util::format_pointer(w, spec, nullptr);
+    }
+};
+
+template <>
 struct FormatValue<signed char> {
     errc operator()(Writer& w, FormatSpec const& spec, signed char val) const {
         return Util::format_int(w, spec, val);

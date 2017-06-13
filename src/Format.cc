@@ -9,6 +9,16 @@
 #include <limits>
 #include <ostream>
 
+#ifndef __has_cpp_attribute
+#define __has_cpp_attribute(X) 0
+#endif
+
+#if _MSC_VER || __cplusplus >= 201703 || __has_cpp_attribute(fallthrough)
+#define FALLTHROUGH [[fallthrough]];
+#else
+#define FALLTHROUGH
+#endif
+
 using namespace fmtxx;
 using namespace fmtxx::impl;
 
@@ -459,13 +469,13 @@ errc fmtxx::Util::FormatInt(Writer& w, FormatSpec const& spec, int64_t sext, uin
     {
     default:
         conv = 'd';
-        //[[fallthrough]];
+        FALLTHROUGH
     case 'd':
     case 'i':
         sign = ComputeSignChar(sext < 0, spec.sign, spec.fill);
         if (sext < 0)
             number = 0 - static_cast<uint64_t>(sext);
-        //[[fallthrough]];
+        FALLTHROUGH
     case 'u':
         base = 10;
         break;
@@ -487,11 +497,10 @@ errc fmtxx::Util::FormatInt(Writer& w, FormatSpec const& spec, int64_t sext, uin
 
     bool const upper = ('A' <= conv && conv <= 'Z');
 
+    static_assert(kMaxIntPrec >= 64, "at least 64-characters are required for UINT64_MAX in base 2");
+
     enum { kMaxSeps = (kMaxIntPrec - 1) / 3 };
     enum { kBufSize = kMaxIntPrec + kMaxSeps };
-
-    // Need at least 64-characters for UINT64_MAX in base 2.
-    static_assert(kMaxIntPrec >= 64, "invalid parameter");
 
     char buf[kBufSize];
 
@@ -677,7 +686,7 @@ errc fmtxx::Util::FormatDouble(Writer& w, FormatSpec const& spec, double x)
     {
     default:
         conv = 's';
-        //[[fallthrough]];
+        FALLTHROUGH
     case 's':
     case 'S':
         options.exponent_char = (conv == 's') ? 'e' : 'E';
@@ -746,7 +755,7 @@ errc fmtxx::Util::FormatDouble(Writer& w, FormatSpec const& spec, double x)
     }
 
     // Allow printing *ALL* double-precision floating-point values with prec <= kMaxFloatPrec
-    enum { kBufSize = 309 + 1/*.*/ + kMaxFloatPrec };
+    enum { kBufSize = 309 + 1/*.*/ + kMaxFloatPrec + 1/*null*/ };
 
     char buf[kBufSize];
 

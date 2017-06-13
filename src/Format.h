@@ -15,15 +15,11 @@
 #include <cstdio>
 #include <iosfwd>
 #include <string>
-#if _MSC_VER
+#if _MSC_VER || __cplusplus >= 201703
 #  include <string_view>
 #else
-#  if __has_include(<string_view>)
-#    include <string_view>
-#  else
-#    include <experimental/string_view>
-     namespace std { using std::experimental::string_view; }
-#  endif
+#  include <experimental/string_view>
+   namespace std { using std::experimental::string_view; }
 #endif
 
 #ifdef _MSC_VER

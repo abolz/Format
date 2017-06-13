@@ -273,6 +273,9 @@ TEST_CASE("String", "1")
     CHECK(R"("hello")"                == FormatArgs("{:q}", "hello"));
     //CHECK(R"("\"\"hello")"            == FormatArgs("{:q}", R"(""hello)")); // VC bug?
     CHECK("\"\\\"\\\"hello\""         == FormatArgs("{:q}", R"(""hello)"));
+
+    char arr1[] = "hello";
+    CHECK("hello" == FormatArgs("{}", arr1));
 }
 
 TEST_CASE("Ints", "1")
@@ -983,5 +986,9 @@ TEST_CASE("FormatPretty", "1")
 
     std::string s = fmtxx::sformat("  {}  ", fmtxx::pretty(map));
 	CHECK(s == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
+
+    char arr1[] = "hello";
+    CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
+    CHECK("(nil)" == FormatArgs("{}", fmtxx::pretty(nullptr)));
 }
 #endif

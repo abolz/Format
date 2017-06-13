@@ -95,12 +95,12 @@ inline errc PrettyPrint(Writer& w, std::string const& val)
 
 inline errc PrettyPrint(Writer& w, char const* val)
 {
-    return pp::PrettyPrint(w, std::string_view(val));
+    return pp::PrettyPrint(w, std::string_view(val != nullptr ? val : ""));
 }
 
 inline errc PrettyPrint(Writer& w, char* val)
 {
-    return pp::PrettyPrint(w, std::string_view(val));
+    return pp::PrettyPrint(w, std::string_view(val != nullptr ? val : ""));
 }
 
 template <typename T>

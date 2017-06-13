@@ -946,7 +946,7 @@ namespace fmtxx
     template <>
     struct FormatValue<std::vector<char>> {
         auto operator()(Writer& w, FormatSpec const& spec, std::vector<char> const& vec) const {
-            return fmtxx::Util::FormatString(w, spec, vec.data(), vec.size());
+            return fmtxx::Util::format_string(w, spec, vec.data(), vec.size());
         }
     };
 }

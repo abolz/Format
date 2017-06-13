@@ -311,7 +311,7 @@ static errc PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char cons
     return errc::success;
 }
 
-errc fmtxx::Util::FormatString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
+errc fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t const n = (spec.prec >= 0)
         ? Min(len, static_cast<size_t>(spec.prec))
@@ -325,7 +325,7 @@ errc fmtxx::Util::FormatString(Writer& w, FormatSpec const& spec, char const* st
     }
 }
 
-errc fmtxx::Util::FormatString(Writer& w, FormatSpec const& spec, char const* str)
+errc fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* str)
 {
     if (str == nullptr)
         return PrintAndPadString(w, spec, "(null)");
@@ -457,7 +457,7 @@ static int InsertThousandsSep(char* buf, int pos, char sep, int group_len)
     return nsep;
 }
 
-errc fmtxx::Util::FormatInt(Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext)
+errc fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
     uint64_t number = zext;
     char     conv = spec.conv;
@@ -523,7 +523,7 @@ errc fmtxx::Util::FormatInt(Writer& w, FormatSpec const& spec, int64_t sext, uin
     return PrintAndPadNumber(w, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
 }
 
-errc fmtxx::Util::FormatBool(Writer& w, FormatSpec const& spec, bool val)
+errc fmtxx::Util::format_bool(Writer& w, FormatSpec const& spec, bool val)
 {
     switch (spec.conv)
     {
@@ -536,7 +536,7 @@ errc fmtxx::Util::FormatBool(Writer& w, FormatSpec const& spec, bool val)
     }
 }
 
-errc fmtxx::Util::FormatChar(Writer& w, FormatSpec const& spec, char ch)
+errc fmtxx::Util::format_char(Writer& w, FormatSpec const& spec, char ch)
 {
     switch (spec.conv)
     {
@@ -550,11 +550,11 @@ errc fmtxx::Util::FormatChar(Writer& w, FormatSpec const& spec, char ch)
     case 'b':
     case 'B':
     case 'o':
-        return FormatInt(w, spec, ch);
+        return Util::format_int(w, spec, ch);
     }
 }
 
-errc fmtxx::Util::FormatPointer(Writer& w, FormatSpec const& spec, void const* pointer)
+errc fmtxx::Util::format_pointer(Writer& w, FormatSpec const& spec, void const* pointer)
 {
     if (pointer == nullptr)
         return PrintAndPadString(w, spec, "(nil)");
@@ -586,7 +586,7 @@ errc fmtxx::Util::FormatPointer(Writer& w, FormatSpec const& spec, void const* p
         break;
     }
 
-    return FormatInt(w, fs, reinterpret_cast<uintptr_t>(pointer));
+    return Util::format_int(w, fs, reinterpret_cast<uintptr_t>(pointer));
 }
 
 namespace {
@@ -665,7 +665,7 @@ static errc HandleSpecialFloat(Double const d, Writer& w, FormatSpec const& spec
     return PrintAndPadString(w, spec, str);
 }
 
-errc fmtxx::Util::FormatDouble(Writer& w, FormatSpec const& spec, double x)
+errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
 {
     dtoa::Options options;
 
@@ -827,27 +827,27 @@ static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Types::value_type 
     case Types::T_OTHER:
         return arg.other.func(w, spec, arg.other.value);
     case Types::T_STRING:
-        return Util::FormatString(w, spec, arg.string.data(), arg.string.size());
+        return Util::format_string(w, spec, arg.string.data(), arg.string.size());
     case Types::T_PVOID:
-        return Util::FormatPointer(w, spec, arg.pvoid);
+        return Util::format_pointer(w, spec, arg.pvoid);
     case Types::T_PCHAR:
-        return Util::FormatString(w, spec, arg.pchar);
+        return Util::format_string(w, spec, arg.pchar);
     case Types::T_CHAR:
-        return Util::FormatChar(w, spec, arg.char_);
+        return Util::format_char(w, spec, arg.char_);
     case Types::T_BOOL:
-        return Util::FormatBool(w, spec, arg.bool_);
+        return Util::format_bool(w, spec, arg.bool_);
     case Types::T_SCHAR:
-        return Util::FormatInt(w, spec, arg.schar);
+        return Util::format_int(w, spec, arg.schar);
     case Types::T_SSHORT:
-        return Util::FormatInt(w, spec, arg.sshort);
+        return Util::format_int(w, spec, arg.sshort);
     case Types::T_SINT:
-        return Util::FormatInt(w, spec, arg.sint);
+        return Util::format_int(w, spec, arg.sint);
     case Types::T_SLONGLONG:
-        return Util::FormatInt(w, spec, arg.slonglong);
+        return Util::format_int(w, spec, arg.slonglong);
     case Types::T_ULONGLONG:
-        return Util::FormatInt(w, spec, arg.ulonglong);
+        return Util::format_int(w, spec, arg.ulonglong);
     case Types::T_DOUBLE:
-        return Util::FormatDouble(w, spec, arg.double_);
+        return Util::format_double(w, spec, arg.double_);
     case Types::T_FORMATSPEC:
         assert(!"internal error");
         return errc::success;

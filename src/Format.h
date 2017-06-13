@@ -154,23 +154,23 @@ struct Util
 {
     // Note:
     // The string must not be null. This function prints len characters, including '\0's.
-    static FMTXX_API errc FormatString (Writer& w, FormatSpec const& spec, char const* str, size_t len);
+    static FMTXX_API errc format_string (Writer& w, FormatSpec const& spec, char const* str, size_t len);
     // Note:
-    // This is different from just calling FormatString(str, strlen(str)):
+    // This is different from just calling format_string(str, strlen(str)):
     // This function handles nullptr's and if a precision is specified uses strnlen instead of strlen.
-    static FMTXX_API errc FormatString (Writer& w, FormatSpec const& spec, char const* str);
-    static FMTXX_API errc FormatInt    (Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext);
-    static FMTXX_API errc FormatBool   (Writer& w, FormatSpec const& spec, bool val);
-    static FMTXX_API errc FormatChar   (Writer& w, FormatSpec const& spec, char ch);
-    static FMTXX_API errc FormatPointer(Writer& w, FormatSpec const& spec, void const* pointer);
-    static FMTXX_API errc FormatDouble (Writer& w, FormatSpec const& spec, double x);
+    static FMTXX_API errc format_string (Writer& w, FormatSpec const& spec, char const* str);
+    static FMTXX_API errc format_int    (Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext);
+    static FMTXX_API errc format_bool   (Writer& w, FormatSpec const& spec, bool val);
+    static FMTXX_API errc format_char   (Writer& w, FormatSpec const& spec, char ch);
+    static FMTXX_API errc format_pointer(Writer& w, FormatSpec const& spec, void const* pointer);
+    static FMTXX_API errc format_double (Writer& w, FormatSpec const& spec, double x);
 
     template <typename T>
-    static inline errc FormatInt(Writer& w, FormatSpec const& spec, T value)
+    static inline errc format_int(Writer& w, FormatSpec const& spec, T value)
     {
         return std::is_signed<T>::value
-            ? FormatInt(w, spec, value, static_cast<std::make_unsigned_t<T>>(value))
-            : FormatInt(w, spec, 0, value);
+            ? format_int(w, spec, value, static_cast<std::make_unsigned_t<T>>(value))
+            : format_int(w, spec, 0, value);
     }
 };
 
@@ -193,154 +193,154 @@ struct FormatValue
         Stream stream;
         stream << val;
         auto const& str = stream.str();
-        return Util::FormatString(w, spec, str.data(), str.size());
+        return Util::format_string(w, spec, str.data(), str.size());
     }
 };
 
 template <>
 struct FormatValue<bool> {
     errc operator()(Writer& w, FormatSpec const& spec, bool val) const {
-        return Util::FormatBool(w, spec, val);
+        return Util::format_bool(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<std::string_view> {
     errc operator()(Writer& w, FormatSpec const& spec, std::string_view val) const {
-        return Util::FormatString(w, spec, val.data(), val.size());
+        return Util::format_string(w, spec, val.data(), val.size());
     }
 };
 
 template <>
 struct FormatValue<std::string> {
     errc operator()(Writer& w, FormatSpec const& spec, std::string const& val) const {
-        return Util::FormatString(w, spec, val.data(), val.size());
+        return Util::format_string(w, spec, val.data(), val.size());
     }
 };
 
 template <>
 struct FormatValue<char const*> {
     errc operator()(Writer& w, FormatSpec const& spec, char const* val) const {
-        return Util::FormatString(w, spec, val);
+        return Util::format_string(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<char*> {
     errc operator()(Writer& w, FormatSpec const& spec, char* val) const {
-        return Util::FormatString(w, spec, val);
+        return Util::format_string(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<char> {
     errc operator()(Writer& w, FormatSpec const& spec, char val) const {
-        return Util::FormatChar(w, spec, val);
+        return Util::format_char(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<void const*> {
     errc operator()(Writer& w, FormatSpec const& spec, void const* val) const {
-        return Util::FormatPointer(w, spec, val);
+        return Util::format_pointer(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<void*> {
     errc operator()(Writer& w, FormatSpec const& spec, void* val) const {
-        return Util::FormatPointer(w, spec, val);
+        return Util::format_pointer(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<signed char> {
     errc operator()(Writer& w, FormatSpec const& spec, signed char val) const {
-        return Util::FormatInt(w, spec, val);
+        return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<signed short> {
     errc operator()(Writer& w, FormatSpec const& spec, signed short val) const {
-        return Util::FormatInt(w, spec, val);
+        return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<signed int> {
     errc operator()(Writer& w, FormatSpec const& spec, signed int val) const {
-        return Util::FormatInt(w, spec, val);
+        return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<signed long> {
     errc operator()(Writer& w, FormatSpec const& spec, signed long val) const {
-        return Util::FormatInt(w, spec, val);
+        return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<signed long long> {
     errc operator()(Writer& w, FormatSpec const& spec, signed long long val) const {
-        return Util::FormatInt(w, spec, val);
+        return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<unsigned char> {
     errc operator()(Writer& w, FormatSpec const& spec, unsigned char val) const {
-        return Util::FormatInt(w, spec, val);
+        return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<unsigned short> {
     errc operator()(Writer& w, FormatSpec const& spec, unsigned short val) const {
-        return Util::FormatInt(w, spec, val);
+        return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<unsigned int> {
     errc operator()(Writer& w, FormatSpec const& spec, unsigned int val) const {
-        return Util::FormatInt(w, spec, val);
+        return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<unsigned long> {
     errc operator()(Writer& w, FormatSpec const& spec, unsigned long val) const {
-        return Util::FormatInt(w, spec, val);
+        return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<unsigned long long> {
     errc operator()(Writer& w, FormatSpec const& spec, unsigned long long val) const {
-        return Util::FormatInt(w, spec, val);
+        return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<double> {
     errc operator()(Writer& w, FormatSpec const& spec, double val) const {
-        return Util::FormatDouble(w, spec, val);
+        return Util::format_double(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<float> {
     errc operator()(Writer& w, FormatSpec const& spec, float val) const {
-        return Util::FormatDouble(w, spec, static_cast<double>(val));
+        return Util::format_double(w, spec, static_cast<double>(val));
     }
 };
 
 template <>
 struct FormatValue<long double> {
     errc operator()(Writer& w, FormatSpec const& spec, long double val) const {
-        return Util::FormatDouble(w, spec, static_cast<double>(val));
+        return Util::format_double(w, spec, static_cast<double>(val));
     }
 };
 

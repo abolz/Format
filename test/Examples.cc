@@ -5,17 +5,17 @@
 
 int main()
 {
-    fmtxx::Format(std::cout, "{1} {} {0} {}\n", 1, 2);
+    fmtxx::format(std::cout, "{1} {} {0} {}\n", 1, 2);
         // "2 1 1 2"
-    fmtxx::Format(std::cout, "{0:d} {0:x} {0:o} {0:b}\n", 42);
+    fmtxx::format(std::cout, "{0:d} {0:x} {0:o} {0:b}\n", 42);
         // "42 2a 52 101010"
-    fmtxx::Format(std::cout, "{:-<16}\n", "left");
+    fmtxx::format(std::cout, "{:-<16}\n", "left");
         // "left------------"
-    fmtxx::Format(std::cout, "{:.^16}\n", "center");
+    fmtxx::format(std::cout, "{:.^16}\n", "center");
         // ".....center....."
-    fmtxx::Format(std::cout, "{:~>16}\n", "right");
+    fmtxx::format(std::cout, "{:~>16}\n", "right");
         // "~~~~~~~~~~~right"
-    fmtxx::Format(std::cout, "{:s}\n", 3.1415927);
+    fmtxx::format(std::cout, "{:s}\n", 3.1415927);
         // "3.1415927"
 }
 
@@ -41,10 +41,10 @@ struct fmtxx::FormatValue<Vector2D>
             auto r   = std::hypot(value.x, value.y);
             auto phi = std::atan2(value.y, value.x);
 
-            return Format(os, "(r={:.3g}, phi={:.3g})", r, phi);
+            return fmtxx::format(os, "(r={:.3g}, phi={:.3g})", r, phi);
         }
 
-        return Format(os, "({}, {})", value.x, value.y);
+        return fmtxx::format(os, "({}, {})", value.x, value.y);
     }
 };
 
@@ -52,9 +52,9 @@ int main()
 {
     Vector2D vec { 3.0, 4.0 };
 
-    fmtxx::Format(stdout, "{}\n", vec);
+    fmtxx::format(stdout, "{}\n", vec);
         // "(3, 4)"
-    fmtxx::Format(stdout, "{:p}\n", vec);
+    fmtxx::format(stdout, "{:p}\n", vec);
         // "(r=5, phi=0.927)"
 }
 
@@ -87,7 +87,7 @@ int main()
 {
     VectorBuffer buf;
 
-    fmtxx::Format(buf, "{:5}", -123);
+    fmtxx::format(buf, "{:5}", -123);
         // buf.vec = {' ', '-', '1', '2', '3'}
 }
 

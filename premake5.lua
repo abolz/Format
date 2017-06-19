@@ -23,7 +23,7 @@ solution "Format"
 
     configuration { "release" }
         defines { "NDEBUG" }
-        symbols "Off"
+        symbols "On"
         optimize "Full"
             -- On ==> -O2
             -- Full ==> -O3

@@ -2,11 +2,6 @@
 
 #pragma once
 
-// 0: assert-no-check   (unsafe; invalid format strings -> UB)
-// 1: assert-check      (safe)
-// 2: throw             (safe)
-#define FMTXX_FORMAT_STRING_CHECK_POLICY 1
-
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
@@ -469,7 +464,6 @@ public:
 
     EType operator[](int index) const
     {
-        assert(index >= 0);
         if (index < 0 || index >= 16)
             return T_NONE;
         return static_cast<EType>((types >> (4 * index)) & 0xF);

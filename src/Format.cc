@@ -29,7 +29,7 @@
 // 0: assert-no-check   (unsafe; invalid format strings -> UB)
 // 1: assert-check      (safe)
 // 2: throw             (safe)
-#define FORMAT_STRING_CHECK_POLICY 2
+#define FORMAT_STRING_CHECK_POLICY 1
 
 using namespace fmtxx;
 using namespace fmtxx::impl;
@@ -57,19 +57,7 @@ template <typename T> inline constexpr T Min(T x, T y) { return y < x ? y : x; }
 template <typename T> inline constexpr T Max(T x, T y) { return y < x ? x : y; }
 
 template <typename T>
-inline constexpr T Clip(T x, std::add_const_t<T> lower, std::add_const_t<T> upper) {
-    return Min(Max(lower, x), upper);
-}
-
-template <typename T>
-inline constexpr T ClipLower(T x, std::add_const_t<T> lower) {
-    return Max(lower, x);
-}
-
-template <typename T>
-inline constexpr T ClipUpper(T x, std::add_const_t<T> upper) {
-    return Min(x, upper);
-}
+inline constexpr T Clip(T x, T lower, T upper) { return Min(Max(lower, x), upper); }
 
 template <typename T>
 inline void UnusedParameter(T&&) {}
@@ -1074,7 +1062,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
 {
     assert(buffer.length() >= 52/4 + 1);
 
-    char const* const xdigits = upper ? "0123456789ABCDEF" : "0123456789abcdef";
+    char const* const xdigits = upper ? kUpperHexDigits : kLowerHexDigits;
 
     Double const d{v};
 
@@ -1190,7 +1178,7 @@ static void GenerateShortestDigits(double v, Vector vec, int* num_digits, int* d
         return;
     }
 
-    bool const fast_worked = FastDtoa(v, double_conversion::FAST_DTOA_SHORTEST, 0, vec, num_digits, decpt);
+    bool const fast_worked = FastDtoa(v, double_conversion::FAST_DTOA_SHORTEST, -1, vec, num_digits, decpt);
     if (!fast_worked)
     {
         BignumDtoa(v, double_conversion::BIGNUM_DTOA_SHORTEST, -1, vec, num_digits, decpt);
@@ -1511,10 +1499,10 @@ static void GetIntArg(int& value, int index, Types types, Arg const* args)
         value = args[index].sint;
         break;
     case Types::T_SLONGLONG:
-        value = static_cast<int>(Clip(args[index].slonglong, INT_MIN, INT_MAX));
+        value = static_cast<int>( Clip<long long>(args[index].slonglong, INT_MIN, INT_MAX) );
         break;
     case Types::T_ULONGLONG:
-        value = static_cast<int>(ClipUpper(args[index].ulonglong, INT_MAX));
+        value = static_cast<int>( Min(args[index].ulonglong, static_cast<unsigned long long>(INT_MAX)) );
         break;
     default:
         static_cast<void>(EXPECT(false, "argument is not an integer type"));

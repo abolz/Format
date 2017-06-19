@@ -1,4 +1,4 @@
-#define HAVE_PRINTF 1
+#define HAVE_PRINTF 0
 #define HAVE_FMTLIB 1
 #define HAVE_FMTXX  1
 
@@ -26,7 +26,7 @@
 #define NO_SYNC_WITH_STDIO  0
 #define NO_IOBUF            0
 
-using Clock = std::chrono::high_resolution_clock;
+using Clock = std::chrono::steady_clock;
 
 struct Times {
 #if HAVE_PRINTF
@@ -59,8 +59,12 @@ static void PrintAvgTimes()
 #endif
     }
 
-#ifdef HAVE_PRINTF
+#if HAVE_PRINTF
     auto const ref = avg.t_printf;
+#elif HAVE_FMTLIB
+    auto const ref = avg.t_fmt;
+#elif HAVE_FMTXX
+    auto const ref = avg.t_fmtxx;
 #else
     auto const ref = 1.0;
 #endif
@@ -187,11 +191,11 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #endif
 
 #if HAVE_FMTLIB
-    // times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
+    //times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(format_fmt, i); });
     times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(stdout, format_fmt, i); });
     // times.t_fmt     = GenerateNumbers(n, dist, [=](auto i) { fmt::print(std::cout, format_fmt, i); });
 
-    // times.t_fmt = GenerateNumbers(n, dist, [=](auto i) { std::cout << fmt::format(format_fmt, i); });
+    //times.t_fmt = GenerateNumbers(n, dist, [=](auto i) { std::cout << fmt::format(format_fmt, i); });
 
     // times.t_fmt = GenerateNumbers(n, dist, [&](auto i) {
     //     const auto str = fmt::format(format_fmt, i);
@@ -212,76 +216,69 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
 #endif
 
 #if HAVE_FMTXX
-#if 1
-    times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::format(stdout, format_fmtxx, i); });
-    // times.t_fmtxx = GenerateNumbers(n, dist, [=](auto i) { std::cout << fmtxx::sformat(format_fmtxx, i); });
-    // times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::format(std::cout, format_fmtxx, i); });
+    //times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::format(stdout, format_fmtxx, i); });
+    //times.t_fmtxx = GenerateNumbers(n, dist, [=](auto i) { std::cout << fmtxx::sformat(format_fmtxx, i); });
+    //times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::format(std::cout, format_fmtxx, i); });
     //times.t_fmtxx   = GenerateNumbers(n, dist, [=](auto i) { fmtxx::printf(std::cout, format_printf, i); });
-#endif
-#if 0
-    times.t_fmtxx   = GenerateNumbers(n, dist, [&](auto i) { std::cout << fmtxx::sformat(format_fmtxx, i); });
-#endif
-#if 0
-    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
-        const auto str = fmtxx::sformat(format_fmtxx, i);
-        std::fwrite(str.data(), 1, str.size(), stdout);
-    });
-#endif
-#if 0
-    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
-        fmtxx::format_value(fmtxx::StreamWriter{std::cout}, {}, i);
-        //fmtxx::format_value(fmtxx::FILEWriter{stdout}, {}, i);
-        // fmtxx::FILEWriter{stdout} << i;
-        //fmtxx::FILEWriter w{stdout};
-        //w << i;
-        //fmtxx::StreamWriter{std::cout} << i;
-    });
-    // times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
-    //     char buf[500];
-    //     fmtxx::CharArray os{ buf };
-    //     fmtxx::CharArrayWriter w{ os };
-    //     w << i;
-    //     std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
-    // });
-#endif
-#if 1
-  #if 0
+    //times.t_fmtxx   = GenerateNumbers(n, dist, [&](auto i) { std::cout << fmtxx::sformat(format_fmtxx, i); });
+
+    //times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+    //    const auto str = fmtxx::sformat(format_fmtxx, i);
+    //    std::fwrite(str.data(), 1, str.size(), stdout);
+    //});
+
+    //times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+    //    fmtxx::format_value(fmtxx::StreamWriter{std::cout}, {}, i);
+    //    //fmtxx::format_value(fmtxx::FILEWriter{stdout}, {}, i);
+    //    // fmtxx::FILEWriter{stdout} << i;
+    //    //fmtxx::FILEWriter w{stdout};
+    //    //w << i;
+    //    //fmtxx::StreamWriter{std::cout} << i;
+    //});
+
+    //times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+    //    char buf[500];
+    //    fmtxx::CharArray os{ buf };
+    //    fmtxx::CharArrayWriter w{ os };
+    //    w << i;
+    //    std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
+    //});
+
     times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
         char buf[500];
         fmtxx::CharArray os{buf};
         fmtxx::format(os, format_fmtxx, i);
         std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
     });
-  #else
-    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
-        char buf[500];
-        fmtxx::CharArray os{buf};
-        fmtxx::printf(os, format_printf, i);
-        std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
-    });
-  #endif
-#endif
-#if 0
-  #if 1
-    std::string buf;
-    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
-        buf.clear();
-        fmtxx::format(buf, format_fmtxx, i);
-        std::fwrite(buf.data(), 1, buf.size(), stdout);
-    });
-  #else
-    std::string buf;
-    times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
-        buf.clear();
-        fmtxx::printf(buf, format_printf, i);
-        std::fwrite(buf.data(), 1, buf.size(), stdout);
-    });
-  #endif
-#endif
+
+    //times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+    //    char buf[500];
+    //    fmtxx::CharArray os{buf};
+    //    fmtxx::printf(os, format_printf, i);
+    //    std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
+    //});
+
+    //std::string buf;
+    //times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+    //    buf.clear();
+    //    fmtxx::format(buf, format_fmtxx, i);
+    //    std::fwrite(buf.data(), 1, buf.size(), stdout);
+    //});
+
+    //std::string buf;
+    //times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+    //    buf.clear();
+    //    fmtxx::printf(buf, format_printf, i);
+    //    std::fwrite(buf.data(), 1, buf.size(), stdout);
+    //});
 #endif
 
 #if HAVE_PRINTF
     auto const ref = times.t_printf;
+#elif HAVE_FMTLIB
+    auto const ref = times.t_fmt;
+#elif HAVE_FMTXX
+    auto const ref = times.t_fmtxx;
 #else
     auto const ref = 1.0;
 #endif

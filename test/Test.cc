@@ -130,7 +130,7 @@ static std::string PrintfArgs(std::string_view format, Args const&... args)
 // XXX:
 // ENABLE THIS AGAIN!!!
 //--------------------------------------------------------------------------------------------------
-#if FMTXX_FORMAT_STRING_CHECK_POLICY == 2
+#if FORMAT_STRING_CHECK_POLICY == 2
 TEST_CASE("Invalid", "1")
 {
     CHECK_THROWS(FormatArgs("{", 0));
@@ -466,6 +466,7 @@ TEST_CASE("Ints", "1")
     CHECK("        01" == FormatArgs("{:#10o}",  1));
 }
 
+#define DTOA_PRINTF 0
 TEST_CASE("Floats", "1")
 {
     CHECK(
@@ -574,6 +575,7 @@ TEST_CASE("Floats", "1")
     CHECK("1.200000E+00" == FormatArgs("{:E}",  1.2));
     CHECK("1.2"          == FormatArgs("{:g}",  1.2));
 
+#if !DTOA_PRINTF
     CHECK("1.234568"         == FormatArgs("{:'f}", 1.23456789));
     CHECK("12.345679"        == FormatArgs("{:'f}", 12.3456789));
     CHECK("123.456789"       == FormatArgs("{:'f}", 123.456789));
@@ -581,6 +583,7 @@ TEST_CASE("Floats", "1")
     CHECK("12'345.678900"    == FormatArgs("{:'f}", 12345.6789));
     CHECK("123'456.789000"   == FormatArgs("{:'f}", 123456.789));
     CHECK("1'234'567.890000" == FormatArgs("{:'f}", 1234567.89));
+#endif
 
     CHECK("123456.789000" == FormatArgs("{:f}",  123456.789));
     CHECK("1.234568e+05"  == FormatArgs("{:e}",  123456.789));
@@ -602,6 +605,7 @@ TEST_CASE("Floats", "1")
     CHECK("12345.7"      == FormatArgs("{:g}",  12345.6789));
     CHECK("1.23e+04"     == FormatArgs("{:.3g}",  12345.6789));
 
+#if !DTOA_PRINTF
     CHECK("0"                    == FormatArgs("{:s}", 0.0));
     CHECK("10"                   == FormatArgs("{:s}", 10.0));
     CHECK("10"                   == FormatArgs("{:S}", 10.0));
@@ -672,12 +676,16 @@ TEST_CASE("Floats", "1")
     CHECK("0X1.BADP+1"   == FormatArgs("{:#.3X}", 3.4597));
     CHECK("0X1.BAD7P+1"  == FormatArgs("{:#.4X}", 3.4597));
     CHECK("0X1.BAD77P+1" == FormatArgs("{:#.5X}", 3.4597));
+#endif
 
+#if !DTOA_PRINTF
     CHECK("0x1p+0"    == FormatArgs("{:a}",     1.0));
+#endif
     CHECK("0x1p+0"    == FormatArgs("{:.0a}",   1.0));
     CHECK("0x1.0p+0"  == FormatArgs("{:.1a}",   1.0));
     CHECK("0x1.00p+0" == FormatArgs("{:.2a}",   1.0));
 
+#if !DTOA_PRINTF
     double InvVal = std::numeric_limits<double>::infinity();
     CHECK("inf"    == FormatArgs("{:s}", InvVal));
     CHECK("   inf" == FormatArgs("{:6s}", InvVal));
@@ -721,6 +729,7 @@ TEST_CASE("Floats", "1")
     CHECK("NAN" == FormatArgs("{:S}", -NanVal));
     CHECK("nan" == FormatArgs("{:x}", -NanVal));
     CHECK("NAN" == FormatArgs("{:X}", -NanVal));
+#endif
 
     CHECK("1.000000" == FormatArgs("{:f}",    1.0));
     CHECK("1"        == FormatArgs("{:.f}",   1.0));
@@ -732,6 +741,7 @@ TEST_CASE("Floats", "1")
     CHECK("1.0"      == FormatArgs("{:#.1f}", 1.0));
     CHECK("1.00"     == FormatArgs("{:#.2f}", 1.0));
 
+#if !DTOA_PRINTF
     CHECK("1'234.000000" == FormatArgs("{:'f}",    1234.0));
     CHECK("1'234"        == FormatArgs("{:'.f}",   1234.0));
     CHECK("1'234"        == FormatArgs("{:'.0f}",  1234.0));
@@ -751,6 +761,7 @@ TEST_CASE("Floats", "1")
     CHECK("1'234."       == PrintfArgs("%'#.0f", 1234.0));
     CHECK("1'234.0"      == PrintfArgs("%'#.1f", 1234.0));
     CHECK("1'234.00"     == PrintfArgs("%'#.2f", 1234.0));
+#endif
 
     CHECK("1.000000e+00" == FormatArgs("{:e}",    1.0));
     CHECK("1e+00"        == FormatArgs("{:.e}",   1.0));
@@ -782,6 +793,7 @@ TEST_CASE("Floats", "1")
     CHECK("1.e+10"      == FormatArgs("{:#.1g}", 1.0e+10));
     CHECK("1.0e+10"     == FormatArgs("{:#.2g}", 1.0e+10));
 
+#if !DTOA_PRINTF
     CHECK("0x1.fcac083126e98p+0" == FormatArgs("{:a}", 1.987));
     CHECK("0x2p+0"               == FormatArgs("{:.a}", 1.987));
     CHECK("0x2p+0"               == FormatArgs("{:.0a}", 1.987));
@@ -792,6 +804,7 @@ TEST_CASE("Floats", "1")
     CHECK("0x2.p+0"              == FormatArgs("{:#.0a}", 1.987));
     CHECK("0x2.0p+0"             == FormatArgs("{:#.1a}", 1.987));
     CHECK("0x1.fdp+0"            == FormatArgs("{:#.2a}", 1.987));
+#endif
 }
 
 TEST_CASE("Pointers", "1")

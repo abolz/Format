@@ -2,12 +2,19 @@
 
 #include "Format.h"
 
-#include "Dtoa.h"
+#include "double-conversion/bignum-dtoa.h"
+#include "double-conversion/fast-dtoa.h"
+#include "double-conversion/fixed-dtoa.h"
 
-#include <cstring>
 #include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <iterator>
 #include <limits>
 #include <ostream>
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 #ifndef __has_cpp_attribute
 #define __has_cpp_attribute(X) 0
@@ -19,6 +26,11 @@
 #define FALLTHROUGH
 #endif
 
+// 0: assert-no-check   (unsafe; invalid format strings -> UB)
+// 1: assert-check      (safe)
+// 2: throw             (safe)
+#define FORMAT_STRING_CHECK_POLICY 2
+
 using namespace fmtxx;
 using namespace fmtxx::impl;
 
@@ -28,7 +40,7 @@ using namespace fmtxx::impl;
 
 // Maximum supported minimum field width.
 // This is not an implementation limit, but its just a sane upper bound.
-enum { kMaxFieldWidth = 1024 * 4 };
+enum { kMaxFieldWidth = 1024 * 8 };
 
 // Maximum supported integer precision (= minimum number of digits).
 enum { kMaxIntPrec = 256 };
@@ -648,6 +660,7 @@ struct Double
     static uint64_t const kSignMask        = 0x8000000000000000;
     static uint64_t const kExponentMask    = 0x7FF0000000000000;
     static uint64_t const kSignificandMask = 0x000FFFFFFFFFFFFF;
+    static uint64_t const kHiddenBit       = 0x0010000000000000;
 
     static int const kExponentBias = 0x3FF;
 
@@ -698,6 +711,567 @@ struct Double
 
 } // namespace
 
+namespace dtoa {
+
+struct Options {
+    bool use_upper_case_digits       = true;  //       A
+    bool normalize                   = true;  //       A
+    char thousands_sep               = '\0';  // F   G
+    char decimal_point               = '.';   // F E G A J
+    bool use_alternative_form        = false; // F E G A
+    int  min_exponent_digits         = 2;     //   E G A
+    char exponent_char               = 'e';   //   E G A J
+    bool emit_positive_exponent_sign = true;  //   E G A
+};
+
+using Vector = double_conversion::Vector<char>;
+
+template <typename RanIt>
+static auto MakeArrayIterator(RanIt first, intptr_t n)
+{
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
+    return stdext::make_checked_array_iterator(first, n);
+#else
+    UnusedParameter(n);
+    return first;
+#endif
+}
+
+static int InsertThousandsSep(Vector buf, int pt, int last, char sep)
+{
+    assert(pt >= 0);
+    assert(pt <= last);
+    assert(sep != '\0');
+
+    int const nsep = (pt - 1) / 3;
+
+    if (nsep <= 0)
+        return 0;
+
+    auto I = MakeArrayIterator(buf.start(), buf.length());
+    std::copy_backward(I + pt, I + last, I + (last + nsep));
+
+    for (int l = pt - 1, shift = nsep; shift > 0; --shift, l -= 3)
+    {
+        buf[l - 0 + shift] = buf[l - 0];
+        buf[l - 1 + shift] = buf[l - 1];
+        buf[l - 2 + shift] = buf[l - 2];
+        buf[l - 3 + shift] = sep;
+    }
+
+    return nsep;
+}
+
+static int CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int precision, Options const& options)
+{
+    assert(options.decimal_point != '\0');
+
+    if (decpt <= 0)
+    {
+        // 0.[000]digits[000]
+
+        assert(precision == 0 || precision >= -decpt + num_digits);
+
+        if (precision > 0)
+        {
+            // digits --> digits0.[000][000]
+
+            int const nextra = 2 + (precision - num_digits);
+            // nextra includes the decimal point.
+            std::fill_n(buf.start() + num_digits, nextra, '0');
+            buf[num_digits + 1] = options.decimal_point;
+
+            // digits0.[000][000] --> 0.[000]digits[000]
+            std::rotate(buf.start(), buf.start() + num_digits, buf.start() + (num_digits + 2 + -decpt));
+
+            return 2 + precision;
+        }
+        else
+        {
+            buf[0] = '0';
+            if (options.use_alternative_form)
+                buf[1] = options.decimal_point;
+
+            return 1 + (options.use_alternative_form ? 1 : 0);
+        }
+    }
+
+    int last = 0;
+    if (decpt >= num_digits)
+    {
+        // digits[000][.000]
+
+        int const nzeros = decpt - num_digits;
+        int const nextra = precision > 0 ? 1 + precision : (options.use_alternative_form ? 1 : 0);
+        // nextra includes the decimal point -- if any.
+
+        std::fill_n(buf.start() + num_digits, nzeros + nextra, '0');
+        if (nextra > 0)
+        {
+            buf[decpt] = options.decimal_point;
+        }
+
+        last = decpt + nextra;
+    }
+    else
+    {
+        // dig.its[000]
+
+        auto I = MakeArrayIterator(buf.start(), buf.length());
+
+        assert(precision >= num_digits - decpt); // >= 1
+
+        // digits --> dig.its
+        std::copy_backward(I + decpt, I + num_digits, I + (num_digits + 1));
+        I[decpt] = options.decimal_point;
+        // dig.its --> dig.its[000]
+        std::fill_n(I + (num_digits + 1), precision - (num_digits - decpt), '0');
+
+        last = decpt + 1 + precision;
+    }
+
+    if (options.thousands_sep != '\0')
+    {
+        last += InsertThousandsSep(buf, decpt, last, options.thousands_sep);
+    }
+
+    return last;
+}
+
+static void GenerateFixedDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
+{
+    Double const d{v};
+
+    assert(!d.IsSpecial());
+    assert(d.Abs() >= 0);
+    assert(requested_digits >= 0);
+
+    if (d.IsZero())
+    {
+        vec[0] = '0';
+        *num_digits = 1;
+        *decpt = 1;
+        return;
+    }
+
+    bool const fast_worked = FastFixedDtoa(v, requested_digits, vec, num_digits, decpt);
+    if (!fast_worked)
+    {
+        BignumDtoa(v, double_conversion::BIGNUM_DTOA_FIXED, requested_digits, vec, num_digits, decpt);
+    }
+}
+
+static int ToFixed(char* first, char* last, double d, int precision, Options const& options)
+{
+    Vector buf(first, static_cast<int>(last - first));
+
+    int num_digits = 0;
+    int decpt = 0;
+
+    GenerateFixedDigits(d, precision, buf, &num_digits, &decpt);
+
+    assert(num_digits >= 0);
+
+    return CreateFixedRepresentation(buf, num_digits, decpt, precision, options);
+}
+
+// Append a decimal representation of EXPONENT to BUF.
+// Returns the number of characters written.
+static int AppendExponent(Vector buf, int pos, int exponent, Options const& options)
+{
+    assert(exponent > -10000);
+    assert(exponent <  10000);
+    assert(options.exponent_char != '\0');
+    assert(options.min_exponent_digits >= 1);
+    assert(options.min_exponent_digits <= 4);
+
+    buf[pos++] = options.exponent_char;
+
+    if (exponent < 0)
+    {
+        buf[pos++] = '-';
+        exponent = -exponent;
+    }
+    else if (options.emit_positive_exponent_sign)
+    {
+        buf[pos++] = '+';
+    }
+
+    int const k = exponent;
+
+    if (k >= 1000 || options.min_exponent_digits >= 4) { buf[pos++] = static_cast<char>('0' + exponent / 1000); exponent %= 1000; }
+    if (k >=  100 || options.min_exponent_digits >= 3) { buf[pos++] = static_cast<char>('0' + exponent /  100); exponent %=  100; }
+    if (k >=   10 || options.min_exponent_digits >= 2) { buf[pos++] = static_cast<char>('0' + exponent /   10); exponent %=   10; }
+    buf[pos++] = static_cast<char>('0' + exponent % 10);
+
+    return pos;
+}
+
+static int CreateExponentialRepresentation(Vector buf, int num_digits, int exponent, int precision, Options const& options)
+{
+    assert(options.decimal_point != '\0');
+
+    int pos = 0;
+
+    pos += 1; // leading digit
+    if (num_digits > 1)
+    {
+        // d.igits[000]e+123
+
+        auto I = MakeArrayIterator(buf.start(), buf.length());
+
+        std::copy_backward(I + pos, I + (pos + num_digits - 1), I + (pos + num_digits));
+        I[pos] = options.decimal_point;
+        pos += 1 + (num_digits - 1);
+
+        if (precision > num_digits - 1)
+        {
+            int const nzeros = precision - (num_digits - 1);
+            std::fill_n(I + pos, nzeros, '0');
+            pos += nzeros;
+        }
+    }
+    else if (precision > 0)
+    {
+        // d.0[000]e+123
+
+        std::fill_n(buf.start() + pos, 1 + precision, '0');
+        buf[pos] = options.decimal_point;
+        pos += 1 + precision;
+    }
+    else
+    {
+        // d[.]e+123
+
+        if (options.use_alternative_form)
+            buf[pos++] = options.decimal_point;
+    }
+
+    return AppendExponent(buf, pos, exponent, options);
+}
+
+static void GeneratePrecisionDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
+{
+    assert(vec.length() >= 1);
+    assert(requested_digits >= 0);
+
+    Double const d{v};
+
+    assert(!d.IsSpecial());
+    assert(d.Abs() >= 0);
+
+    if (requested_digits == 0)
+    {
+        *num_digits = 0;
+        *decpt = 0;
+        return;
+    }
+
+    if (d.IsZero())
+    {
+        vec[0] = '0';
+        *num_digits = 1;
+        *decpt = 1;
+        return;
+    }
+
+    bool const fast_worked = FastDtoa(v, double_conversion::FAST_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
+    if (!fast_worked)
+    {
+        BignumDtoa(v, double_conversion::BIGNUM_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
+    }
+}
+
+static int ToExponential(char* first, char* last, double d, int precision, Options const& options)
+{
+    Vector buf(first, static_cast<int>(last - first));
+
+    int num_digits = 0;
+    int decpt = 0;
+
+    GeneratePrecisionDigits(d, precision + 1, buf, &num_digits, &decpt);
+
+    assert(num_digits > 0);
+
+    int const exponent = decpt - 1;
+    return CreateExponentialRepresentation(buf, num_digits, exponent, precision, options);
+}
+
+static int ToGeneral(char* first, char* last, double d, int precision, Options const& options)
+{
+    assert(precision >= 0);
+
+    Vector buf(first, static_cast<int>(last - first));
+
+    int num_digits = 0;
+    int decpt = 0;
+
+    int const P = precision == 0 ? 1 : precision;
+
+    GeneratePrecisionDigits(d, P, buf, &num_digits, &decpt);
+
+    assert(num_digits > 0);
+    assert(num_digits <= P); // GeneratePrecisionDigits is allowed to return fewer digits if they are all 0's.
+
+    int const X = decpt - 1;
+
+    // Trim trailing zeros.
+    while (num_digits > 0 && first[num_digits - 1] == '0')
+    {
+        --num_digits;
+    }
+
+    if (-4 <= X && X < P)
+    {
+        int prec = P - decpt;
+        if (!options.use_alternative_form)
+        {
+            prec = Min(prec, num_digits - decpt);
+        }
+
+        return CreateFixedRepresentation(buf, num_digits, decpt, prec, options);
+    }
+    else
+    {
+        int prec = P - 1;
+        if (!options.use_alternative_form)
+        {
+            prec = Min(prec, num_digits - 1);
+        }
+
+        return CreateExponentialRepresentation(buf, num_digits, X, prec, options);
+    }
+}
+
+static int CountLeadingZeros64(uint64_t n)
+{
+    assert(n != 0);
+
+#if defined(_MSC_VER) && (defined(_M_X64) /* || defined(_M_ARM64) */)
+
+    unsigned long high = 0; // index of most significant 1-bit
+    _BitScanReverse64(&high, n);
+    return 63 - static_cast<int>(high);
+
+#elif defined(__GNUC__)
+
+    return __builtin_clzll(static_cast<unsigned long long>(n));
+
+#else
+
+    int z = 0;
+    while ((n & 0x8000000000000000) == 0)
+    {
+        z++;
+        n <<= 1;
+    }
+    return z;
+
+#endif
+}
+
+static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, Vector buffer, int* num_digits, int* binary_exponent)
+{
+    assert(buffer.length() >= 52/4 + 1);
+
+    char const* const xdigits = upper ? "0123456789ABCDEF" : "0123456789abcdef";
+
+    Double const d{v};
+
+    assert(!d.IsSpecial()); // NaN or infinity?
+    assert(d.Abs() >= 0);
+
+    if (d.IsZero())
+    {
+        buffer[(*num_digits)++] = '0';
+        *binary_exponent = 0;
+        return;
+    }
+
+    uint64_t exp = d.Exponent();
+    uint64_t sig = d.Significand();
+
+    int e = static_cast<int>(exp) - Double::kExponentBias;
+    if (normalize)
+    {
+        if (exp == 0)
+        {
+            assert(sig != 0);
+
+            e++; // denormal exponent = 1 - bias
+
+            // Shift the highest bit into the hidden-bit position and adjust the
+            // exponent.
+            int s = CountLeadingZeros64(sig);
+            sig <<= s - 12 + 1;
+            e    -= s - 12 + 1;
+
+            // Clear out the hidden-bit.
+            // This is not used any more and must be cleared to detect overflow
+            // when rounding below.
+            sig &= Double::kSignificandMask;
+        }
+    }
+    else
+    {
+        if (exp == 0)
+            e++; // denormal exponent = 1 - bias
+        else
+            sig |= Double::kHiddenBit;
+    }
+
+    // Round?
+    if (precision >= 0 && precision < 52/4)
+    {
+        uint64_t const digit = sig         >> (52 - 4 * precision - 4);
+        uint64_t const r     = uint64_t{1} << (52 - 4 * precision    );
+
+        assert(!normalize || (sig & Double::kHiddenBit) == 0);
+
+        if (digit & 0x8) // Digit >= 8
+        {
+            sig += r; // Round...
+            if (normalize)
+            {
+                assert((sig >> 52) <= 1);
+                if (sig & Double::kHiddenBit) // 0ff... was rounded to 100...
+                    e++;
+            }
+        }
+
+        // Zero out unused bits so that the loop below does not produce more
+        // digits than neccessary.
+        sig &= r | (0 - r);
+    }
+
+    *binary_exponent = e;
+
+    buffer[(*num_digits)++] = xdigits[normalize ? 1 : (sig >> 52)];
+
+    // Ignore everything but the significand.
+    // Shift everything to the left; makes the loop below slightly simpler.
+    sig <<= 64 - 52;
+
+    while (sig != 0)
+    {
+        buffer[(*num_digits)++] = xdigits[sig >> (64 - 4)];
+        sig <<= 4;
+    }
+}
+
+static int ToHex(char* first, char* last, double d, int precision, Options const& options)
+{
+    Vector buf(first, static_cast<int>(last - first));
+
+    int num_digits = 0;
+    int binary_exponent = 0;
+
+    GenerateHexDigits(d, precision, options.normalize, options.use_upper_case_digits, buf, &num_digits, &binary_exponent);
+
+    assert(num_digits > 0);
+
+    return CreateExponentialRepresentation(buf, num_digits, binary_exponent, precision, options);
+}
+
+static void GenerateShortestDigits(double v, Vector vec, int* num_digits, int* decpt)
+{
+    assert(vec.length() >= 17 + 1 /*null*/);
+
+    Double const d{v};
+
+    assert(!d.IsSpecial());
+    assert(d.Abs() >= 0);
+
+    if (d.IsZero())
+    {
+        vec[0] = '0';
+        *num_digits = 1;
+        *decpt = 1;
+        return;
+    }
+
+    bool const fast_worked = FastDtoa(v, double_conversion::FAST_DTOA_SHORTEST, 0, vec, num_digits, decpt);
+    if (!fast_worked)
+    {
+        BignumDtoa(v, double_conversion::BIGNUM_DTOA_SHORTEST, -1, vec, num_digits, decpt);
+    }
+}
+
+static int ToECMAScript(char* first, char* last, double d, char decimal_point, char exponent_char)
+{
+    Vector buf(first, static_cast<int>(last - first));
+    assert(buf.length() >= 24);
+
+    auto I = MakeArrayIterator(buf.start(), buf.length());
+
+    int num_digits = 0;
+    int decpt = 0;
+
+    GenerateShortestDigits(d, buf, &num_digits, &decpt);
+
+    assert(num_digits > 0);
+
+    int const k = num_digits;
+    int const n = decpt;
+
+    // Use a decimal notation if -6 < n <= 21.
+
+    if (k <= n && n <= 21)
+    {
+        // digits[000]
+
+        std::fill_n(I + k, n - k, '0');
+        return n;
+    }
+
+    if (0 < n && n <= 21)
+    {
+        // dig.its
+
+        std::copy_backward(I + n, I + k, I + (k + 1));
+        I[n] = decimal_point;
+        return k + 1;
+    }
+
+    if (-6 < n && n <= 0)
+    {
+        // 0.[000]digits
+
+        std::copy_backward(I, I + k, I + (2 + -n + k));
+        I[0] = '0';
+        I[1] = decimal_point;
+        std::fill_n(I + 2, -n, '0');
+        return 2 + (-n) + k;
+    }
+
+    // Otherwise use an exponential notation.
+
+    Options options;
+
+    options.min_exponent_digits = 1;
+    options.exponent_char = exponent_char;
+    options.emit_positive_exponent_sign = true;
+
+    if (k == 1)
+    {
+        // dE+123
+
+        int const endpos = AppendExponent(buf, /*pos*/ 1, n - 1, options);
+        return endpos;
+    }
+    else
+    {
+        // d.igitsE+123
+
+        std::copy_backward(I + 1, I + k, I + (k + 1));
+        I[1] = decimal_point;
+        int const endpos = AppendExponent(buf, /*pos*/ k + 1, n - 1, options);
+        return endpos;
+    }
+}
+
+} // namespace dtoa
+
 static errc HandleSpecialFloat(Double const d, Writer& w, FormatSpec const& spec, char sign, bool upper)
 {
     assert(d.IsSpecial());
@@ -742,7 +1316,6 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
     case 's':
     case 'S':
         options.exponent_char = (conv == 's') ? 'e' : 'E';
-        options.min_exponent_digits = 1;
         break;
     case 'e':
     case 'E':
@@ -800,50 +1373,50 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
 
     char buf[kBufSize];
 
-    dtoa::Result res;
+    int buflen;
     switch (conv)
     {
     case 's':
     case 'S':
-        res = dtoa::ToECMAScript(buf, buf + kBufSize, abs_x, options.decimal_point, options.exponent_char);
+        buflen = dtoa::ToECMAScript(buf, buf + kBufSize, abs_x, options.decimal_point, options.exponent_char);
         break;
     case 'f':
     case 'F':
-        res = dtoa::ToFixed(buf, buf + kBufSize, abs_x, prec, options);
+        buflen = dtoa::ToFixed(buf, buf + kBufSize, abs_x, prec, options);
         break;
     case 'e':
     case 'E':
-        res = dtoa::ToExponential(buf, buf + kBufSize, abs_x, prec, options);
+        buflen = dtoa::ToExponential(buf, buf + kBufSize, abs_x, prec, options);
         break;
     case 'g':
     case 'G':
-        res = dtoa::ToGeneral(buf, buf + kBufSize, abs_x, prec, options);
+        buflen = dtoa::ToGeneral(buf, buf + kBufSize, abs_x, prec, options);
         break;
     case 'x':
     case 'X':
-        res = dtoa::ToHex(buf, buf + kBufSize, abs_x, prec, options);
+        buflen = dtoa::ToHex(buf, buf + kBufSize, abs_x, prec, options);
         break;
     default:
-        res = { false, 0 };
+        buflen = 0;
         assert(!"internal error");
         break;
     }
 
-    assert(res.success); // ouch :-(
+    assert(buflen >= 0);
 
     char const prefix[] = {'0', conv};
-    return PrintAndPadNumber(w, spec, sign, prefix, nprefix, buf, static_cast<size_t>(res.size));
+    return PrintAndPadNumber(w, spec, sign, prefix, nprefix, buf, static_cast<size_t>(buflen));
 }
 
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
 
-#if FMTXX_FORMAT_STRING_CHECK_POLICY == 0
+#if FORMAT_STRING_CHECK_POLICY == 0
 #  define EXPECT(EXPR, MSG) (assert(EXPR), true)
-#elif FMTXX_FORMAT_STRING_CHECK_POLICY == 1
+#elif FORMAT_STRING_CHECK_POLICY == 1
 #  define EXPECT(EXPR, MSG) (assert(EXPR), (EXPR))
-#elif FMTXX_FORMAT_STRING_CHECK_POLICY == 2
+#elif FORMAT_STRING_CHECK_POLICY == 2
 #  define EXPECT(EXPR, MSG) ((EXPR) ? true : throw std::runtime_error(MSG))
 #endif
 

@@ -14,7 +14,7 @@
 #endif
 
 #if _MSC_VER || __cplusplus >= 201703 || __has_cpp_attribute(fallthrough)
-#define FALLTHROUGH [[fallthrough]];
+#define FALLTHROUGH [[fallthrough]]
 #else
 #define FALLTHROUGH
 #endif
@@ -233,6 +233,8 @@ static Padding ComputePadding(size_t len, Align align, int width)
     if (width > kMaxFieldWidth)
         width = kMaxFieldWidth;
 
+    Padding pad;
+
     size_t const w = static_cast<size_t>(width);
     if (w > len)
     {
@@ -241,17 +243,22 @@ static Padding ComputePadding(size_t len, Align align, int width)
         {
         case Align::Default:
         case Align::Right:
-            return { d, 0, 0 };
+            pad.left = d;
+            break;
         case Align::Left:
-            return { 0, 0, d };
+            pad.right = d;
+            break;
         case Align::Center:
-            return { d/2, 0, d - d/2 };
+            pad.left = d/2;
+            pad.right = d - d/2;
+            break;
         case Align::PadAfterSign:
-            return { 0, d, 0 };
+            pad.after_sign = d;
+            break;
         }
     }
 
-    return { 0, 0, 0 };
+    return pad;
 }
 
 // Prints out exactly LEN characters (including '\0's) starting at STR,
@@ -275,12 +282,61 @@ static errc PrintAndPadString(Writer& w, FormatSpec const& spec, std::string_vie
     return PrintAndPadString(w, spec, str.data(), str.size());
 }
 
+template <typename F>
+static bool ForEachEscaped(char const* str, size_t len, F func)
+{
+    for (size_t i = 0; i < len; ++i)
+    {
+        char const ch = str[i];
+
+        bool res = true;
+        switch (ch)
+        {
+        case '"':
+        case '\\':
+//      case '\'':
+//      case '?':
+            res = func('\\') && func(ch);
+            break;
+//      case '\a':
+//          res = func('\\') && func('a');
+//          break;
+//      case '\b':
+//          res = func('\\') && func('b');
+//          break;
+//      case '\f':
+//          res = func('\\') && func('f');
+//          break;
+//      case '\n':
+//          res = func('\\') && func('n');
+//          break;
+//      case '\r':
+//          res = func('\\') && func('r');
+//          break;
+//      case '\t':
+//          res = func('\\') && func('t');
+//          break;
+//      case '\v':
+//          res = func('\\') && func('v');
+//          break;
+        default:
+            res = func(ch);
+            break;
+        }
+
+        if (!res)
+            return false;
+    }
+
+    return true;
+}
+
 static errc PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
-    size_t num_escaped = static_cast<size_t>(std::count_if(str, str + len, [](char ch) { return ch == '"' || ch == '\\'; }));
-    size_t quoted_len  = len + 2 + num_escaped;
+    size_t quoted_len = 0;
+    ForEachEscaped(str, len, [&](char) { ++quoted_len; return true; });
 
-    auto const pad = ComputePadding(quoted_len, spec.align, spec.width);
+    auto const pad = ComputePadding(2 + quoted_len, spec.align, spec.width);
 
     if (pad.left > 0 && !w.Pad(spec.fill, pad.left))
         return errc::io_error;
@@ -288,19 +344,15 @@ static errc PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char cons
         return errc::io_error;
     if (len > 0)
     {
-        if (num_escaped > 0)
+        if (len < quoted_len)
         {
-            for (size_t i = 0; i < len; ++i)
-            {
-                if ((str[i] == '"' || str[i] == '\\') && !w.Put('\\'))
-                    return errc::io_error;
-                if (!w.Put(str[i]))
-                    return errc::io_error;
-            }
+            if (!ForEachEscaped(str, len, [&](char ch) { return w.Put(ch); }))
+                return errc::io_error;
         }
-        else if (!w.Write(str, len))
+        else
         {
-            return errc::io_error;
+            if (!w.Write(str, len))
+                return errc::io_error;
         }
     }
     if (!w.Put('"'))
@@ -469,13 +521,13 @@ errc fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sext, ui
     {
     default:
         conv = 'd';
-        FALLTHROUGH
+        FALLTHROUGH;
     case 'd':
     case 'i':
         sign = ComputeSignChar(sext < 0, spec.sign, spec.fill);
         if (sext < 0)
             number = 0 - static_cast<uint64_t>(sext);
-        FALLTHROUGH
+        FALLTHROUGH;
     case 'u':
         base = 10;
         break;
@@ -686,7 +738,7 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
     {
     default:
         conv = 's';
-        FALLTHROUGH
+        FALLTHROUGH;
     case 's':
     case 'S':
         options.exponent_char = (conv == 's') ? 'e' : 'E';
@@ -710,37 +762,23 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
             prec = 6;
         break;
     case 'a':
-        conv = 'x';
-        options.min_exponent_digits = 1;
-        options.exponent_char = 'p';
-        nprefix = 2;
-        break;
     case 'A':
-        conv = 'X';
-        options.use_upper_case_digits = true;
-        options.min_exponent_digits = 1;
-        options.exponent_char = 'P';
+        conv = (conv == 'a') ? 'x' : 'X';
+        options.use_upper_case_digits = (conv == 'X');
+        options.min_exponent_digits   = 1;
+        options.exponent_char         = (conv == 'x') ? 'p' : 'P';
         nprefix = 2;
         break;
     case 'x':
-        options.normalize = true;
-        options.use_alternative_form = false;
-        options.min_exponent_digits = 1;
-        options.exponent_char = 'p';
-        nprefix = spec.hash ? 2 : 0;
-        break;
     case 'X':
-        options.use_upper_case_digits = true;
-        options.normalize = true;
-        options.use_alternative_form = false;
-        options.min_exponent_digits = 1;
-        options.exponent_char = 'P';
+        options.use_upper_case_digits = (conv == 'X');
+        options.normalize             = true;
+        options.use_alternative_form  = false;
+        options.min_exponent_digits   = 1;
+        options.exponent_char         = (conv == 'x') ? 'p' : 'P';
         nprefix = spec.hash ? 2 : 0;
         break;
     }
-
-    if (prec > kMaxFloatPrec)
-        prec = kMaxFloatPrec;
 
     Double const d { x };
 
@@ -753,6 +791,9 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
         bool const upper = ('A' <= conv && conv <= 'Z');
         return HandleSpecialFloat(d, w, spec, sign, upper);
     }
+
+    if (prec > kMaxFloatPrec)
+        prec = kMaxFloatPrec;
 
     // Allow printing *ALL* double-precision floating-point values with prec <= kMaxFloatPrec
     enum { kBufSize = 309 + 1/*.*/ + kMaxFloatPrec + 1/*null*/ };
@@ -790,10 +831,8 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
 
     assert(res.success); // ouch :-(
 
-    size_t const buflen = static_cast<size_t>(res.size);
-
     char const prefix[] = {'0', conv};
-    return PrintAndPadNumber(w, spec, sign, prefix, nprefix, buf, buflen);
+    return PrintAndPadNumber(w, spec, sign, prefix, nprefix, buf, static_cast<size_t>(res.size));
 }
 
 //------------------------------------------------------------------------------
@@ -801,11 +840,11 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
 //------------------------------------------------------------------------------
 
 #if FMTXX_FORMAT_STRING_CHECK_POLICY == 0
-#define EXPECT(EXPR, MSG) (assert(EXPR), true)
+#  define EXPECT(EXPR, MSG) (assert(EXPR), true)
 #elif FMTXX_FORMAT_STRING_CHECK_POLICY == 1
-#define EXPECT(EXPR, MSG) (assert(EXPR), (EXPR))
+#  define EXPECT(EXPR, MSG) (assert(EXPR), (EXPR))
 #elif FMTXX_FORMAT_STRING_CHECK_POLICY == 2
-#define EXPECT(EXPR, MSG) ((EXPR) ? true : throw std::runtime_error(MSG))
+#  define EXPECT(EXPR, MSG) ((EXPR) ? true : throw std::runtime_error(MSG))
 #endif
 
 static void FixNegativeFieldWidth(FormatSpec& spec)
@@ -1092,12 +1131,12 @@ static void ParseStyle(FormatSpec& spec, std::string_view::iterator& f, std::str
 
     auto const f0 = ++f;
 
+    // The test is required because of the deref below. (string_view is not constructible
+    // from string_view::iterator's.)
     if (!EXPECT(f0 != end, "unexpected end of format-string"))
         return;
 
-    while (*f != '}' && ++f != end)
-    {
-    }
+    f = std::find_if(f, end, [](char ch) { return ch == '}'; });
 
     spec.style = { &*f0, static_cast<size_t>(f - f0) };
 }
@@ -1145,8 +1184,7 @@ errc fmtxx::impl::DoFormat(Writer& w, std::string_view format, Types types, Arg 
     auto       s   = f;
     for (;;)
     {
-        while (f != end && *f != '{' && *f != '}')
-            ++f;
+        f = std::find_if(f, end, [](char ch) { return ch == '{' || ch == '}'; });
 
         if (f != s && !w.Write(&*s, static_cast<size_t>(f - s)))
             return errc::io_error; // io-error
@@ -1390,7 +1428,8 @@ static void ParsePrintfSpec(int& arg_index, FormatSpec& spec, std::string_view::
         case 's':
         case 'S':
         case 'p':
-        case 'q': // quoted strings
+        case 'q': // EXTENSION: quoted strings
+        case 'y': // EXTENSION: bool "yes"/"no"
             spec.conv = *f;
             ++f;
             return;
@@ -1430,8 +1469,7 @@ errc fmtxx::impl::DoPrintf(Writer& w, std::string_view format, Types types, Arg 
     auto       s   = f;
     for (;;)
     {
-        while (f != end && *f != '%')
-            ++f;
+        f = std::find(f, end, '%');
 
         if (f != s && !w.Write(&*s, static_cast<size_t>(f - s)))
             return errc::io_error;

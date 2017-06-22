@@ -20,10 +20,12 @@
 #define __has_cpp_attribute(X) 0
 #endif
 
-#if _MSC_VER || __cplusplus >= 201703 || __has_cpp_attribute(fallthrough)
-#define FALLTHROUGH [[fallthrough]]
+#if __has_cpp_attribute(clang::fallthrough)
+#  define FALLTHROUGH [[clang::fallthrough]]
+#elif __has_cpp_attribute(fallthrough) || __cplusplus >= 201703 || _MSC_VER >= 1910
+#  define FALLTHROUGH [[fallthrough]]
 #else
-#define FALLTHROUGH
+#  define FALLTHROUGH
 #endif
 
 // 0: assert-no-check   (unsafe; invalid format strings -> UB)

@@ -1357,7 +1357,18 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
         prec = kMaxFloatPrec;
 
     // Allow printing *ALL* double-precision floating-point values with prec <= kMaxFloatPrec
-    enum { kBufSize = 309 + 1/*.*/ + kMaxFloatPrec + 1/*null*/ };
+    // and thousands separators.
+    // 
+    // Mode         Max length
+    // ---------------------------------------------
+    // ECMAScript   27
+    // Fixed        [309 digits + separators].[prec digits]
+    // Scientific   D.[prec digits]E+123
+    // Hex          0xH.[prec digits]P+1234
+    //
+    enum { kMaxDigitsBeforePoint = 309 };
+    enum { kMaxSeps = (kMaxDigitsBeforePoint - 1) / 3 };
+    enum { kBufSize = kMaxDigitsBeforePoint + kMaxSeps + 1 + kMaxFloatPrec + 1/*null*/ };
 
     char buf[kBufSize];
 

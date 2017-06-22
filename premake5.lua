@@ -97,50 +97,50 @@ project "fmtxx"
             "-fvisibility=hidden",
         }
 
-project "fmtxx-static"
-    language "C++"
-    kind "StaticLib"
-    files {
-        "src/**.h",
-        "src/**.cc",
-    }
-    includedirs {
-        "src/",
-    }
-    configuration { "gmake" }
-        buildoptions {
-            "-Wsign-compare",
-            "-Wsign-conversion",
-            "-Wold-style-cast",
-            "-pedantic",
-            "-fvisibility=hidden",
-        }
+--project "fmtxx-static"
+--    language "C++"
+--    kind "StaticLib"
+--    files {
+--        "src/**.h",
+--        "src/**.cc",
+--    }
+--    includedirs {
+--        "src/",
+--    }
+--    configuration { "gmake" }
+--        buildoptions {
+--            "-Wsign-compare",
+--            "-Wsign-conversion",
+--            "-Wold-style-cast",
+--            "-pedantic",
+--            "-fvisibility=hidden",
+--        }
 
-project "fmt"
-    language "C++"
-    kind "SharedLib"
-    files {
-        "test/ext/fmt/fmt/*.cc",
-        "test/ext/fmt/fmt/*.h",
-    }
-    defines {
-        "FMT_SHARED",
-        "FMT_EXPORT",
-    }
-    includedirs {
-        "test/ext/fmt/",
-    }
+--project "fmt"
+--    language "C++"
+--    kind "SharedLib"
+--    files {
+--        "test/ext/fmt/fmt/*.cc",
+--        "test/ext/fmt/fmt/*.h",
+--    }
+--    defines {
+--        "FMT_SHARED",
+--        "FMT_EXPORT",
+--    }
+--    includedirs {
+--        "test/ext/fmt/",
+--    }
 
-project "fmt-static"
-    language "C++"
-    kind "StaticLib"
-    files {
-        "test/ext/fmt/fmt/*.cc",
-        "test/ext/fmt/fmt/*.h",
-    }
-    includedirs {
-        "test/ext/fmt/",
-    }
+--project "fmt-static"
+--    language "C++"
+--    kind "StaticLib"
+--    files {
+--        "test/ext/fmt/fmt/*.cc",
+--        "test/ext/fmt/fmt/*.h",
+--    }
+--    includedirs {
+--        "test/ext/fmt/",
+--    }
 
 --------------------------------------------------------------------------------
 group "Tests"
@@ -161,45 +161,51 @@ project "Test"
         "fmtxx",
     }
 
-project "TestPerf"
-    language "C++"
-    kind "ConsoleApp"
-    files {
-        "test/TestPerf.cc",
-    }
-    defines {
-        "FMTXX_SHARED",
-        "FMT_SHARED"
-    }
-    includedirs {
-        "src/",
-        "test/ext/",
-        "test/ext/fmt/",
-    }
-    links {
-        "fmtxx",
-        "fmt",
-    }
-
---project "Benchmark"
+--project "TestPerf"
 --    language "C++"
 --    kind "ConsoleApp"
 --    files {
---        "test/Benchmark.cc",
---        "test/ext/benchmark/include/benchmark/*.h",
---        "test/ext/benchmark/src/*.cc",
+--        "test/TestPerf.cc",
 --    }
 --    defines {
---        "HAVE_STD_REGEX=1",
+--        "FMTXX_SHARED",
+--        "FMT_SHARED"
 --    }
 --    includedirs {
 --        "src/",
 --        "test/ext/",
 --        "test/ext/fmt/",
---        "test/ext/benchmark/include/",
 --    }
 --    links {
---        "pthread",
 --        "fmtxx",
 --        "fmt",
 --    }
+
+--project "Benchmark"
+--    language "C++"
+--    kind "ConsoleApp"
+--    files {
+--        "test/Bench.cc",
+--        "test/ext/benchmark/include/benchmark/*.h",
+--        "test/ext/benchmark/src/*.cc",
+--    }
+--    defines {
+--        "HAVE_STD_REGEX=1",
+--        "FMTXX_SHARED",
+--    }
+--    includedirs {
+--        "src/",
+--        "test/ext/",
+--        "test/ext/benchmark/include/",
+--    }
+--    links {
+--        "fmtxx",
+--    }
+--    configuration { "vs*" }
+--        links {
+--            "shlwapi",
+--        }
+--    configuration { "not vs*" }
+--        links {
+--            "pthread",
+--        }

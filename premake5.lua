@@ -97,51 +97,6 @@ project "fmtxx"
             "-fvisibility=hidden",
         }
 
---project "fmtxx-static"
---    language "C++"
---    kind "StaticLib"
---    files {
---        "src/**.h",
---        "src/**.cc",
---    }
---    includedirs {
---        "src/",
---    }
---    configuration { "gmake" }
---        buildoptions {
---            "-Wsign-compare",
---            "-Wsign-conversion",
---            "-Wold-style-cast",
---            "-pedantic",
---            "-fvisibility=hidden",
---        }
-
---project "fmt"
---    language "C++"
---    kind "SharedLib"
---    files {
---        "test/ext/fmt/fmt/*.cc",
---        "test/ext/fmt/fmt/*.h",
---    }
---    defines {
---        "FMT_SHARED",
---        "FMT_EXPORT",
---    }
---    includedirs {
---        "test/ext/fmt/",
---    }
-
---project "fmt-static"
---    language "C++"
---    kind "StaticLib"
---    files {
---        "test/ext/fmt/fmt/*.cc",
---        "test/ext/fmt/fmt/*.h",
---    }
---    includedirs {
---        "test/ext/fmt/",
---    }
-
 --------------------------------------------------------------------------------
 group "Tests"
 
@@ -160,26 +115,6 @@ project "Test"
     links {
         "fmtxx",
     }
-
---project "TestPerf"
---    language "C++"
---    kind "ConsoleApp"
---    files {
---        "test/TestPerf.cc",
---    }
---    defines {
---        "FMTXX_SHARED",
---        "FMT_SHARED"
---    }
---    includedirs {
---        "src/",
---        "test/ext/",
---        "test/ext/fmt/",
---    }
---    links {
---        "fmtxx",
---        "fmt",
---    }
 
 project "Benchmark"
     language "C++"

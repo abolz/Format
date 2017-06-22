@@ -4,6 +4,7 @@
 
 #if HAVE_FMTXX
 #include "Format.h"
+//#include "FormatMemoryWriter.h"
 #endif
 
 #if HAVE_FMTLIB
@@ -86,18 +87,15 @@ static void PrintAvgTimes()
 //
 //------------------------------------------------------------------------------
 
-template <typename VSNPrintf>
-inline int printf_buffered_impl(VSNPrintf snpf, char const* fmt, va_list args)
+template <typename ...Args>
+inline int printf_buffered(char const* fmt, Args const&... args)
 {
     static const size_t kStackBufSize = 500;
 
     char stack_buf[kStackBufSize];
     int n;
 
-    va_list args_copy;
-    va_copy(args_copy, args);
-    n = snpf(stack_buf, kStackBufSize, fmt, args_copy);
-    va_end(args_copy);
+    n = snprintf(stack_buf, kStackBufSize, fmt, args...);
 
     if (n < 0) // io error
         return n;
@@ -117,7 +115,7 @@ inline int printf_buffered_impl(VSNPrintf snpf, char const* fmt, va_list args)
 
         Malloced buf(count + 1);
 
-        snpf(buf.ptr, count + 1, fmt, args);
+        snprintf(buf.ptr, count + 1, fmt, args...);
 
         fwrite(buf.ptr, sizeof(char), count, stdout);
     }
@@ -125,25 +123,8 @@ inline int printf_buffered_impl(VSNPrintf snpf, char const* fmt, va_list args)
     return n;
 }
 
-template <typename VSNPrintf>
-inline int printf_buffered(VSNPrintf snpf, char const* fmt, ...)
-{
-    int n;
-
-    va_list args;
-    va_start(args, fmt);
-    n = printf_buffered_impl(snpf, fmt, args);
-    va_end(args);
-
-    return n;
-}
-
 //#define PRINTF printf
-#define PRINTF(...) \
-    printf_buffered([](auto... args) { return vsnprintf(args...); }, __VA_ARGS__)
-
-#define STB_PRINTF(...) \
-    printf_buffered([](auto... args) { return stbsp_vsnprintf(args...); }, __VA_ARGS__)
+#define PRINTF printf_buffered
 
 //------------------------------------------------------------------------------
 //
@@ -250,6 +231,12 @@ static void RunTest(int n, Distribution& dist, char const* format_printf, char c
         fmtxx::format(os, format_fmtxx, i);
         std::fwrite(buf, 1, static_cast<size_t>(os.next - buf), stdout);
     });
+
+    //times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
+    //    fmtxx::MemoryWriter<> w;
+    //    fmtxx::format(w, format_fmtxx, i);
+    //    std::fwrite(w.data(), 1, w.size(), stdout);
+    //});
 
     //times.t_fmtxx = GenerateNumbers(n, dist, [&](auto i) {
     //    char buf[500];

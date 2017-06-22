@@ -1,6 +1,7 @@
 #include "ext/Catch/include/catch_with_main.hpp"
 
 #include "Format.h"
+//#include "FormatMemoryWriter.h"
 
 #include <cfloat>
 #include <cmath>
@@ -70,6 +71,18 @@ struct CharArrayFormatter
     }
 };
 
+//template <typename Fn>
+//struct MemoryFormatter
+//{
+//    template <typename ...Args>
+//    FormatterResult operator()(std::string_view format, Args const&... args) const
+//    {
+//        fmtxx::MemoryWriter<> w;
+//        const auto ec = Fn{}(w, format, args...);
+//        return { w.str(), ec };
+//    }
+//};
+
 template <typename Formatter, typename ...Args>
 static std::string FormatArgs1(std::string_view format, Args const&... args)
 {
@@ -110,6 +123,10 @@ static std::string FormatArgsTemplate(std::string_view format, Args const&... ar
     std::string const s4 = FormatArgs1<CharArrayFormatter<Fn>>(format, args...);
     if (s4 != s1)
         return "[[[[ formatter mismatch 3 ]]]]";
+
+    //std::string const s5 = FormatArgs1<MemoryFormatter<Fn>>(format, args...);
+    //if (s5 != s1)
+    //    return "[[[[ formatter mismatch 4 ]]]]";
 
     return s1;
 }

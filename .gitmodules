@@ -4,3 +4,6 @@
 [submodule "test/ext/Catch"]
 	path = test/ext/Catch
 	url = https://github.com/philsquared/Catch.git
+[submodule "test/ext/benchmark"]
+	path = test/ext/benchmark
+	url = https://github.com/google/benchmark.git

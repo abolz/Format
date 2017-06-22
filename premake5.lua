@@ -181,31 +181,31 @@ project "Test"
 --        "fmt",
 --    }
 
---project "Benchmark"
---    language "C++"
---    kind "ConsoleApp"
---    files {
---        "test/Bench.cc",
---        "test/ext/benchmark/include/benchmark/*.h",
---        "test/ext/benchmark/src/*.cc",
---    }
---    defines {
---        "HAVE_STD_REGEX=1",
---        "FMTXX_SHARED",
---    }
---    includedirs {
---        "src/",
---        "test/ext/",
---        "test/ext/benchmark/include/",
---    }
---    links {
---        "fmtxx",
---    }
---    configuration { "vs*" }
---        links {
---            "shlwapi",
---        }
---    configuration { "not vs*" }
---        links {
---            "pthread",
---        }
+project "Benchmark"
+    language "C++"
+    kind "ConsoleApp"
+    files {
+        "test/Bench.cc",
+        "test/ext/benchmark/include/benchmark/*.h",
+        "test/ext/benchmark/src/*.cc",
+    }
+    defines {
+        "HAVE_STD_REGEX=1",
+        "FMTXX_SHARED",
+    }
+    includedirs {
+        "src/",
+        "test/ext/",
+        "test/ext/benchmark/include/",
+    }
+    links {
+        "fmtxx",
+    }
+    configuration { "vs*" }
+        links {
+            "shlwapi",
+        }
+    configuration { "not vs*" }
+        links {
+            "pthread",
+        }

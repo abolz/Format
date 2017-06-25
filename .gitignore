@@ -9,5 +9,5 @@
 /ext/
 /scratch/
 /streams/
-/test/Benchmark.cc
+/test/fmt/
 /vs/

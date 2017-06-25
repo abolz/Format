@@ -940,6 +940,10 @@ TEST_CASE("Custom", "1")
     // Must be a separate function like vformat(format, map)...
     //
     CHECK("1, 2" == FormatArgs("{0!eins}, {0!zwei}", map));
+#if 0
+    CHECK("1, 2" == FormatArgs("{0!{eins}}, {0!{zwei}}", map));
+    CHECK("1, 2" == FormatArgs("{0!'eins'}, {0!'zwei'}", map));
+#endif
 #endif
 }
 

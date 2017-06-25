@@ -1701,18 +1701,68 @@ static void ParseFormatSpec(FormatSpec& spec, std::string_view::iterator& f, std
 
 static void ParseStyle(FormatSpec& spec, std::string_view::iterator& f, std::string_view::iterator const end)
 {
-    assert(f != end && *f == '!');
+#if 0
+    ++f;
+    if (!EXPECT(f != end, "unexpected end of format-string"))
+        return;
 
-    auto const f0 = ++f;
+    char delim;
+    switch (*f)
+    {
+    case '(':
+        ++f;
+        delim = ')';
+        break;
+    case '[':
+        ++f;
+        delim = ']';
+        break;
+    case '{':
+        ++f;
+        delim = '}';
+        break;
+    case '\'':
+        ++f;
+        delim = '\'';
+        break;
+    case '"':
+        ++f;
+        delim = '"';
+        break;
+    default:
+        delim = '\0';
+        break;
+    }
+
+    auto const f0 = f;
 
     // The test is required because of the deref below. (string_view is not constructible
     // from string_view::iterator's.)
     if (!EXPECT(f0 != end, "unexpected end of format-string"))
         return;
 
-    f = std::find_if(f, end, [](char ch) { return ch == '}'; });
+    f = std::find(f, end, delim == '\0' ? '}' : delim);
 
     spec.style = { &*f0, static_cast<size_t>(f - f0) };
+
+    if (delim != '\0')
+    {
+        if (!EXPECT(f != end, "unexpected end of format-string"))
+            return;
+        ++f;
+    }
+#else
+   auto const f0 = ++f;
+
+    // The test is required because of the deref below. (string_view is not constructible
+    // from string_view::iterator's.)
+    if (!EXPECT(f0 != end, "unexpected end of format-string"))
+        return;
+
+    f = std::find(f, end, '}');
+
+    spec.style = { &*f0, static_cast<size_t>(f - f0) };
+#endif
 }
 
 static void ParseReplacementField(FormatSpec& spec, std::string_view::iterator& f, std::string_view::iterator const end, int& nextarg, Types types, Arg const* args)

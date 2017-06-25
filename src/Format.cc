@@ -7,14 +7,13 @@
 #include "double-conversion/fixed-dtoa.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <iterator>
 #include <limits>
 #include <ostream>
-#ifdef _MSC_VER
-#include <intrin.h>
-#endif
 
 #ifndef __has_cpp_attribute
 #define __has_cpp_attribute(X) 0
@@ -28,9 +27,9 @@
 #  define FALLTHROUGH
 #endif
 
-// 0: assert-no-check   (unsafe; invalid format strings -> UB)
-// 1: assert-check      (safe)
-// 2: throw             (safe)
+// 1: assert
+// 2: abort
+// 3: throw
 #define FORMAT_STRING_CHECK_POLICY 1
 
 using namespace fmtxx;
@@ -63,6 +62,17 @@ inline constexpr T Clip(T x, T lower, T upper) { return Min(Max(lower, x), upper
 
 template <typename T>
 inline void UnusedParameter(T&&) {}
+
+template <typename RanIt>
+static auto MakeArrayIterator(RanIt first, intptr_t n)
+{
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
+    return stdext::make_checked_array_iterator(first, n);
+#else
+    UnusedParameter(n);
+    return first;
+#endif
+}
 
 //------------------------------------------------------------------------------
 //
@@ -485,21 +495,28 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
     return last;
 }
 
-// Inserts thousands separators into [buf, +pos).
+// Inserts thousands separators into [first, +off1).
 // Returns the number of separators inserted.
-static int InsertThousandsSep(char* buf, int pos, char sep, int group_len)
+static int InsertThousandsSep(char* first, char* last, int off1, int off2, char sep, int group_len)
 {
-    assert(pos >= 0);
+    assert(off1 >= 0);
+    assert(off2 >= off1);
     assert(sep != '\0');
     assert(group_len > 0);
 
-    int const nsep = (pos - 1) / group_len;
+    int const nsep = (off1 - 1) / group_len;
 
     if (nsep <= 0)
         return 0;
 
-    char* src = buf + pos;
-    char* dst = buf + (pos + nsep);
+    if (off1 != off2)
+    {
+        auto I = MakeArrayIterator(first, static_cast<int>(last - first));
+        std::copy_backward(I + off1, I + off2, I + (off2 + nsep));
+    }
+
+    char* src = first + off1;
+    char* dst = first + (off1 + nsep);
 
     for (int i = 0; i < nsep; ++i)
     {
@@ -564,13 +581,16 @@ errc fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sext, ui
     if (spec.prec >= 0)
     {
         int const prec = Min(spec.prec, static_cast<int>(kMaxIntPrec));
-        while (l - f < prec) {
+        while (l - f < prec)
+        {
             *--f = '0';
         }
     }
 
-    if (spec.tsep != '\0') {
-        l += InsertThousandsSep(f, static_cast<int>(l - f), spec.tsep, base == 10 ? 3 : 4);
+    if (spec.tsep != '\0')
+    {
+        int const pos = static_cast<int>(l - f);
+        l += InsertThousandsSep(f, buf + kBufSize, pos, pos, spec.tsep, base == 10 ? 3 : 4);
     }
 
     char const prefix[] = {'0', conv};
@@ -716,42 +736,6 @@ struct Options {
 
 using Vector = double_conversion::Vector<char>;
 
-template <typename RanIt>
-static auto MakeArrayIterator(RanIt first, intptr_t n)
-{
-#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
-    return stdext::make_checked_array_iterator(first, n);
-#else
-    UnusedParameter(n);
-    return first;
-#endif
-}
-
-static int InsertThousandsSep(Vector buf, int pt, int last, char sep)
-{
-    assert(pt >= 0);
-    assert(pt <= last);
-    assert(sep != '\0');
-
-    int const nsep = (pt - 1) / 3;
-
-    if (nsep <= 0)
-        return 0;
-
-    auto I = MakeArrayIterator(buf.start(), buf.length());
-    std::copy_backward(I + pt, I + last, I + (last + nsep));
-
-    for (int l = pt - 1, shift = nsep; shift > 0; --shift, l -= 3)
-    {
-        buf[l - 0 + shift] = buf[l - 0];
-        buf[l - 1 + shift] = buf[l - 1];
-        buf[l - 2 + shift] = buf[l - 2];
-        buf[l - 3 + shift] = sep;
-    }
-
-    return nsep;
-}
-
 static int CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int precision, Options const& options)
 {
     assert(options.decimal_point != '\0');
@@ -822,7 +806,7 @@ static int CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int 
 
     if (options.thousands_sep != '\0')
     {
-        last += InsertThousandsSep(buf, decpt, last, options.thousands_sep);
+        last += InsertThousandsSep(buf.start(), buf.start() + buf.length(), decpt, last, options.thousands_sep, 3);
     }
 
     return last;
@@ -1037,27 +1021,14 @@ static int CountLeadingZeros64(uint64_t n)
 {
     assert(n != 0);
 
-#if defined(_MSC_VER) && (defined(_M_X64) /* || defined(_M_ARM64) */)
-
-    unsigned long high = 0; // index of most significant 1-bit
-    _BitScanReverse64(&high, n);
-    return 63 - static_cast<int>(high);
-
-#elif defined(__GNUC__)
-
-    return __builtin_clzll(static_cast<unsigned long long>(n));
-
-#else
-
     int z = 0;
-    while ((n & 0x8000000000000000) == 0)
+    while ((n & (uint64_t{1} << 63)) == 0)
     {
-        z++;
+        ++z;
         n <<= 1;
     }
-    return z;
 
-#endif
+    return z;
 }
 
 static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, Vector buffer, int* num_digits, int* binary_exponent)
@@ -1360,7 +1331,7 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
 
     // Allow printing *ALL* double-precision floating-point values with prec <= kMaxFloatPrec
     // and thousands separators.
-    // 
+    //
     // Mode         Max length
     // ---------------------------------------------
     // ECMAScript   27
@@ -1413,11 +1384,11 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
 //
 //------------------------------------------------------------------------------
 
-#if FORMAT_STRING_CHECK_POLICY == 0
-#  define EXPECT(EXPR, MSG) (assert(EXPR), true)
-#elif FORMAT_STRING_CHECK_POLICY == 1
-#  define EXPECT(EXPR, MSG) (assert(EXPR), (EXPR))
+#if FORMAT_STRING_CHECK_POLICY == 1
+#  define EXPECT(EXPR, MSG) (assert((EXPR) && (MSG)), (EXPR))
 #elif FORMAT_STRING_CHECK_POLICY == 2
+#  define EXPECT(EXPR, MSG) ((EXPR) ? true : (std::abort(), false))
+#elif FORMAT_STRING_CHECK_POLICY == 3
 #  define EXPECT(EXPR, MSG) ((EXPR) ? true : throw std::runtime_error(MSG))
 #endif
 

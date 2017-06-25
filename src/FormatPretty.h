@@ -1,14 +1,19 @@
 // Distributed under the MIT license. See the end of the file for details.
 
 #pragma once
+#define FMTXX_FORMAT_PRETTY_H 1
+
+#include "Format.h"
+
+#include <iterator>
+#include <type_traits>
+#include <utility>
+
+namespace fmtxx {
 
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
-
-#include "Format.h"
-
-namespace fmtxx {
 
 template <typename T>
 struct PrettyPrinter
@@ -20,7 +25,8 @@ struct PrettyPrinter
 };
 
 template <typename T>
-PrettyPrinter<T> pretty(T const& object) {
+PrettyPrinter<T> pretty(T const& object)
+{
     return PrettyPrinter<T>(object);
 }
 
@@ -29,17 +35,10 @@ struct FormatValue<PrettyPrinter<T>> {
     errc operator()(Writer& w, FormatSpec const& spec, PrettyPrinter<T> const& value) const;
 };
 
-} // namespace fmtxx
-
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
 
-#include <iterator>
-#include <type_traits>
-#include <utility>
-
-namespace fmtxx {
 namespace pp {
 
 using std::begin;

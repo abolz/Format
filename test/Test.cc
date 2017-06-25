@@ -1,16 +1,15 @@
 #include "ext/Catch/include/catch_with_main.hpp"
 
 #include "Format.h"
-//#include "FormatMemoryWriter.h"
 
 #include <cfloat>
+#include <clocale>
 #include <cmath>
 #include <iostream>
 #include <limits>
 #include <sstream>
-#include <vector>
 #include <unordered_map>
-#include <clocale>
+#include <vector>
 
 struct FormatterResult
 {
@@ -83,6 +82,19 @@ struct CharArrayFormatter
 //    }
 //};
 
+//template <typename Fn>
+//struct OutputIteratorFormatter
+//{
+//    template <typename ...Args>
+//    FormatterResult operator()(std::string_view format, Args const&... args) const
+//    {
+//        std::string s;
+//        auto w = fmtxx::make_output_iterator_writer(std::back_inserter(s));
+//        auto const ec = Fn{}(w, format, args...);
+//        return { s, ec };
+//    }
+//};
+
 template <typename Formatter, typename ...Args>
 static std::string FormatArgs1(std::string_view format, Args const&... args)
 {
@@ -127,6 +139,10 @@ static std::string FormatArgsTemplate(std::string_view format, Args const&... ar
     //std::string const s5 = FormatArgs1<MemoryFormatter<Fn>>(format, args...);
     //if (s5 != s1)
     //    return "[[[[ formatter mismatch 4 ]]]]";
+
+    //std::string const s6 = FormatArgs1<OutputIteratorFormatter<Fn>>(format, args...);
+    //if (s6 != s1)
+    //    return "[[[[ formatter mismatch 5 ]]]]";
 
     return s1;
 }
@@ -1013,7 +1029,6 @@ TEST_CASE("Vector", "1")
 
 //------------------------------------------------------------------------------
 
-#if 1
 #include "FormatPretty.h"
 
 TEST_CASE("FormatPretty", "1")
@@ -1031,4 +1046,29 @@ TEST_CASE("FormatPretty", "1")
     CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
     CHECK("(nil)" == FormatArgs("{}", fmtxx::pretty(nullptr)));
 }
-#endif
+
+//------------------------------------------------------------------------------
+
+#include "FormatExtra.h"
+
+TEST_CASE("Format", "SPrintfWriter")
+{
+    REQUIRE(3u == fmtxx::snprintf(nullptr, 0, "%s", 123));
+
+    char buf0[1];
+    REQUIRE(3u == fmtxx::snprintf(buf0, "%s", 123));
+    REQUIRE(buf0[0] == '\0');
+
+    char buf1[3];
+    REQUIRE(3u == fmtxx::snprintf(buf1, "%s", 123));
+    REQUIRE(buf1[0] == '1');
+    REQUIRE(buf1[1] == '2');
+    REQUIRE(buf1[2] == '\0');
+
+    char buf2[4];
+    REQUIRE(3u == fmtxx::snprintf(buf2, "%s", 123));
+    REQUIRE(buf2[0] == '1');
+    REQUIRE(buf2[1] == '2');
+    REQUIRE(buf2[2] == '3');
+    REQUIRE(buf2[3] == '\0');
+}

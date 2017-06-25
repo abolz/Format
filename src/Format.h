@@ -1,11 +1,10 @@
 // Distributed under the MIT license. See the end of the file for details.
 
 #pragma once
+#define FMTXX_FORMAT_H 1
 
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
+#include <climits>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <iosfwd>
@@ -44,8 +43,8 @@
 namespace fmtxx {
 
 //------------------------------------------------------------------------------
-// API
 //
+//------------------------------------------------------------------------------
 
 enum struct errc {
     success,
@@ -81,8 +80,9 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
     char  conv  = '\0';
 };
 
-struct FMTXX_VISIBILITY_DEFAULT Writer
+class FMTXX_VISIBILITY_DEFAULT Writer
 {
+public:
     FMTXX_API virtual ~Writer();
 
     virtual bool Put(char c) = 0;
@@ -90,8 +90,9 @@ struct FMTXX_VISIBILITY_DEFAULT Writer
     virtual bool Pad(char c, size_t count) = 0;
 };
 
-struct FMTXX_VISIBILITY_DEFAULT StringWriter : public Writer
+class FMTXX_VISIBILITY_DEFAULT StringWriter : public Writer
 {
+public:
     std::string& os;
 
     explicit StringWriter(std::string& v) : os(v) {}
@@ -101,8 +102,9 @@ struct FMTXX_VISIBILITY_DEFAULT StringWriter : public Writer
     FMTXX_API bool Pad(char c, size_t count) override;
 };
 
-struct FMTXX_VISIBILITY_DEFAULT FILEWriter : public Writer
+class FMTXX_VISIBILITY_DEFAULT FILEWriter : public Writer
 {
+public:
     std::FILE* os;
 
     explicit FILEWriter(std::FILE* v) : os(v) {}
@@ -112,8 +114,9 @@ struct FMTXX_VISIBILITY_DEFAULT FILEWriter : public Writer
     FMTXX_API bool Pad(char c, size_t count) noexcept override;
 };
 
-struct FMTXX_VISIBILITY_DEFAULT StreamWriter : public Writer
+class FMTXX_VISIBILITY_DEFAULT StreamWriter : public Writer
 {
+public:
     std::ostream& os;
 
     explicit StreamWriter(std::ostream& v) : os(v) {}
@@ -134,8 +137,9 @@ struct FMTXX_VISIBILITY_DEFAULT CharArray
     explicit CharArray(char (&buf)[N]) : next(buf), last(buf + N) {}
 };
 
-struct FMTXX_VISIBILITY_DEFAULT CharArrayWriter : public Writer
+class FMTXX_VISIBILITY_DEFAULT CharArrayWriter : public Writer
 {
+public:
     CharArray& os;
 
     explicit CharArrayWriter(CharArray& v) : os(v) {}
@@ -410,10 +414,6 @@ errc printf(std::FILE* os, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
 template <typename ...Args>
-errc fprintf(std::FILE* os, std::string_view format, Args const&... args);
-
-// Appends the formatted arguments to the given stream.
-template <typename ...Args>
 errc printf(std::ostream& os, std::string_view format, Args const&... args);
 
 // Appends the formatted arguments to the given stream.
@@ -424,17 +424,10 @@ errc printf(CharArray& os, std::string_view format, Args const&... args);
 template <typename ...Args>
 std::string sprintf(std::string_view format, Args const&... args);
 
-} // namespace fmtxx
-
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
 
-#include <cassert>
-#include <cstddef>
-#include <climits>
-
-namespace fmtxx {
 namespace impl {
 
 class Types
@@ -620,40 +613,39 @@ inline errc Printf(WriterT& w, std::string_view format)
 }
 
 } // namespace impl
-} // namespace fmtxx
 
 template <typename ...Args>
-fmtxx::errc fmtxx::format(Writer& w, std::string_view format, Args const&... args)
+errc format(Writer& w, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Format(w, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::format(std::string& os, std::string_view format, Args const&... args)
+errc format(std::string& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::format(std::FILE* os, std::string_view format, Args const&... args)
+errc format(std::FILE* os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::format(std::ostream& os, std::string_view format, Args const&... args)
+errc format(std::ostream& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::format(CharArray& os, std::string_view format, Args const&... args)
+errc format(CharArray& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Format(os, format, args...);
 }
 
 template <typename ...Args>
-std::string fmtxx::sformat(std::string_view format, Args const&... args)
+std::string sformat(std::string_view format, Args const&... args)
 {
     std::string os;
     fmtxx::format(os, format, args...); // Returns true or throws (OOM)
@@ -661,48 +653,44 @@ std::string fmtxx::sformat(std::string_view format, Args const&... args)
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::printf(Writer& w, std::string_view format, Args const&... args)
+errc printf(Writer& w, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(w, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::printf(std::string& os, std::string_view format, Args const&... args)
+errc printf(std::string& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::printf(std::FILE* os, std::string_view format, Args const&... args)
+errc printf(std::FILE* os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::fprintf(std::FILE* os, std::string_view format, Args const&... args)
+errc printf(std::ostream& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::printf(std::ostream& os, std::string_view format, Args const&... args)
+errc printf(CharArray& os, std::string_view format, Args const&... args)
 {
     return fmtxx::impl::Printf(os, format, args...);
 }
 
 template <typename ...Args>
-fmtxx::errc fmtxx::printf(CharArray& os, std::string_view format, Args const&... args)
-{
-    return fmtxx::impl::Printf(os, format, args...);
-}
-
-template <typename ...Args>
-std::string fmtxx::sprintf(std::string_view format, Args const&... args)
+std::string sprintf(std::string_view format, Args const&... args)
 {
     std::string os;
     fmtxx::printf(os, format, args...); // Returns true or throws (OOM)
     return os;
 }
+
+} // namespace fmtxx
 
 //------------------------------------------------------------------------------
 // Copyright (c) 2017 A. Bolz

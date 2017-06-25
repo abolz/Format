@@ -161,11 +161,19 @@ struct Util
     static FMTXX_API errc format_double (Writer& w, FormatSpec const& spec, double x);
 
     template <typename T>
-    static inline errc format_int(Writer& w, FormatSpec const& spec, T value)
-    {
-        return std::is_signed<T>::value
-            ? format_int(w, spec, value, static_cast<std::make_unsigned_t<T>>(value))
-            : format_int(w, spec, 0, value);
+    static inline errc format_int(Writer& w, FormatSpec const& spec, T value) {
+        return format_int(w, spec, value, std::is_signed<T>{});
+    }
+
+private:
+    template <typename T>
+    static inline errc format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::true_type) {
+        return format_int(w, spec, value, static_cast<std::make_unsigned_t<T>>(value));
+    }
+
+    template <typename T>
+    static inline errc format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::false_type) {
+        return format_int(w, spec, 0, value);
     }
 };
 

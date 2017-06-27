@@ -3,12 +3,11 @@
 #pragma once
 #define FMTXX_FORMAT_H 1
 
+#include <cassert>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <iosfwd>
-#include <string>
 #if _MSC_VER || __cplusplus >= 201703
 #  include <string_view>
 #else
@@ -42,13 +41,10 @@
 
 namespace fmtxx {
 
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
 enum struct errc {
-    success,
-    io_error,
+    success = 0,
+    io_error,         // Writer failed. (XXX: Writer::Put() etc should probably return an error code?!)
+    conversion_error, // Value could not be converted to string. (E.g.: trying to format a non-existant date.)
 };
 
 enum struct Align : unsigned char {
@@ -83,70 +79,70 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
 class FMTXX_VISIBILITY_DEFAULT Writer
 {
 public:
-    FMTXX_API virtual ~Writer();
+    FMTXX_API virtual ~Writer() noexcept;
 
     virtual bool Put(char c) = 0;
     virtual bool Write(char const* str, size_t len) = 0;
     virtual bool Pad(char c, size_t count) = 0;
 };
 
-class FMTXX_VISIBILITY_DEFAULT StringWriter : public Writer
-{
-public:
-    std::string& os;
-
-    explicit StringWriter(std::string& v) : os(v) {}
-
-    FMTXX_API bool Put(char c) override;
-    FMTXX_API bool Write(char const* str, size_t len) override;
-    FMTXX_API bool Pad(char c, size_t count) override;
-};
-
 class FMTXX_VISIBILITY_DEFAULT FILEWriter : public Writer
 {
-public:
-    std::FILE* os;
+    std::FILE* file_;
+    size_t     size_ = 0;
 
-    explicit FILEWriter(std::FILE* v) : os(v) {}
+public:
+    explicit FILEWriter(std::FILE* v) : file_(v)
+    {
+        assert(file_ != nullptr);
+    }
 
     FMTXX_API bool Put(char c) noexcept override;
     FMTXX_API bool Write(char const* str, size_t len) noexcept override;
     FMTXX_API bool Pad(char c, size_t count) noexcept override;
+
+    // Returns the FILE stream.
+    std::FILE* file() const { return file_; }
+
+    // Returns the number of bytes written (since construction).
+    size_t size() const { return size_; }
 };
 
-class FMTXX_VISIBILITY_DEFAULT StreamWriter : public Writer
+class FMTXX_VISIBILITY_DEFAULT ArrayWriter : public Writer
 {
+    char*  const buf_     = nullptr;
+    size_t const bufsize_ = 0;
+    size_t       size_    = 0;
+
 public:
-    std::ostream& os;
-
-    explicit StreamWriter(std::ostream& v) : os(v) {}
-
-    FMTXX_API bool Put(char c) override;
-    FMTXX_API bool Write(char const* str, size_t len) override;
-    FMTXX_API bool Pad(char c, size_t count) override;
-};
-
-struct FMTXX_VISIBILITY_DEFAULT CharArray
-{
-    char*       next;
-    char* const last;
-
-    explicit CharArray(char* f, char* l) : next(f), last(l) {}
+    ArrayWriter(char* buffer, size_t buffer_size) : buf_(buffer), bufsize_(buffer_size)
+    {
+        assert(bufsize_ == 0 || buf_ != nullptr);
+    }
 
     template <size_t N>
-    explicit CharArray(char (&buf)[N]) : next(buf), last(buf + N) {}
-};
-
-class FMTXX_VISIBILITY_DEFAULT CharArrayWriter : public Writer
-{
-public:
-    CharArray& os;
-
-    explicit CharArrayWriter(CharArray& v) : os(v) {}
+    explicit ArrayWriter(char (&buf)[N]) : ArrayWriter(buf, N) {}
 
     FMTXX_API bool Put(char c) noexcept override;
     FMTXX_API bool Write(char const* str, size_t len) noexcept override;
     FMTXX_API bool Pad(char c, size_t count) noexcept override;
+
+    // Returns a pointer to the string.
+    // The string is null-terminated if Finish() has been called.
+    char* data() const { return buf_; }
+
+    // Returns the buffer capacity.
+    size_t capacity() const { return bufsize_; }
+
+    // Returns the length of the string.
+    size_t size() const { return size_; }
+
+    // Returns the string.
+    std::string_view view() const { return std::string_view(data(), size()); }
+
+    // Null-terminate the buffer.
+    // Returns the length of the string not including the null-character.
+    FMTXX_API size_t Finish() noexcept;
 };
 
 struct Util
@@ -182,45 +178,44 @@ private:
 };
 
 //
+// Provides the member constant value equal to true if objects of type T should
+// be treated as strings by the Format library.
+// Objects of type T must have member functions data() and size() and their
+// return values must be convertible to 'char const*' and 'size_t' resp.
+//
+template <typename T>
+struct TreatAsString : std::false_type {};
+
+template <>
+struct TreatAsString< std::string_view > : std::true_type {};
+
+namespace impl
+{
+    // The second template parameter is used in Format_ostream.h to "specialize"
+    // this class template for all T's.
+    template <typename T, typename = void>
+    struct StreamValue
+    {
+        static_assert(sizeof(T) == 0,
+            "Formatting objects of type T is not natively supported. "
+            "Specialize FormatValue or TreatAsString, or, if objects of type T "
+            "should be formatted using operator<<(std::ostream, ...), include "
+            "'Format_ostream.h'");
+    };
+}
+
+//
 // Specialize this to format user-defined types.
 //
-// The default implementation uses std::ostringstream to convert the value into
-// a string and then writes the string to the output buffer.
-//
-// I.e., the default implementation requires:
-//      #include <sstream>
-// !!!
-//
-template <typename T = void>
-struct FormatValue
+template <typename T = void, typename /*XXX Internal. Do not use. XXX*/ = void>
+struct FormatValue : impl::StreamValue<T>
 {
-    template <typename Stream = std::ostringstream>
-    errc operator()(Writer& w, FormatSpec const& spec, T const& val) const
-    {
-        Stream stream;
-        stream << val;
-        auto const& str = stream.str();
-        return Util::format_string(w, spec, str.data(), str.size());
-    }
 };
 
-template <>
-struct FormatValue<bool> {
-    errc operator()(Writer& w, FormatSpec const& spec, bool val) const {
-        return Util::format_bool(w, spec, val);
-    }
-};
-
-template <>
-struct FormatValue<std::string_view> {
-    errc operator()(Writer& w, FormatSpec const& spec, std::string_view val) const {
-        return Util::format_string(w, spec, val.data(), val.size());
-    }
-};
-
-template <>
-struct FormatValue<std::string> {
-    errc operator()(Writer& w, FormatSpec const& spec, std::string const& val) const {
+template <typename T>
+struct FormatValue<T, std::enable_if_t< TreatAsString<T>::value >>
+{
+    errc operator()(Writer& w, FormatSpec const& spec, T const& val) const {
         return Util::format_string(w, spec, val.data(), val.size());
     }
 };
@@ -236,13 +231,6 @@ template <>
 struct FormatValue<char*> {
     errc operator()(Writer& w, FormatSpec const& spec, char* val) const {
         return Util::format_string(w, spec, val);
-    }
-};
-
-template <>
-struct FormatValue<char> {
-    errc operator()(Writer& w, FormatSpec const& spec, char val) const {
-        return Util::format_char(w, spec, val);
     }
 };
 
@@ -264,6 +252,20 @@ template <>
 struct FormatValue<std::nullptr_t> {
     errc operator()(Writer& w, FormatSpec const& spec, std::nullptr_t) const {
         return Util::format_pointer(w, spec, nullptr);
+    }
+};
+
+template <>
+struct FormatValue<bool> {
+    errc operator()(Writer& w, FormatSpec const& spec, bool val) const {
+        return Util::format_bool(w, spec, val);
+    }
+};
+
+template <>
+struct FormatValue<char> {
+    errc operator()(Writer& w, FormatSpec const& spec, char val) const {
+        return Util::format_char(w, spec, val);
     }
 };
 
@@ -373,60 +375,8 @@ template <
     typename = std::enable_if_t< std::is_base_of<Writer, std::remove_reference_t<WriterT>>::value >
 >
 errc format_value(WriterT&& w, FormatSpec const& spec, T const& value) {
-    return FormatValue<T>{}(w, spec, value);
+    return FormatValue<>{}(w, spec, value);
 }
-
-// Appends the formatted arguments to the given output stream.
-template <typename ...Args>
-errc format(Writer& w, std::string_view format, Args const&... args);
-
-// Appends the formatted arguments to the given string.
-template <typename ...Args>
-errc format(std::string& os, std::string_view format, Args const&... args);
-
-// Appends the formatted arguments to the given stream.
-template <typename ...Args>
-errc format(std::FILE* os, std::string_view format, Args const&... args);
-
-// Appends the formatted arguments to the given stream.
-template <typename ...Args>
-errc format(std::ostream& os, std::string_view format, Args const&... args);
-
-// Appends the formatted arguments to the given stream.
-template <typename ...Args>
-errc format(CharArray& os, std::string_view format, Args const&... args);
-
-// Returns a std::string containing the formatted arguments.
-template <typename ...Args>
-std::string sformat(std::string_view format, Args const&... args);
-
-// Appends the formatted arguments to the given output stream.
-template <typename ...Args>
-errc printf(Writer& w, std::string_view format, Args const&... args);
-
-// Appends the formatted arguments to the given string.
-template <typename ...Args>
-errc printf(std::string& os, std::string_view format, Args const&... args);
-
-// Appends the formatted arguments to the given stream.
-template <typename ...Args>
-errc printf(std::FILE* os, std::string_view format, Args const&... args);
-
-// Appends the formatted arguments to the given stream.
-template <typename ...Args>
-errc printf(std::ostream& os, std::string_view format, Args const&... args);
-
-// Appends the formatted arguments to the given stream.
-template <typename ...Args>
-errc printf(CharArray& os, std::string_view format, Args const&... args);
-
-// Returns a std::string containing the formatted arguments.
-template <typename ...Args>
-std::string sprintf(std::string_view format, Args const&... args);
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
 
 namespace impl {
 
@@ -474,10 +424,8 @@ private:
     // XXX:
     // Keep in sync with Arg::Arg() below!!!
     template <typename T>
-    static unsigned GetId(T                  const&) { return T_OTHER; }
+    static unsigned GetId(T                  const&) { return TreatAsString<T>::value ? T_STRING : T_OTHER; }
     static unsigned GetId(bool               const&) { return T_BOOL; }
-    static unsigned GetId(std::string_view   const&) { return T_STRING; }
-    static unsigned GetId(std::string        const&) { return T_STRING; }
     static unsigned GetId(std::nullptr_t     const&) { return T_PVOID; }
     static unsigned GetId(void const*        const&) { return T_PVOID; }
     static unsigned GetId(void*              const&) { return T_PVOID; }
@@ -541,13 +489,17 @@ public:
         double double_;
     };
 
+    template <typename T>
+    Arg(T const& v, /*TreatAsString*/ std::false_type) : other{ &v, &FormatValue_fn<T> } {}
+
+    template <typename T>
+    Arg(T const& v, /*TreatAsString*/ std::true_type) : string(v.data(), v.size()) {}
+
     // XXX:
     // Keep in sync with Types::GetId() above!!!
     template <typename T>
-    Arg(T                  const& v) : other{ &v, &FormatValue_fn<T> } {}
+    Arg(T                  const& v) : Arg(v, TreatAsString<T>{}) {}
     Arg(bool               const& v) : bool_(v) {}
-    Arg(std::string_view   const& v) : string(v) {}
-    Arg(std::string        const& v) : string(v) {}
     Arg(std::nullptr_t     const& v) : pvoid(v) {}
     Arg(void const*        const& v) : pvoid(v) {}
     Arg(void*              const& v) : pvoid(v) {}
@@ -574,120 +526,76 @@ public:
     Arg(FormatSpec         const& v) : pvoid(&v) {}
 };
 
-FMTXX_API errc DoFormat(Writer& w,        std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(std::string& os,  std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(std::FILE* os,    std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(std::ostream& os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat(CharArray& os,    std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat     (Writer& w,                 std::string_view format, Types types, Arg const* args);
+FMTXX_API int  DoFileFormat (std::FILE* file,           std::string_view format, Types types, Arg const* args);
+FMTXX_API int  DoArrayFormat(char* buf, size_t bufsize, std::string_view format, Types types, Arg const* args);
 
-template <typename WriterT, typename ...Args>
-inline errc Format(WriterT& w, std::string_view format, Args const&... args)
-{
-    Arg arr[] = { args... };
-    return fmtxx::impl::DoFormat(w, format, Types(args...), arr);
-}
+FMTXX_API errc DoPrintf     (Writer& w,                 std::string_view format, Types types, Arg const* args);
+FMTXX_API int  DoFilePrintf (std::FILE* file,           std::string_view format, Types types, Arg const* args);
+FMTXX_API int  DoArrayPrintf(char* buf, size_t bufsize, std::string_view format, Types types, Arg const* args);
 
-template <typename WriterT>
-inline errc Format(WriterT& w, std::string_view format)
-{
-    return fmtxx::impl::DoFormat(w, format, Types(), nullptr);
-}
-
-FMTXX_API errc DoPrintf(Writer& w,        std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf(std::string& os,  std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf(std::FILE* os,    std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf(std::ostream& os, std::string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf(CharArray& os,    std::string_view format, Types types, Arg const* args);
-
-template <typename WriterT, typename ...Args>
-inline errc Printf(WriterT& w, std::string_view format, Args const&... args)
-{
-    Arg arr[] = { args... };
-    return fmtxx::impl::DoPrintf(w, format, Types(args...), arr);
-}
-
-template <typename WriterT>
-inline errc Printf(WriterT& w, std::string_view format)
-{
-    return fmtxx::impl::DoPrintf(w, format, Types(), nullptr);
-}
+// HACK
+template <typename ...Args>
+using ArgArray = std::conditional_t<sizeof...(Args) != 0, Arg[], Arg*>;
 
 } // namespace impl
 
+// format ----------------------------------------------------------------------
+
 template <typename ...Args>
-errc format(Writer& w, std::string_view format, Args const&... args)
+inline errc format(Writer& w, std::string_view format, Args const&... args)
 {
-    return fmtxx::impl::Format(w, format, args...);
+    impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFormat(w, format, impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-errc format(std::string& os, std::string_view format, Args const&... args)
+inline int fformat(std::FILE* file, std::string_view format, Args const&... args)
 {
-    return fmtxx::impl::Format(os, format, args...);
+    impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFileFormat(file, format, impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-errc format(std::FILE* os, std::string_view format, Args const&... args)
+inline int snformat(char* buf, size_t bufsize, std::string_view format, Args const&... args)
 {
-    return fmtxx::impl::Format(os, format, args...);
+    impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoArrayFormat(buf, bufsize, format, impl::Types{args...}, arr);
+}
+
+template <size_t N, typename ...Args>
+inline int snformat(char (&buf)[N], std::string_view format, Args const&... args)
+{
+    return fmtxx::snformat(&buf[0], N, format, args...);
+}
+
+// printf ----------------------------------------------------------------------
+
+template <typename ...Args>
+inline errc printf(Writer& w, std::string_view format, Args const&... args)
+{
+    impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoPrintf(w, format, impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-errc format(std::ostream& os, std::string_view format, Args const&... args)
+inline int fprintf(std::FILE* file, std::string_view format, Args const&... args)
 {
-    return fmtxx::impl::Format(os, format, args...);
+    impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFilePrintf(file, format, impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-errc format(CharArray& os, std::string_view format, Args const&... args)
+inline int snprintf(char* buf, size_t bufsize, std::string_view format, Args const&... args)
 {
-    return fmtxx::impl::Format(os, format, args...);
+    impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoArrayPrintf(buf, bufsize, format, impl::Types{args...}, arr);
 }
 
-template <typename ...Args>
-std::string sformat(std::string_view format, Args const&... args)
+template <size_t N, typename ...Args>
+inline int snprintf(char (&buf)[N], std::string_view format, Args const&... args)
 {
-    std::string os;
-    fmtxx::format(os, format, args...); // Returns true or throws (OOM)
-    return os;
-}
-
-template <typename ...Args>
-errc printf(Writer& w, std::string_view format, Args const&... args)
-{
-    return fmtxx::impl::Printf(w, format, args...);
-}
-
-template <typename ...Args>
-errc printf(std::string& os, std::string_view format, Args const&... args)
-{
-    return fmtxx::impl::Printf(os, format, args...);
-}
-
-template <typename ...Args>
-errc printf(std::FILE* os, std::string_view format, Args const&... args)
-{
-    return fmtxx::impl::Printf(os, format, args...);
-}
-
-template <typename ...Args>
-errc printf(std::ostream& os, std::string_view format, Args const&... args)
-{
-    return fmtxx::impl::Printf(os, format, args...);
-}
-
-template <typename ...Args>
-errc printf(CharArray& os, std::string_view format, Args const&... args)
-{
-    return fmtxx::impl::Printf(os, format, args...);
-}
-
-template <typename ...Args>
-std::string sprintf(std::string_view format, Args const&... args)
-{
-    std::string os;
-    fmtxx::printf(os, format, args...); // Returns true or throws (OOM)
-    return os;
+    return fmtxx::snprintf(&buf[0], N, format, args...);
 }
 
 } // namespace fmtxx

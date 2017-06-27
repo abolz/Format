@@ -1,6 +1,6 @@
 #include "ext/Catch/include/catch_with_main.hpp"
 
-#include "Format.h"
+#include "Format/Format.h"
 
 #include <cfloat>
 #include <clocale>
@@ -18,57 +18,57 @@ struct FormatterResult
 };
 
 template <typename Fn>
-struct StringFormatter
-{
-    template <typename ...Args>
-    FormatterResult operator ()(std::string_view format, Args const&... args) const
-    {
-        std::string os;
-        const auto ec = Fn{}(os, format, args...);
-        return { os, ec };
-    }
-};
-
-template <typename Fn>
-struct StreamFormatter
-{
-    template <typename ...Args>
-    FormatterResult operator ()(std::string_view format, Args const&... args) const
-    {
-        std::ostringstream os;
-        const auto ec = Fn{}(os, format, args...);
-        return { os.str(), ec };
-    }
-};
-
-#ifdef __linux__
-template <typename Fn>
-struct FILEFormatter
-{
-    template <typename ...Args>
-    FormatterResult operator ()(std::string_view format, Args const&... args) const
-    {
-        char buf[1024 * 8] = {0};
-        FILE* f = fmemopen(buf, sizeof(buf), "w");
-        const auto ec = Fn{}(f, format, args...);
-        fclose(f); // flush!
-        return { std::string(buf), ec };
-    }
-};
-#endif
-
-template <typename Fn>
-struct CharArrayFormatter
+struct ArrayFormatter
 {
     template <typename ...Args>
     FormatterResult operator ()(std::string_view format, Args const&... args) const
     {
         char buf[1024 * 8];
-        fmtxx::CharArray os { buf };
-        const auto ec = Fn{}(os, format, args...);
-        return { std::string(buf, os.next), ec };
+        fmtxx::ArrayWriter w { buf };
+        const auto ec = Fn{}(w, format, args...);
+        return { std::string(w.data(), w.size()), ec };
     }
 };
+
+//template <typename Fn>
+//struct StringFormatter
+//{
+//    template <typename ...Args>
+//    FormatterResult operator ()(std::string_view format, Args const&... args) const
+//    {
+//        std::string os;
+//        const auto ec = Fn{}(os, format, args...);
+//        return { os, ec };
+//    }
+//};
+
+//template <typename Fn>
+//struct StreamFormatter
+//{
+//    template <typename ...Args>
+//    FormatterResult operator ()(std::string_view format, Args const&... args) const
+//    {
+//        std::ostringstream os;
+//        const auto ec = Fn{}(os, format, args...);
+//        return { os.str(), ec };
+//    }
+//};
+
+//#ifdef __linux__
+//template <typename Fn>
+//struct FILEFormatter
+//{
+//    template <typename ...Args>
+//    FormatterResult operator ()(std::string_view format, Args const&... args) const
+//    {
+//        char buf[1024 * 8] = {0};
+//        FILE* f = fmemopen(buf, sizeof(buf), "w");
+//        const auto ec = Fn{}(f, format, args...);
+//        fclose(f); // flush!
+//        return { std::string(buf), ec };
+//    }
+//};
+//#endif
 
 //template <typename Fn>
 //struct MemoryFormatter
@@ -120,21 +120,21 @@ struct PrintfFn {
 template <typename Fn, typename ...Args>
 static std::string FormatArgsTemplate(std::string_view format, Args const&... args)
 {
-    std::string const s1 = FormatArgs1<StringFormatter<Fn>>(format, args...);
+    std::string const s1 = FormatArgs1<ArrayFormatter<Fn>>(format, args...);
 
-    std::string const s2 = FormatArgs1<StreamFormatter<Fn>>(format, args...);
-    if (s2 != s1)
-        return "[[[[ formatter mismatch 1 ]]]]";
+    //std::string const s2 = FormatArgs1<StreamFormatter<Fn>>(format, args...);
+    //if (s2 != s1)
+    //    return "[[[[ formatter mismatch 1 ]]]]";
 
-#ifdef __linux__
-    std::string const s3 = FormatArgs1<FILEFormatter<Fn>>(format, args...);
-    if (s3 != s1)
-        return "[[[[ formatter mismatch 2 ]]]]";
-#endif
+//#ifdef __linux__
+//    std::string const s3 = FormatArgs1<FILEFormatter<Fn>>(format, args...);
+//    if (s3 != s1)
+//        return "[[[[ formatter mismatch 2 ]]]]";
+//#endif
 
-    std::string const s4 = FormatArgs1<CharArrayFormatter<Fn>>(format, args...);
-    if (s4 != s1)
-        return "[[[[ formatter mismatch 3 ]]]]";
+    //std::string const s4 = FormatArgs1<StringFormatter<Fn>>(format, args...);
+    //if (s4 != s1)
+    //    return "[[[[ formatter mismatch 3 ]]]]";
 
     //std::string const s5 = FormatArgs1<MemoryFormatter<Fn>>(format, args...);
     //if (s5 != s1)
@@ -829,19 +829,19 @@ TEST_CASE("Floats", "1")
     {
         enum { kMaxFloatPrec = 1074 };
         enum { kBufSize = 309 + (309 - 1) / 3 + 1 + kMaxFloatPrec };
-        char buf[kBufSize + 1/*null for display*/] = {0};
+        char buf[kBufSize + 1/*null*/] = {0};
         {
-            fmtxx::CharArray arr{ buf, buf + kBufSize };
-            fmtxx::errc ec = fmtxx::format(arr, "{:'.1074f}", std::numeric_limits<double>::max());
+            fmtxx::ArrayWriter w { buf, kBufSize };
+            fmtxx::errc ec = fmtxx::format(w, "{:'.1074f}", std::numeric_limits<double>::max());
             REQUIRE(ec == fmtxx::errc::success);
-            REQUIRE(arr.next == arr.last);
+            REQUIRE(w.size() == kBufSize);
         }
         {
             // Precision is clipped.
-            fmtxx::CharArray arr{ buf, buf + kBufSize };
-            fmtxx::errc ec = fmtxx::format(arr, "{:'.1075f}", std::numeric_limits<double>::max());
+            fmtxx::ArrayWriter w { buf, kBufSize };
+            fmtxx::errc ec = fmtxx::format(w, "{:'.1075f}", std::numeric_limits<double>::max());
             REQUIRE(ec == fmtxx::errc::success);
-            REQUIRE(arr.next == arr.last);
+            REQUIRE(w.size() == kBufSize);
         }
     }
 }
@@ -916,10 +916,10 @@ namespace fmtxx
     // XXX:
     // Must be a separate function like vformat(format, map)...
     //
-    template <typename K, typename V>
-    struct FormatValue<std::map<K, V>>
+    template <typename K, typename V, typename Pr, typename Alloc>
+    struct FormatValue<std::map<K, V, Pr, Alloc>>
     {
-        auto operator()(Writer& w, FormatSpec const& spec, std::map<K, V> const& value) const
+        auto operator()(Writer& w, FormatSpec const& spec, std::map<K, V, Pr, Alloc> const& value) const
         {
             //auto const key = spec.key;
             auto const key = spec.style;
@@ -940,17 +940,22 @@ namespace foo2_ns
     };
 
     inline std::ostream& operator <<(std::ostream& stream, Foo2 const& value) {
+        stream.width(6);
+        stream.fill('-');
         return stream << value.value;
     }
 }
 
+#include "Format/Format_ostream.h"
+
 TEST_CASE("Custom", "1")
 {
     CHECK("struct Foo '   123'"  == FormatArgs("struct Foo '{:6}'", Foo{123}));
-    CHECK("struct Foo2 '   123'" == FormatArgs("struct Foo2 '{:6}'", foo2_ns::Foo2{123}));
+    CHECK("struct Foo2 '  ---123'" == FormatArgs("struct Foo2 '{:8}'", foo2_ns::Foo2{123}));
+    CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{}'", foo2_ns::Foo2{123}));
 
 #if 1
-    std::map<std::string_view, int> map = {{"eins", 1}, {"zwei", 2}};
+    std::map<std::string_view, int, std::less<>> map = {{"eins", 1}, {"zwei", 2}};
     //
     // XXX:
     // Must be a separate function like vformat(format, map)...
@@ -984,18 +989,18 @@ class VectorBuffer : public fmtxx::Writer
 public:
     explicit VectorBuffer(std::vector<char>& v) : os(v) {}
 
-    virtual bool Put(char c) override {
+    bool Put(char c) override {
         os.push_back(c);
         return true;
     }
 
-    virtual bool Pad(char c, size_t count) override {
-        os.resize(os.size() + count, c);
+    bool Write(char const* str, size_t len) override {
+        os.insert(os.end(), str, str + len);
         return true;
     }
 
-    virtual bool Write(char const* str, size_t len) override {
-        os.insert(os.end(), str, str + len);
+    bool Pad(char c, size_t count) override {
+        os.resize(os.size() + count, c);
         return true;
     }
 };
@@ -1029,9 +1034,28 @@ TEST_CASE("Vector", "1")
 
 //------------------------------------------------------------------------------
 
-#include "FormatPretty.h"
+#include "Format/Format_pretty.h"
 
-TEST_CASE("FormatPretty", "1")
+TEST_CASE("FormatPretty1", "1")
+{
+    std::map<int, std::string_view> map = {
+        {0, "null"},
+        {1, "eins"},
+        {2, "zwei"},
+    };
+
+    char buf[1000];
+    auto const len = fmtxx::snformat(buf, "  {}  ", fmtxx::pretty(map));
+	CHECK(std::string_view(buf, len) == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
+
+    char arr1[] = "hello";
+    CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
+    CHECK("(nil)" == FormatArgs("{}", fmtxx::pretty(nullptr)));
+}
+
+#include "Format/Format_string.h"
+
+TEST_CASE("FormatPretty2", "1")
 {
     std::map<int, std::string> map = {
         {0, "null"},
@@ -1049,9 +1073,7 @@ TEST_CASE("FormatPretty", "1")
 
 //------------------------------------------------------------------------------
 
-#include "FormatExtra.h"
-
-TEST_CASE("Format", "SPrintfWriter")
+TEST_CASE("Format", "ArrayWriter")
 {
     REQUIRE(3u == fmtxx::snprintf(nullptr, 0, "%s", 123));
 

@@ -1,6 +1,6 @@
 #if 1
 
-#include "Format.h"
+#include "Format/Format.h"
 #include <iostream>
 
 int main()
@@ -23,7 +23,7 @@ int main()
 
 #if 0
 
-#include "Format.h"
+#include "Format/Format.h"
 #include <cmath>
 
 struct Vector2D {
@@ -62,7 +62,7 @@ int main()
 
 #if 0
 
-#include "Format.h"
+#include "Format/Format.h"
 #include <vector>
 
 struct VectorBuffer : public fmtxx::Writer

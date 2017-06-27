@@ -11,10 +11,6 @@
 
 namespace fmtxx {
 
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
 template <typename T>
 struct PrettyPrinter
 {
@@ -29,15 +25,6 @@ PrettyPrinter<T> pretty(T const& object)
 {
     return PrettyPrinter<T>(object);
 }
-
-template <typename T>
-struct FormatValue<PrettyPrinter<T>> {
-    errc operator()(Writer& w, FormatSpec const& spec, PrettyPrinter<T> const& value) const;
-};
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
 
 namespace pp {
 
@@ -75,7 +62,7 @@ struct IsTuple : decltype( IsTupleImpl::test(std::declval<T>()) )
 template <typename T>
 errc PrettyPrint(Writer& w, T const& value);
 
-inline errc PrettyPrint(Writer& w, std::string_view val)
+inline errc PrintString(Writer& w, std::string_view val)
 {
     if (!w.Put('"'))
         return errc::io_error;
@@ -87,19 +74,14 @@ inline errc PrettyPrint(Writer& w, std::string_view val)
     return errc::success;
 }
 
-inline errc PrettyPrint(Writer& w, std::string const& val)
-{
-    return pp::PrettyPrint(w, std::string_view(val));
-}
-
 inline errc PrettyPrint(Writer& w, char const* val)
 {
-    return pp::PrettyPrint(w, std::string_view(val != nullptr ? val : ""));
+    return pp::PrintString(w, val != nullptr ? val : "(null)");
 }
 
 inline errc PrettyPrint(Writer& w, char* val)
 {
-    return pp::PrettyPrint(w, std::string_view(val != nullptr ? val : ""));
+    return pp::PrintString(w, val != nullptr ? val : "(null)");
 }
 
 template <typename T>
@@ -155,7 +137,7 @@ errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
 template <typename T>
 errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::false_type)
 {
-    return FormatValue<T>{}(w, {}, object);
+    return FormatValue<>{}(w, {}, object);
 }
 
 template <typename T>
@@ -195,18 +177,31 @@ errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::false_ty
 }
 
 template <typename T>
-errc PrettyPrint(Writer& w, T const& object)
+errc DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::true_type)
+{
+    return pp::PrintString(w, std::string_view{object.data(), object.size()});
+}
+
+template <typename T>
+errc DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::false_type)
 {
     return pp::DispatchContainer(w, object, IsContainer<T>{});
+}
+
+template <typename T>
+errc PrettyPrint(Writer& w, T const& object)
+{
+    return pp::DispatchString(w, object, TreatAsString<T>{});
 }
 
 } // namespace pp
 
 template <typename T>
-errc FormatValue<PrettyPrinter<T>>::operator()(Writer& w, FormatSpec const& /*spec*/, PrettyPrinter<T> const& value) const
-{
-    return pp::PrettyPrint(w, value.object);
-}
+struct FormatValue<PrettyPrinter<T>> {
+    errc operator()(Writer& w, FormatSpec const& /*spec*/, PrettyPrinter<T> const& value) const {
+        return pp::PrettyPrint(w, value.object);
+    }
+};
 
 } // namespace fmtxx
 

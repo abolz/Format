@@ -3,7 +3,6 @@ local build_dir = "build/" .. _ACTION
 --------------------------------------------------------------------------------
 solution "Format"
     configurations { "release", "debug" }
-
     architecture "x64"
 
     location    (build_dir)
@@ -31,7 +30,7 @@ solution "Format"
     configuration { "gmake" }
         buildoptions {
             "-march=native",
-            "-std=c++14",
+            "-std=c++17",
             "-Wformat",
 --            "-Wsign-compare",
 --            "-Wsign-conversion",
@@ -82,8 +81,8 @@ project "fmtxx"
         "src/**.cc",
     }
     defines {
-        "FMTXX_SHARED",
-        "FMTXX_EXPORT",
+        "FMTXX_SHARED=1",
+        "FMTXX_EXPORT=1",
     }
     includedirs {
         "src/",
@@ -97,6 +96,21 @@ project "fmtxx"
             "-fvisibility=hidden",
         }
 
+--project "fmt"
+--    language "C++"
+--    kind "SharedLib"
+--    files {
+--        "ext/fmt/**.h",
+--        "ext/fmt/**.cc",
+--    }
+--    defines {
+--        "FMT_SHARED=1",
+--        "FMT_EXPORT=1",
+--    }
+--    includedirs {
+--        "ext/",
+--    }
+
 --------------------------------------------------------------------------------
 group "Tests"
 
@@ -107,7 +121,7 @@ project "Test"
         "test/Test.cc",
     }
     defines {
-        "FMTXX_SHARED",
+        "FMTXX_SHARED=1",
     }
     includedirs {
         "src/",
@@ -116,31 +130,31 @@ project "Test"
         "fmtxx",
     }
 
-project "Benchmark"
-    language "C++"
-    kind "ConsoleApp"
-    files {
-        "test/Bench.cc",
-        "test/ext/benchmark/include/benchmark/*.h",
-        "test/ext/benchmark/src/*.cc",
-    }
-    defines {
-        "HAVE_STD_REGEX=1",
-        "FMTXX_SHARED",
-    }
-    includedirs {
-        "src/",
-        "test/ext/",
-        "test/ext/benchmark/include/",
-    }
-    links {
-        "fmtxx",
-    }
-    configuration { "vs*" }
-        links {
-            "shlwapi",
-        }
-    configuration { "not vs*" }
-        links {
-            "pthread",
-        }
+-- project "Benchmark"
+--     language "C++"
+--     kind "ConsoleApp"
+--     files {
+--         "test/Bench.cc",
+--         "test/ext/benchmark/include/benchmark/*.h",
+--         "test/ext/benchmark/src/*.cc",
+--     }
+--     defines {
+--         "HAVE_STD_REGEX=1",
+--         "FMTXX_SHARED=1",
+--     }
+--     includedirs {
+--         "src/",
+--         "test/ext/",
+--         "test/ext/benchmark/include/",
+--     }
+--     links {
+--         "fmtxx",
+--     }
+--     configuration { "vs*" }
+--         links {
+--             "shlwapi",
+--         }
+--     configuration { "not vs*" }
+--         links {
+--             "pthread",
+--         }

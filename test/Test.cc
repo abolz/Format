@@ -1046,29 +1046,3 @@ TEST_CASE("FormatPretty", "1")
     CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
     CHECK("(nil)" == FormatArgs("{}", fmtxx::pretty(nullptr)));
 }
-
-//------------------------------------------------------------------------------
-
-#include "FormatExtra.h"
-
-TEST_CASE("Format", "SPrintfWriter")
-{
-    REQUIRE(3u == fmtxx::snprintf(nullptr, 0, "%s", 123));
-
-    char buf0[1];
-    REQUIRE(3u == fmtxx::snprintf(buf0, "%s", 123));
-    REQUIRE(buf0[0] == '\0');
-
-    char buf1[3];
-    REQUIRE(3u == fmtxx::snprintf(buf1, "%s", 123));
-    REQUIRE(buf1[0] == '1');
-    REQUIRE(buf1[1] == '2');
-    REQUIRE(buf1[2] == '\0');
-
-    char buf2[4];
-    REQUIRE(3u == fmtxx::snprintf(buf2, "%s", 123));
-    REQUIRE(buf2[0] == '1');
-    REQUIRE(buf2[1] == '2');
-    REQUIRE(buf2[2] == '3');
-    REQUIRE(buf2[3] == '\0');
-}

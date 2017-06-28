@@ -15,68 +15,64 @@ struct TreatAsString< std::basic_string<char, std::char_traits<char>, Alloc> >
 {
 };
 
-template <typename StringT>
 class StringWriter : public Writer
 {
 public:
-    StringT& os;
+    std::string& os;
 
-    explicit StringWriter(StringT& v) : os(v) {}
+    explicit StringWriter(std::string& v) : os(v) {}
 
     bool Put(char c) override;
     bool Write(char const* str, size_t len) override;
     bool Pad(char c, size_t count) override;
 };
 
-template <typename StringT>
-bool StringWriter<StringT>::Put(char c)
+inline bool StringWriter::Put(char c)
 {
     os.push_back(c);
     return true;
 }
 
-template <typename StringT>
-bool StringWriter<StringT>::Write(char const* str, size_t len)
+inline bool StringWriter::Write(char const* str, size_t len)
 {
     os.append(str, len);
     return true;
 }
 
-template <typename StringT>
-bool StringWriter<StringT>::Pad(char c, size_t count)
+inline bool StringWriter::Pad(char c, size_t count)
 {
     os.append(count, c);
     return true;
 }
 
-template <typename StringT, typename ...Args>
-errc sformat(StringT& str, std::string_view format, Args const&... args)
+template <typename ...Args>
+errc sformat(std::string& str, std::string_view format, Args const&... args)
 {
-    StringWriter<StringT> w{str};
+    StringWriter w{str};
     return fmtxx::format(w, format, args...);
 }
 
-template <typename StringT = std::string, typename ...Args>
-StringT sformat(std::string_view format, Args const&... args)
+template <typename ...Args>
+std::string string_format(std::string_view format, Args const&... args)
 {
-    StringT str;
-    StringWriter<StringT> w{str};
+    std::string str;
+    StringWriter w{str};
     fmtxx::format(w, format, args...); // Returns success or throws (or aborts)
     return str;
 }
 
-template <typename StringT, typename ...Args>
-errc sprintf(StringT& str, std::string_view format, Args const&... args)
+template <typename ...Args>
+errc sprintf(std::string& str, std::string_view format, Args const&... args)
 {
-    StringWriter<StringT> w{str};
+    StringWriter w{str};
     return fmtxx::printf(w, format, args...);
 }
 
-template <typename StringT = std::string, typename ...Args>
-StringT sprintf(std::string_view format, Args const&... args)
+template <typename ...Args>
+std::string string_printf(std::string_view format, Args const&... args)
 {
-    StringT str;
-    StringWriter<StringT> w{str};
+    std::string str;
+    StringWriter w{str};
     fmtxx::printf(w, format, args...); // Returns success or throws (or aborts)
     return str;
 }

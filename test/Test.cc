@@ -1063,7 +1063,7 @@ TEST_CASE("FormatPretty2", "1")
         {2, "zwei"},
     };
 
-    std::string s = fmtxx::sformat("  {}  ", fmtxx::pretty(map));
+    std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(map));
 	CHECK(s == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
 
     char arr1[] = "hello";

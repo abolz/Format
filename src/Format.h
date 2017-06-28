@@ -526,13 +526,17 @@ public:
     Arg(FormatSpec         const& v) : pvoid(&v) {}
 };
 
-FMTXX_API errc DoFormat     (Writer& w,                 std::string_view format, Types types, Arg const* args);
-FMTXX_API int  DoFileFormat (std::FILE* file,           std::string_view format, Types types, Arg const* args);
-FMTXX_API int  DoArrayFormat(char* buf, size_t bufsize, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(Writer& w, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf(Writer& w, std::string_view format, Types types, Arg const* args);
 
-FMTXX_API errc DoPrintf     (Writer& w,                 std::string_view format, Types types, Arg const* args);
-FMTXX_API int  DoFilePrintf (std::FILE* file,           std::string_view format, Types types, Arg const* args);
-FMTXX_API int  DoArrayPrintf(char* buf, size_t bufsize, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat(std::FILE* file, std::string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf(std::FILE* file, std::string_view format, Types types, Arg const* args);
+
+FMTXX_API int DoFileFormat(std::FILE* file, std::string_view format, Types types, Arg const* args);
+FMTXX_API int DoFilePrintf(std::FILE* file, std::string_view format, Types types, Arg const* args);
+
+FMTXX_API int DoArrayFormat(char* buf, size_t bufsize, std::string_view format, Types types, Arg const* args);
+FMTXX_API int DoArrayPrintf(char* buf, size_t bufsize, std::string_view format, Types types, Arg const* args);
 
 // HACK
 template <typename ...Args>
@@ -547,6 +551,13 @@ inline errc format(Writer& w, std::string_view format, Args const&... args)
 {
     impl::ArgArray<Args...> arr = {args...};
     return fmtxx::impl::DoFormat(w, format, impl::Types{args...}, arr);
+}
+
+template <typename ...Args>
+inline errc format(std::FILE* file, std::string_view format, Args const&... args)
+{
+    impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFormat(file, format, impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
@@ -576,6 +587,13 @@ inline errc printf(Writer& w, std::string_view format, Args const&... args)
 {
     impl::ArgArray<Args...> arr = {args...};
     return fmtxx::impl::DoPrintf(w, format, impl::Types{args...}, arr);
+}
+
+template <typename ...Args>
+inline errc printf(std::FILE* file, std::string_view format, Args const&... args)
+{
+    impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoPrintf(file, format, impl::Types{args...}, arr);
 }
 
 template <typename ...Args>

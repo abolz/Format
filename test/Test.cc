@@ -1,6 +1,10 @@
 #include "ext/Catch/include/catch_with_main.hpp"
 
-#include "Format/Format.h"
+#include "Format.h"
+#include "Format_memory.h"
+#include "Format_ostream.h"
+#include "Format_pretty.h"
+#include "Format_string.h"
 
 #include <cfloat>
 #include <clocale>
@@ -946,8 +950,6 @@ namespace foo2_ns
     }
 }
 
-#include "Format/Format_ostream.h"
-
 TEST_CASE("Custom", "1")
 {
     CHECK("struct Foo '   123'"  == FormatArgs("struct Foo '{:6}'", Foo{123}));
@@ -1034,8 +1036,6 @@ TEST_CASE("Vector", "1")
 
 //------------------------------------------------------------------------------
 
-#include "Format/Format_pretty.h"
-
 TEST_CASE("FormatPretty1", "1")
 {
     std::map<int, std::string_view> map = {
@@ -1052,8 +1052,6 @@ TEST_CASE("FormatPretty1", "1")
     CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
     CHECK("(nil)" == FormatArgs("{}", fmtxx::pretty(nullptr)));
 }
-
-#include "Format/Format_string.h"
 
 TEST_CASE("FormatPretty2", "1")
 {

@@ -15,9 +15,8 @@ template <typename T>
 struct PrettyPrinter
 {
     T const& object;
-    explicit PrettyPrinter(T const& object) : object(object)
-    {
-    }
+
+    explicit PrettyPrinter(T const& object) : object(object) {}
 };
 
 template <typename T>

@@ -1778,6 +1778,12 @@ errc fmtxx::impl::DoFormat(Writer& w, std::string_view format, Types types, Arg 
     return errc::success;
 }
 
+errc fmtxx::impl::DoFormat(std::FILE* file, std::string_view format, Types types, Arg const* args)
+{
+    FILEWriter w{file};
+    return fmtxx::impl::DoFormat(w, format, types, args);
+}
+
 int fmtxx::impl::DoFileFormat(std::FILE* file, std::string_view format, Types types, Arg const* args)
 {
     FILEWriter w{file};
@@ -2046,6 +2052,12 @@ errc fmtxx::impl::DoPrintf(Writer& w, std::string_view format, Types types, Arg 
     }
 
     return errc::success;
+}
+
+errc fmtxx::impl::DoPrintf(std::FILE* file, std::string_view format, Types types, Arg const* args)
+{
+    FILEWriter w{file};
+    return fmtxx::impl::DoPrintf(w, format, types, args);
 }
 
 int fmtxx::impl::DoFilePrintf(std::FILE* file, std::string_view format, Types types, Arg const* args)

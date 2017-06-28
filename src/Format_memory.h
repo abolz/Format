@@ -125,13 +125,14 @@ inline bool MemoryWriterBase::Grow(size_t req)
 template <typename Alloc = std::allocator<char>>
 class MemoryWriter : public MemoryWriterBase
 {
-    static_assert(std::is_same<typename Alloc::value_type, char>::value, "invalid allocator");
+    static_assert(std::is_same<typename Alloc::value_type, char>::value,
+        "invalid allocator");
 
-    Alloc alloc_; // TODO: EBO...
+    Alloc alloc_;
 
 public:
     MemoryWriter() = default;
-    MemoryWriter(Alloc const& alloc) : alloc_(alloc) {}
+    explicit MemoryWriter(Alloc const& alloc) : alloc_(alloc) {}
     ~MemoryWriter();
 
 private:

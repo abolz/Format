@@ -46,7 +46,7 @@ inline bool StringWriter::Pad(char c, size_t count)
 }
 
 template <typename ...Args>
-errc sformat(std::string& str, std::string_view format, Args const&... args)
+errc format(std::string& str, std::string_view format, Args const&... args)
 {
     StringWriter w{str};
     return fmtxx::format(w, format, args...);
@@ -62,7 +62,7 @@ std::string string_format(std::string_view format, Args const&... args)
 }
 
 template <typename ...Args>
-errc sprintf(std::string& str, std::string_view format, Args const&... args)
+errc printf(std::string& str, std::string_view format, Args const&... args)
 {
     StringWriter w{str};
     return fmtxx::printf(w, format, args...);

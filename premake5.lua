@@ -10,6 +10,9 @@ solution "Format"
 
     warnings "Extra"
 
+    -- exceptionhandling "Off"
+    -- rtti "Off"
+
     configuration { "debug" }
         targetdir (build_dir .. "/bin/debug")
 
@@ -36,8 +39,6 @@ solution "Format"
 --            "-Wsign-conversion",
 --            "-pedantic",
 --            "-fvisibility=hidden",
---            "-fno-exceptions",
---            "-fno-rtti",
 --            "-fno-omit-frame-pointer",
 --            "-ftime-report",
         }
@@ -151,6 +152,7 @@ end
 AddExampleProject("Example1")
 AddExampleProject("Example2")
 AddExampleProject("Example3")
+AddExampleProject("Example4")
 
 -- Doesn't work with MinGW (std::condition_variable not implemented...)
 -- project "Benchmark"

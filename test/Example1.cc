@@ -1,5 +1,4 @@
 #include "Format.h"
-#include <cstdio>
 
 int main()
 {

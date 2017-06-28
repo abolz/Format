@@ -189,6 +189,17 @@ struct TreatAsString : std::false_type {};
 template <>
 struct TreatAsString< std::string_view > : std::true_type {};
 
+//
+// XXX:
+//
+// Would be nice if this could be enabled. Need std::string forward
+// declaration...
+// Or recheck if including <string> in real-world scenarios really increases the
+// compile time that much and probably merge 'Format_string.h' into 'Format.h'.
+//
+//template <typename Alloc>
+//struct TreatAsString< std::basic_string<char, std::char_traits<char>, Alloc> > : std::true_type {};
+
 namespace impl
 {
     // The second template parameter is used in Format_ostream.h to "specialize"

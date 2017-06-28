@@ -198,11 +198,11 @@ TEST_CASE("Invalid", "1")
     CHECK_THROWS(FormatArgs("{0}{2}", 1, 2));
     CHECK_THROWS(FormatArgs("{10}", 1));
     CHECK_THROWS(FormatArgs("{2147483647}", 1));
-	CHECK_THROWS(FormatArgs("{2147483648}", 0));
-	CHECK_NOTHROW(FormatArgs("{:2147483647}", 0));
-	CHECK_THROWS(FormatArgs("{:2147483648}", 0));
-	CHECK_NOTHROW(FormatArgs("{:.2147483647}", 0));
-	CHECK_THROWS(FormatArgs("{:.2147483648}", 0));
+    CHECK_THROWS(FormatArgs("{2147483648}", 0));
+    CHECK_NOTHROW(FormatArgs("{:2147483647}", 0));
+    CHECK_THROWS(FormatArgs("{:2147483648}", 0));
+    CHECK_NOTHROW(FormatArgs("{:.2147483647}", 0));
+    CHECK_THROWS(FormatArgs("{:.2147483648}", 0));
     CHECK_THROWS(FormatArgs("{:.", 0));
 }
 #endif
@@ -252,22 +252,22 @@ TEST_CASE("String", "1")
     CHECK("  xxx   " == FormatArgs("{:^8}", "xxx"));
 
     CHECK(":Hello, world!:"       == FormatArgs(":{}:",         "Hello, world!"));
-	CHECK(":  Hello, world!:"     == FormatArgs(":{:15}:",      "Hello, world!"));
-	CHECK(":Hello, wor:"          == FormatArgs(":{:.10}:",     "Hello, world!"));
-	CHECK(":Hello, world!:"       == FormatArgs(":{:<10}:",     "Hello, world!"));
-	CHECK(":Hello, world!  :"     == FormatArgs(":{:<15}:",     "Hello, world!"));
-	CHECK(":Hello, world!:"       == FormatArgs(":{:.15}:",     "Hello, world!"));
-	CHECK(":     Hello, wor:"     == FormatArgs(":{:15.10}:",   "Hello, world!"));
-	CHECK(":Hello, wor     :"     == FormatArgs(":{:<15.10}:",  "Hello, world!"));
+    CHECK(":  Hello, world!:"     == FormatArgs(":{:15}:",      "Hello, world!"));
+    CHECK(":Hello, wor:"          == FormatArgs(":{:.10}:",     "Hello, world!"));
+    CHECK(":Hello, world!:"       == FormatArgs(":{:<10}:",     "Hello, world!"));
+    CHECK(":Hello, world!  :"     == FormatArgs(":{:<15}:",     "Hello, world!"));
+    CHECK(":Hello, world!:"       == FormatArgs(":{:.15}:",     "Hello, world!"));
+    CHECK(":     Hello, wor:"     == FormatArgs(":{:15.10}:",   "Hello, world!"));
+    CHECK(":Hello, wor     :"     == FormatArgs(":{:<15.10}:",  "Hello, world!"));
 
     CHECK(":Hello, world!:"       == PrintfArgs(":%s:",         "Hello, world!"));
-	CHECK(":  Hello, world!:"     == PrintfArgs(":%15s:",      "Hello, world!"));
-	CHECK(":Hello, wor:"          == PrintfArgs(":%.10s:",     "Hello, world!"));
-	CHECK(":Hello, world!:"       == PrintfArgs(":%-10s:",     "Hello, world!"));
-	CHECK(":Hello, world!  :"     == PrintfArgs(":%-15s:",     "Hello, world!"));
-	CHECK(":Hello, world!:"       == PrintfArgs(":%.15s:",     "Hello, world!"));
-	CHECK(":     Hello, wor:"     == PrintfArgs(":%15.10s:",   "Hello, world!"));
-	CHECK(":Hello, wor     :"     == PrintfArgs(":%-15.10s:",  "Hello, world!"));
+    CHECK(":  Hello, world!:"     == PrintfArgs(":%15s:",      "Hello, world!"));
+    CHECK(":Hello, wor:"          == PrintfArgs(":%.10s:",     "Hello, world!"));
+    CHECK(":Hello, world!:"       == PrintfArgs(":%-10s:",     "Hello, world!"));
+    CHECK(":Hello, world!  :"     == PrintfArgs(":%-15s:",     "Hello, world!"));
+    CHECK(":Hello, world!:"       == PrintfArgs(":%.15s:",     "Hello, world!"));
+    CHECK(":     Hello, wor:"     == PrintfArgs(":%15.10s:",   "Hello, world!"));
+    CHECK(":Hello, wor     :"     == PrintfArgs(":%-15.10s:",  "Hello, world!"));
 
     std::string str = "hello hello hello hello hello hello hello hello hello hello ";
     CHECK("hello hello hello hello hello hello hello hello hello hello " == FormatArgs("{}", str));
@@ -1046,7 +1046,7 @@ TEST_CASE("FormatPretty1", "1")
 
     char buf[1000];
     auto const len = fmtxx::snformat(buf, "  {}  ", fmtxx::pretty(map));
-	CHECK(std::string_view(buf, len) == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
+    CHECK(std::string_view(buf, len) == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
 
     char arr1[] = "hello";
     CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
@@ -1064,7 +1064,7 @@ TEST_CASE("FormatPretty2", "1")
     };
 
     std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(map));
-	CHECK(s == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
+    CHECK(s == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
 
     char arr1[] = "hello";
     CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));

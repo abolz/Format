@@ -7,22 +7,25 @@ struct Vector2D {
     float y;
 };
 
-template <>
-struct fmtxx::FormatValue<Vector2D>
+namespace fmtxx
 {
-    auto operator()(Writer& w, FormatSpec const& spec, Vector2D const& value) const
+    template <>
+    struct FormatValue<Vector2D>
     {
-        if (spec.conv == 'p' || spec.conv == 'P')
+        auto operator()(Writer& w, FormatSpec const& spec, Vector2D const& value) const
         {
-            auto r   = std::hypot(value.x, value.y);
-            auto phi = std::atan2(value.y, value.x);
+            if (spec.conv == 'p' || spec.conv == 'P')
+            {
+                auto r   = std::hypot(value.x, value.y);
+                auto phi = std::atan2(value.y, value.x);
 
-            return fmtxx::format(w, "(r={:.3g}, phi={:.3g})", r, phi);
+                return fmtxx::format(w, "(r={:.3g}, phi={:.3g})", r, phi);
+            }
+
+            return fmtxx::format(w, "({}, {})", value.x, value.y);
         }
-
-        return fmtxx::format(w, "({}, {})", value.x, value.y);
-    }
-};
+    };
+}
 
 int main()
 {

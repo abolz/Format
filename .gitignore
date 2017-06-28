@@ -2,9 +2,11 @@
 /backups/
 /bloat_test/*.cc
 /bloat_test/*.dll
+/bloat_test/*.exp
 /bloat_test/*.h
-/bloat_test/*.txt
+/bloat_test/*.lib
 /bloat_test/*.py
+/bloat_test/*.txt
 /build/
 /ext/
 /scratch/

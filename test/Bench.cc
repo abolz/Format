@@ -1,9 +1,9 @@
 #if 0
-#include "Format/Format.h"
-//#include "Format/Format_memory.h"
-//#include "Format/Format_ostream.h"
-//#include "Format/Format_pretty.h"
-//#include "Format/Format_string.h"
+#include "Format.h"
+//#include "Format_memory.h"
+//#include "Format_ostream.h"
+//#include "Format_pretty.h"
+//#include "Format_string.h"
 //#include <cstdio>
 //#include <iosfwd>
 //#include <memory>
@@ -13,10 +13,11 @@
 int main() {}
 #else
 
-#include "Format/Format.h"
-//#include "Format/Format_memory.h"
-//#include "Format/Format_ostream.h"
-//#include "Format/Format_string.h"
+#include "Format.h"
+//#include "Format_memory.h"
+//#include "Format_ostream.h"
+//#include "Format_pretty.h"
+#include "Format_string.h"
 
 #include "benchmark/benchmark.h"
 

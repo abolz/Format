@@ -34,57 +34,57 @@ struct ArrayFormatter
     }
 };
 
-//template <typename Fn>
-//struct StringFormatter
-//{
-//    template <typename ...Args>
-//    FormatterResult operator ()(std::string_view format, Args const&... args) const
-//    {
-//        std::string os;
-//        const auto ec = Fn{}(os, format, args...);
-//        return { os, ec };
-//    }
-//};
+template <typename Fn>
+struct StringFormatter
+{
+    template <typename ...Args>
+    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    {
+        std::string os;
+        const auto ec = Fn{}(os, format, args...);
+        return { os, ec };
+    }
+};
 
-//template <typename Fn>
-//struct StreamFormatter
-//{
-//    template <typename ...Args>
-//    FormatterResult operator ()(std::string_view format, Args const&... args) const
-//    {
-//        std::ostringstream os;
-//        const auto ec = Fn{}(os, format, args...);
-//        return { os.str(), ec };
-//    }
-//};
+template <typename Fn>
+struct StreamFormatter
+{
+    template <typename ...Args>
+    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    {
+        std::ostringstream os;
+        const auto ec = Fn{}(os, format, args...);
+        return { os.str(), ec };
+    }
+};
 
-//#ifdef __linux__
-//template <typename Fn>
-//struct FILEFormatter
-//{
-//    template <typename ...Args>
-//    FormatterResult operator ()(std::string_view format, Args const&... args) const
-//    {
-//        char buf[1024 * 8] = {0};
-//        FILE* f = fmemopen(buf, sizeof(buf), "w");
-//        const auto ec = Fn{}(f, format, args...);
-//        fclose(f); // flush!
-//        return { std::string(buf), ec };
-//    }
-//};
-//#endif
+#ifdef __linux__
+template <typename Fn>
+struct FILEFormatter
+{
+    template <typename ...Args>
+    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    {
+        char buf[1024 * 8] = {0};
+        FILE* f = fmemopen(buf, sizeof(buf), "w");
+        const auto ec = Fn{}(f, format, args...);
+        fclose(f); // flush!
+        return { std::string(buf), ec };
+    }
+};
+#endif
 
-//template <typename Fn>
-//struct MemoryFormatter
-//{
-//    template <typename ...Args>
-//    FormatterResult operator()(std::string_view format, Args const&... args) const
-//    {
-//        fmtxx::MemoryWriter<> w;
-//        const auto ec = Fn{}(w, format, args...);
-//        return { w.str(), ec };
-//    }
-//};
+template <typename Fn>
+struct MemoryFormatter
+{
+    template <typename ...Args>
+    FormatterResult operator()(std::string_view format, Args const&... args) const
+    {
+        fmtxx::MemoryWriter<> w;
+        const auto ec = Fn{}(w, format, args...);
+        return { std::string(w.view()), ec };
+    }
+};
 
 //template <typename Fn>
 //struct OutputIteratorFormatter
@@ -126,23 +126,23 @@ static std::string FormatArgsTemplate(std::string_view format, Args const&... ar
 {
     std::string const s1 = FormatArgs1<ArrayFormatter<Fn>>(format, args...);
 
-    //std::string const s2 = FormatArgs1<StreamFormatter<Fn>>(format, args...);
-    //if (s2 != s1)
-    //    return "[[[[ formatter mismatch 1 ]]]]";
+    std::string const s2 = FormatArgs1<StreamFormatter<Fn>>(format, args...);
+    if (s2 != s1)
+        return "[[[[ formatter mismatch 1 ]]]]";
 
-//#ifdef __linux__
-//    std::string const s3 = FormatArgs1<FILEFormatter<Fn>>(format, args...);
-//    if (s3 != s1)
-//        return "[[[[ formatter mismatch 2 ]]]]";
-//#endif
+#ifdef __linux__
+    std::string const s3 = FormatArgs1<FILEFormatter<Fn>>(format, args...);
+    if (s3 != s1)
+        return "[[[[ formatter mismatch 2 ]]]]";
+#endif
 
-    //std::string const s4 = FormatArgs1<StringFormatter<Fn>>(format, args...);
-    //if (s4 != s1)
-    //    return "[[[[ formatter mismatch 3 ]]]]";
+    std::string const s4 = FormatArgs1<StringFormatter<Fn>>(format, args...);
+    if (s4 != s1)
+        return "[[[[ formatter mismatch 3 ]]]]";
 
-    //std::string const s5 = FormatArgs1<MemoryFormatter<Fn>>(format, args...);
-    //if (s5 != s1)
-    //    return "[[[[ formatter mismatch 4 ]]]]";
+    std::string const s5 = FormatArgs1<MemoryFormatter<Fn>>(format, args...);
+    if (s5 != s1)
+        return "[[[[ formatter mismatch 4 ]]]]";
 
     //std::string const s6 = FormatArgs1<OutputIteratorFormatter<Fn>>(format, args...);
     //if (s6 != s1)

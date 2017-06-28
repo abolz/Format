@@ -130,6 +130,29 @@ project "Test"
         "fmtxx",
     }
 
+function AddExampleProject(name)
+    project (name)
+        language "C++"
+        kind "ConsoleApp"
+        files {
+            "test/" .. name .. ".cc",
+        }
+        defines {
+            "FMTXX_SHARED=1",
+        }
+        includedirs {
+            "src/",
+        }
+        links {
+            "fmtxx",
+        }
+end
+
+AddExampleProject("Example1")
+AddExampleProject("Example2")
+AddExampleProject("Example3")
+
+-- Doesn't work with MinGW (std::condition_variable not implemented...)
 -- project "Benchmark"
 --     language "C++"
 --     kind "ConsoleApp"

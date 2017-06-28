@@ -50,7 +50,7 @@ bool StringWriter<StringT>::Pad(char c, size_t count)
 }
 
 template <typename StringT, typename ...Args>
-errc sformat(std::string& str, std::string_view format, Args const&... args)
+errc sformat(StringT& str, std::string_view format, Args const&... args)
 {
     StringWriter<StringT> w{str};
     return fmtxx::format(w, format, args...);

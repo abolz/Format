@@ -13,7 +13,33 @@ and all types which have a `std::ostream` insertion operator. The
 [double-conversion](https://github.com/google/double-conversion) library is
 used for fast binary-to-decimal conversions.
 
+## {fmt}
+
+This library started in an attempt to reduce compile times of the excellent
+[{fmt}](http://fmtlib.net/latest/index.html) library by
+[Victor Zverovich](https://github.com/vitaut), which provides more
+features than this library, is stable and more thoroughly tested and documented,
+compiles with older compilers, provides a header-only mode, provides formatting
+of wide-character strings and is used in a large number of real-world projects.
+
+And most importantly, [here](http://fmtlib.net/Text%20Formatting.html) is a
+proposal to include the fmt-library into the standard library:
+[C++ formatting library proposal (discussion group)](https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/4wOU-1_3D0A)
+
+**Before you continue reading, try [this](https://github.com/fmtlib/fmt).**
+
+If, however, you need faster compile times, don't care about header-only,
+don't care about wide-character strings, or need faster floating-point
+formatting, this library might be an option.
+
+*Note: Compile times using the fmt-library have decreased in the latest releases
+and will continue to decrease in future releases.
+[Faster floating-point formatting](https://github.com/fmtlib/fmt/issues/147) is
+on the TODO-list.*
+
 ## API
+
+### `Format.h`
 
 ```c++
 namespace fmtxx {
@@ -21,6 +47,7 @@ namespace fmtxx {
 enum struct errc {
     success,
     io_error,
+    conversion_error,
 };
 
 enum struct Align : unsigned char {
@@ -39,7 +66,7 @@ enum struct Sign : unsigned char {
 };
 
 // Contains the fields of the format-specification (see below).
-struct FormatSpec { {
+struct FormatSpec {
     std::string_view style;
     int   width = 0;
     int   prec  = -1;
@@ -55,16 +82,26 @@ struct FormatSpec { {
 // Base class for formatting buffers. Can be implemented to provide formatting
 // into arbitrary buffers or streams.
 class Writer {
+public:
     virtual ~Writer();
     virtual bool Put(char c) = 0;
     virtual bool Write(char const* str, size_t len) = 0;
     virtual bool Pad(char c, size_t count) = 0;
 };
 
-// Enables formatting of user-defined types. The default implementation uses
-// std::ostringstream to convert the argument into a string, and then appends
-// this string to the Writer.
-// This class is already specialized for all built-in types.
+// Implements the Writer interface to format into std::FILE's.
+class FILEWriter;
+
+// Implements the Writer interface to format into user-provided arrays.
+class ArrayWriter;
+
+// Determine whether objects of type T should be handled as strings.
+template <typename T>
+struct TreatAsString : std::false_type {};
+
+// Specialize this to enable formatting of user-defined types.
+// Or include "Format_ostream.h" if objects of type T can be formatted using
+// operator<<(std::ostream, T const&).
 template <typename T>
 struct FormatValue {
     errc operator()(Writer& w, FormatSpec const& spec, T const& value) const;
@@ -77,39 +114,91 @@ template <typename ...Args>
 errc format(Writer& w, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc format(std::string& os, std::string_view format, Args const&... args);
+errc format(std::FILE* file, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc format(std::FILE* os, std::string_view format, Args const&... args);
+int fformat(std::FILE* file, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc format(std::ostream& os, std::string_view format, Args const&... args);
+int snformat(char* buf, size_t bufsize, std::string_view format, Args const&... args);
 
-template <typename ...Args>
-std::string sformat(std::string_view format, Args const&... args);
+template <size_t N, typename ...Args>
+int snformat(char (&buf)[N], std::string_view format, Args const&... args);
 
 template <typename ...Args>
 errc printf(Writer& w, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc printf(std::string& os, std::string_view format, Args const&... args);
+errc printf(std::FILE* file, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc printf(std::FILE* os, std::string_view format, Args const&... args);
+int fprintf(std::FILE* file, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-errc fprintf(std::FILE* os, std::string_view format, Args const&... args);
+int snprintf(char* buf, size_t bufsize, std::string_view format, Args const&... args);
+
+template <size_t N, typename ...Args>
+int snprintf(char (&buf)[N], std::string_view format, Args const&... args);
+
+} // namespace fmtxx
+```
+
+**NOTE**: The formatting functions currently only accept at most 16 arguments.
+
+### `Format_string.h`
+
+```c++
+namespace fmtxx {
+
+class StringWriter;
+
+template <typename ...Args>
+errc format(std::string& str, std::string_view format, Args const&... args);
+
+template <typename ...Args>
+errc printf(std::string& str, std::string_view format, Args const&... args);
+
+template <typename ...Args>
+std::string string_format(std::string_view format, Args const&... args);
+
+template <typename ...Args>
+std::string string_printf(std::string_view format, Args const&... args);
+
+} // namespace fmtxx
+```
+
+### `Format_ostream.h`
+
+Including this header provides support for formatting user-defined types for
+which `operator<<(std::ostream&, T)` is defined.
+
+```c++
+namespace fmtxx {
+
+class StreamWriter;
+
+template <typename ...Args>
+errc format(std::ostream& os, std::string_view format, Args const&... args);
 
 template <typename ...Args>
 errc printf(std::ostream& os, std::string_view format, Args const&... args);
 
-template <typename ...Args>
-std::string sprintf(std::string_view format, Args const&... args);
-
-}
+} // namespace fmtxx
 ```
 
-**NOTE**: The formatting functions currently only accept at most 16 arguments.
+### `Format_pretty.h`
+
+Provides support for pretty-printing arbitrary containers and tuples.
+[(Example)](https://github.com/effzeh/Format/blob/master/test/Example4.cc)
+
+```c++
+namespace fmtxx {
+
+template <typename T>
+/*unspecified*/ pretty(T const& object);
+
+} // namespace fmtxx
+```
 
 ## Format String Syntax
 
@@ -134,7 +223,7 @@ std::string sprintf(std::string_view format, Args const&... args);
     seen, the iterator advances. This leads to behavior like this:
 
     ```c++
-    Format("{1} {} {0} {}", 1, 2); // => "2 1 1 2"
+    format(stdout, "{1} {} {0} {}", 1, 2); // => "2 1 1 2"
     ```
 
     The internal iterator over the argument has not been advanced by the time
@@ -208,7 +297,7 @@ std::string sprintf(std::string_view format, Args const&... args);
     Minimum field width; an integer. Same meaning as in printf.
     The default is 0.
 
-    **NOTE**: The maximum supported minimum field width is 4096.
+    **NOTE**: The maximum supported minimum field width currently is 4096.
 
 * `precision`
 

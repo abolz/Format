@@ -6,6 +6,14 @@
 #include "Format.h"
 
 #include <string>
+#if !FMTXX_USE_STD_STRING_VIEW
+#if _MSC_VER || __cplusplus >= 201703
+#  include <string_view>
+#else
+#  include <experimental/string_view>
+   namespace std { using std::experimental::string_view; }
+#endif
+#endif
 
 namespace fmtxx {
 
@@ -14,6 +22,14 @@ struct TreatAsString< std::basic_string<char, std::char_traits<char>, Alloc> >
     : std::true_type
 {
 };
+
+#if !FMTXX_USE_STD_STRING_VIEW
+template <>
+struct TreatAsString< std::string_view >
+    : std::true_type
+{
+};
+#endif
 
 class StringWriter : public Writer
 {
@@ -46,34 +62,32 @@ inline bool StringWriter::Pad(char c, size_t count)
 }
 
 template <typename ...Args>
-errc format(std::string& str, std::string_view format, Args const&... args)
+errc format(std::string& str, string_view format, Args const&... args)
 {
     StringWriter w{str};
     return fmtxx::format(w, format, args...);
 }
 
 template <typename ...Args>
-std::string string_format(std::string_view format, Args const&... args)
+std::string string_format(string_view format, Args const&... args)
 {
     std::string str;
-    StringWriter w{str};
-    fmtxx::format(w, format, args...); // Returns success or throws (or aborts)
+    fmtxx::format(str, format, args...); // Returns success or throws (or aborts)
     return str;
 }
 
 template <typename ...Args>
-errc printf(std::string& str, std::string_view format, Args const&... args)
+errc printf(std::string& str, string_view format, Args const&... args)
 {
     StringWriter w{str};
     return fmtxx::printf(w, format, args...);
 }
 
 template <typename ...Args>
-std::string string_printf(std::string_view format, Args const&... args)
+std::string string_printf(string_view format, Args const&... args)
 {
     std::string str;
-    StringWriter w{str};
-    fmtxx::printf(w, format, args...); // Returns success or throws (or aborts)
+    fmtxx::printf(str, format, args...); // Returns success or throws (or aborts)
     return str;
 }
 

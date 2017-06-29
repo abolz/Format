@@ -25,7 +25,7 @@ template <typename Fn>
 struct ArrayFormatter
 {
     template <typename ...Args>
-    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    FormatterResult operator ()(fmtxx::string_view format, Args const&... args) const
     {
         char buf[1024 * 8];
         fmtxx::ArrayWriter w { buf };
@@ -38,7 +38,7 @@ template <typename Fn>
 struct StringFormatter
 {
     template <typename ...Args>
-    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    FormatterResult operator ()(fmtxx::string_view format, Args const&... args) const
     {
         std::string os;
         const auto ec = Fn{}(os, format, args...);
@@ -50,7 +50,7 @@ template <typename Fn>
 struct StreamFormatter
 {
     template <typename ...Args>
-    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    FormatterResult operator ()(fmtxx::string_view format, Args const&... args) const
     {
         std::ostringstream os;
         const auto ec = Fn{}(os, format, args...);
@@ -63,7 +63,7 @@ template <typename Fn>
 struct FILEFormatter
 {
     template <typename ...Args>
-    FormatterResult operator ()(std::string_view format, Args const&... args) const
+    FormatterResult operator ()(fmtxx::string_view format, Args const&... args) const
     {
         char buf[1024 * 8] = {0};
         FILE* f = fmemopen(buf, sizeof(buf), "w");
@@ -78,11 +78,11 @@ template <typename Fn>
 struct MemoryFormatter
 {
     template <typename ...Args>
-    FormatterResult operator()(std::string_view format, Args const&... args) const
+    FormatterResult operator()(fmtxx::string_view format, Args const&... args) const
     {
         fmtxx::MemoryWriter<> w;
         const auto ec = Fn{}(w, format, args...);
-        return { std::string(w.view()), ec };
+        return { std::string(w.data(), w.size()), ec };
     }
 };
 
@@ -90,7 +90,7 @@ struct MemoryFormatter
 //struct OutputIteratorFormatter
 //{
 //    template <typename ...Args>
-//    FormatterResult operator()(std::string_view format, Args const&... args) const
+//    FormatterResult operator()(fmtxx::string_view format, Args const&... args) const
 //    {
 //        std::string s;
 //        auto w = fmtxx::make_output_iterator_writer(std::back_inserter(s));
@@ -100,7 +100,7 @@ struct MemoryFormatter
 //};
 
 template <typename Formatter, typename ...Args>
-static std::string FormatArgs1(std::string_view format, Args const&... args)
+static std::string FormatArgs1(fmtxx::string_view format, Args const&... args)
 {
     FormatterResult res = Formatter{}(format, args...);
     //assert(res.ec == fmtxx::errc::success);
@@ -109,20 +109,20 @@ static std::string FormatArgs1(std::string_view format, Args const&... args)
 
 struct FormatFn {
     template <typename Buffer, typename ...Args>
-    auto operator()(Buffer& fb, std::string_view format, Args const&... args) const {
+    auto operator()(Buffer& fb, fmtxx::string_view format, Args const&... args) const {
         return fmtxx::format(fb, format, args...);
     }
 };
 
 struct PrintfFn {
     template <typename Buffer, typename ...Args>
-    auto operator()(Buffer& fb, std::string_view format, Args const&... args) const {
+    auto operator()(Buffer& fb, fmtxx::string_view format, Args const&... args) const {
         return fmtxx::printf(fb, format, args...);
     }
 };
 
 template <typename Fn, typename ...Args>
-static std::string FormatArgsTemplate(std::string_view format, Args const&... args)
+static std::string FormatArgsTemplate(fmtxx::string_view format, Args const&... args)
 {
     std::string const s1 = FormatArgs1<ArrayFormatter<Fn>>(format, args...);
 
@@ -152,13 +152,13 @@ static std::string FormatArgsTemplate(std::string_view format, Args const&... ar
 }
 
 template <typename ...Args>
-static std::string FormatArgs(std::string_view format, Args const&... args)
+static std::string FormatArgs(fmtxx::string_view format, Args const&... args)
 {
     return FormatArgsTemplate<FormatFn>(format, args...);
 }
 
 template <typename ...Args>
-static std::string PrintfArgs(std::string_view format, Args const&... args)
+static std::string PrintfArgs(fmtxx::string_view format, Args const&... args)
 {
     return FormatArgsTemplate<PrintfFn>(format, args...);
 }
@@ -956,7 +956,7 @@ TEST_CASE("Custom", "1")
     CHECK("struct Foo2 '  ---123'" == FormatArgs("struct Foo2 '{:8}'", foo2_ns::Foo2{123}));
     CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{}'", foo2_ns::Foo2{123}));
 
-#if 1
+#if 0
     std::map<std::string_view, int, std::less<>> map = {{"eins", 1}, {"zwei", 2}};
     //
     // XXX:

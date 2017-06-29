@@ -44,7 +44,7 @@ public:
     size_t size() const { return size_; }
 
     // Returns a reference to the formatted string.
-    std::string_view view() const { return std::string_view(data(), size()); }
+    string_view view() const { return string_view(data(), size()); }
 
 private:
     bool Grow(size_t req);

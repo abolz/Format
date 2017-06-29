@@ -13,11 +13,18 @@
 int main() {}
 #else
 
+#define HAS_FMTLIB 0
+
 #include "Format.h"
-//#include "Format_memory.h"
+#include "Format_memory.h"
 //#include "Format_ostream.h"
 //#include "Format_pretty.h"
 #include "Format_string.h"
+
+#if HAS_FMTLIB
+#define FMT_HEADER_ONLY 1
+#include "fmt/format.h"
+#endif
 
 #include "benchmark/benchmark.h"
 
@@ -30,14 +37,14 @@ int main() {}
 template <typename ...Args>
 static void Format(char const* format, Args const&... args)
 {
-    char buf[8 * 1024];
-    int const size = fmtxx::snformat(buf, format, args...);
-    assert(size >= 0);
-    std::fwrite(buf, 1, static_cast<int>(size), stderr);
+    //char buf[8 * 1024];
+    //int const size = fmtxx::snformat(buf, format, args...);
+    //assert(size >= 0);
+    //std::fwrite(buf, 1, static_cast<int>(size), stderr);
 
-    //fmtxx::MemoryWriter<> w;
-    //fmtxx::format(w, format, args...);
-    //std::fwrite(w.data(), 1, w.size(), stderr);
+    fmtxx::MemoryWriter<> w;
+    fmtxx::format(w, format, args...);
+    std::fwrite(w.data(), 1, w.size(), stderr);
 
     //fmtxx::format(std::cerr, format, args...);
 
@@ -45,6 +52,8 @@ static void Format(char const* format, Args const&... args)
 
     //auto const str = fmtxx::sformat(format, args...);
     //std::fwrite(str.data(), 1, str.size(), stderr);
+
+    //fmt::print(stderr, format, args...);
 }
 
 #if 1
@@ -274,19 +283,19 @@ TEST_STRING(str_3_2,    "{} {}",    STRING_3, STRING_3);
 TEST_STRING(str_1_3,    "{0} {0}",  STRING_1);
 TEST_STRING(str_2_3,    "{0} {0}",  STRING_2);
 TEST_STRING(str_3_3,    "{0} {0}",  STRING_3);
-TEST_STRING(stdstr_1,   "{}",       std::string{STRING_1});
-TEST_STRING(stdstr_2,   "{}",       std::string{STRING_2});
-TEST_STRING(stdstr_3,   "{}",       std::string{STRING_3});
-TEST_STRING(stdstr_1_2, "{} {}",    std::string{STRING_1}, std::string{STRING_1});
-TEST_STRING(stdstr_2_2, "{} {}",    std::string{STRING_2}, std::string{STRING_2});
-TEST_STRING(stdstr_3_2, "{} {}",    std::string{STRING_3}, std::string{STRING_3});
-TEST_STRING(stdstr_1_3, "{0} {0}",  std::string{STRING_1});
-TEST_STRING(stdstr_2_3, "{0} {0}",  std::string{STRING_2});
-TEST_STRING(stdstr_3_3, "{0} {0}",  std::string{STRING_3});
+//TEST_STRING(stdstr_1,   "{}",       std::string{STRING_1});
+//TEST_STRING(stdstr_2,   "{}",       std::string{STRING_2});
+//TEST_STRING(stdstr_3,   "{}",       std::string{STRING_3});
+//TEST_STRING(stdstr_1_2, "{} {}",    std::string{STRING_1}, std::string{STRING_1});
+//TEST_STRING(stdstr_2_2, "{} {}",    std::string{STRING_2}, std::string{STRING_2});
+//TEST_STRING(stdstr_3_2, "{} {}",    std::string{STRING_3}, std::string{STRING_3});
+//TEST_STRING(stdstr_1_3, "{0} {0}",  std::string{STRING_1});
+//TEST_STRING(stdstr_2_3, "{0} {0}",  std::string{STRING_2});
+//TEST_STRING(stdstr_3_3, "{0} {0}",  std::string{STRING_3});
 
 #endif
 
-#if 1 // --------------------------------------------------------- TEST_CUSTOM_1
+#if 0 // --------------------------------------------------------- TEST_CUSTOM_1
 
 struct MyString {
     char const* str;

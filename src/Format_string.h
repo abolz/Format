@@ -69,26 +69,32 @@ errc format(std::string& str, string_view format, Args const&... args)
 }
 
 template <typename ...Args>
-std::string string_format(string_view format, Args const&... args)
-{
-    std::string str;
-    fmtxx::format(str, format, args...); // Returns success or throws (or aborts)
-    return str;
-}
-
-template <typename ...Args>
 errc printf(std::string& str, string_view format, Args const&... args)
 {
     StringWriter w{str};
     return fmtxx::printf(w, format, args...);
 }
 
-template <typename ...Args>
-std::string string_printf(string_view format, Args const&... args)
+struct StringFormatResult
 {
     std::string str;
-    fmtxx::printf(str, format, args...); // Returns success or throws (or aborts)
-    return str;
+    errc ec = errc::success;
+};
+
+template <typename ...Args>
+StringFormatResult string_format(string_view format, Args const&... args)
+{
+    StringFormatResult r;
+    r.ec = fmtxx::format(r.str, format, args...);
+    return r;
+}
+
+template <typename ...Args>
+StringFormatResult string_printf(string_view format, Args const&... args)
+{
+    StringFormatResult r;
+    r.ec = fmtxx::printf(r.str, format, args...);
+    return r;
 }
 
 } // namespace fmtxx

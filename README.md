@@ -152,6 +152,11 @@ namespace fmtxx {
 
 class StringWriter;
 
+struct StringFormatResult {
+    std::string str;
+    errc ec = errc::success;
+};
+
 template <typename ...Args>
 errc format(std::string& str, std::string_view format, Args const&... args);
 
@@ -159,10 +164,10 @@ template <typename ...Args>
 errc printf(std::string& str, std::string_view format, Args const&... args);
 
 template <typename ...Args>
-std::string string_format(std::string_view format, Args const&... args);
+StringFormatResult string_format(std::string_view format, Args const&... args);
 
 template <typename ...Args>
-std::string string_printf(std::string_view format, Args const&... args);
+StringFormatResult string_printf(std::string_view format, Args const&... args);
 
 } // namespace fmtxx
 ```

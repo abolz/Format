@@ -927,7 +927,7 @@ namespace fmtxx
         {
             //auto const key = spec.key;
             auto const key = spec.style;
-            auto const I = value.find(key);
+            auto const I = value.find(std::string_view(key.data(), key.size()));
             if (I == value.end()) {
                 return fmtxx::format(w, "[[key '{}' does not exist]]", key);
             }
@@ -956,7 +956,7 @@ TEST_CASE("Custom", "1")
     CHECK("struct Foo2 '  ---123'" == FormatArgs("struct Foo2 '{:8}'", foo2_ns::Foo2{123}));
     CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{}'", foo2_ns::Foo2{123}));
 
-#if 0
+#if 1
     std::map<std::string_view, int, std::less<>> map = {{"eins", 1}, {"zwei", 2}};
     //
     // XXX:
@@ -1061,7 +1061,7 @@ TEST_CASE("FormatPretty2", "1")
         {2, "zwei"},
     };
 
-    std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(map));
+    std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(map)).str;
     CHECK(s == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
 
     char arr1[] = "hello";

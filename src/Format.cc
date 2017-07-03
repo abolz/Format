@@ -1,8 +1,12 @@
 #include "Format.h"
 
-#include "double-conversion/bignum-dtoa.h"
-#include "double-conversion/fast-dtoa.h"
-#include "double-conversion/fixed-dtoa.h"
+#ifndef FMTXX_DOUBLE_CONVERSION_EXTERNAL
+#include "double_conversion_inline.h"
+#else
+#include <double-conversion/bignum-dtoa.h>
+#include <double-conversion/fast-dtoa.h>
+#include <double-conversion/fixed-dtoa.h>
+#endif
 
 #include <algorithm>
 #include <cstdlib>

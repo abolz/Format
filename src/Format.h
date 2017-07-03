@@ -445,7 +445,7 @@ struct FormatValue<void>
 {
     template <typename T>
     errc operator()(Writer& w, FormatSpec const& spec, T const& val) const {
-        return FormatValue<T>{}(w, spec, val);
+        return FormatValue<std::decay_t<T>>{}(w, spec, val);
     }
 };
 
@@ -549,7 +549,7 @@ public:
     template <typename T>
     static errc FormatValue_fn(Writer& w, FormatSpec const& spec, void const* value)
     {
-        return FormatValue<std::decay_t<T>>{}(w, spec, *static_cast<T const*>(value));
+        return fmtxx::format_value(w, spec, *static_cast<T const*>(value));
     }
 
     struct Other { void const* value; Func func; };

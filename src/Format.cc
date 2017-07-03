@@ -1358,7 +1358,7 @@ static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Types::value_type 
     case Types::T_OTHER:
         return arg.other.func(w, spec, arg.other.value);
     case Types::T_STRING:
-        return Util::format_string(w, spec, arg.string.data(), arg.string.size());
+        return Util::format_string(w, spec, arg.string.data, arg.string.size);
     case Types::T_PVOID:
         return Util::format_pointer(w, spec, arg.pvoid);
     case Types::T_PCHAR:

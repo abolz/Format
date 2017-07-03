@@ -492,9 +492,10 @@ public:
     value_type const types = 0;
 
     Types() = default;
+    Types(Types const&) = default;
 
-    template <typename ...Args>
-    explicit Types(Args const&... args) : types(Make(args...))
+    template <typename Arg1, typename ...Args>
+    explicit Types(Arg1 const& arg1, Args const&... args) : types(Make(arg1, args...))
     {
     }
 
@@ -558,10 +559,11 @@ public:
     }
 
     struct Other { void const* value; Func func; };
+    struct String { char const* data; size_t size; };
 
     union {
         Other other;
-        string_view string;
+        String string;
         void const* pvoid;
         char const* pchar;
         char char_;
@@ -578,7 +580,7 @@ public:
     Arg(T const& v, /*TreatAsString*/ std::false_type) : other{ &v, &FormatValue_fn<T> } {}
 
     template <typename T>
-    Arg(T const& v, /*TreatAsString*/ std::true_type) : string(v.data(), v.size()) {}
+    Arg(T const& v, /*TreatAsString*/ std::true_type) : string{v.data(), v.size()} {}
 
     // XXX:
     // Keep in sync with Types::GetId() above!!!

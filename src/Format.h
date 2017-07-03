@@ -606,17 +606,14 @@ public:
     Arg(FormatSpec         const& v) : pvoid(&v) {}
 };
 
-FMTXX_API errc DoFormat(Writer& w, string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf(Writer& w, string_view format, Types types, Arg const* args);
-
-FMTXX_API errc DoFormat(std::FILE* file, string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf(std::FILE* file, string_view format, Types types, Arg const* args);
-
-FMTXX_API int DoFileFormat(std::FILE* file, string_view format, Types types, Arg const* args);
-FMTXX_API int DoFilePrintf(std::FILE* file, string_view format, Types types, Arg const* args);
-
-FMTXX_API int DoArrayFormat(char* buf, size_t bufsize, string_view format, Types types, Arg const* args);
-FMTXX_API int DoArrayPrintf(char* buf, size_t bufsize, string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat      (Writer& w,                 string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf      (Writer& w,                 string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat      (std::FILE* file,           string_view format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf      (std::FILE* file,           string_view format, Types types, Arg const* args);
+FMTXX_API int  DoFileFormat  (std::FILE* file,           string_view format, Types types, Arg const* args);
+FMTXX_API int  DoFilePrintf  (std::FILE* file,           string_view format, Types types, Arg const* args);
+FMTXX_API int  DoArrayFormat (char* buf, size_t bufsize, string_view format, Types types, Arg const* args);
+FMTXX_API int  DoArrayPrintf (char* buf, size_t bufsize, string_view format, Types types, Arg const* args);
 
 // HACK
 template <typename ...Args>
@@ -624,70 +621,66 @@ using ArgArray = std::conditional_t<sizeof...(Args) != 0, Arg[], Arg*>;
 
 } // namespace impl
 
-// format ----------------------------------------------------------------------
-
 template <typename ...Args>
 inline errc format(Writer& w, string_view format, Args const&... args)
 {
-    impl::ArgArray<Args...> arr = {args...};
-    return fmtxx::impl::DoFormat(w, format, impl::Types{args...}, arr);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFormat(w, format, fmtxx::impl::Types{args...}, arr);
+}
+
+template <typename ...Args>
+inline errc printf(Writer& w, string_view format, Args const&... args)
+{
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoPrintf(w, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
 inline errc format(std::FILE* file, string_view format, Args const&... args)
 {
-    impl::ArgArray<Args...> arr = {args...};
-    return fmtxx::impl::DoFormat(file, format, impl::Types{args...}, arr);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFormat(file, format, fmtxx::impl::Types{args...}, arr);
+}
+
+template <typename ...Args>
+inline errc printf(std::FILE* file, string_view format, Args const&... args)
+{
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoPrintf(file, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
 inline int fformat(std::FILE* file, string_view format, Args const&... args)
 {
-    impl::ArgArray<Args...> arr = {args...};
-    return fmtxx::impl::DoFileFormat(file, format, impl::Types{args...}, arr);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFileFormat(file, format, fmtxx::impl::Types{args...}, arr);
+}
+
+template <typename ...Args>
+inline int fprintf(std::FILE* file, string_view format, Args const&... args)
+{
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFilePrintf(file, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
 inline int snformat(char* buf, size_t bufsize, string_view format, Args const&... args)
 {
-    impl::ArgArray<Args...> arr = {args...};
-    return fmtxx::impl::DoArrayFormat(buf, bufsize, format, impl::Types{args...}, arr);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoArrayFormat(buf, bufsize, format, fmtxx::impl::Types{args...}, arr);
+}
+
+template <typename ...Args>
+inline int snprintf(char* buf, size_t bufsize, string_view format, Args const&... args)
+{
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoArrayPrintf(buf, bufsize, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <size_t N, typename ...Args>
 inline int snformat(char (&buf)[N], string_view format, Args const&... args)
 {
     return fmtxx::snformat(&buf[0], N, format, args...);
-}
-
-// printf ----------------------------------------------------------------------
-
-template <typename ...Args>
-inline errc printf(Writer& w, string_view format, Args const&... args)
-{
-    impl::ArgArray<Args...> arr = {args...};
-    return fmtxx::impl::DoPrintf(w, format, impl::Types{args...}, arr);
-}
-
-template <typename ...Args>
-inline errc printf(std::FILE* file, string_view format, Args const&... args)
-{
-    impl::ArgArray<Args...> arr = {args...};
-    return fmtxx::impl::DoPrintf(file, format, impl::Types{args...}, arr);
-}
-
-template <typename ...Args>
-inline int fprintf(std::FILE* file, string_view format, Args const&... args)
-{
-    impl::ArgArray<Args...> arr = {args...};
-    return fmtxx::impl::DoFilePrintf(file, format, impl::Types{args...}, arr);
-}
-
-template <typename ...Args>
-inline int snprintf(char* buf, size_t bufsize, string_view format, Args const&... args)
-{
-    impl::ArgArray<Args...> arr = {args...};
-    return fmtxx::impl::DoArrayPrintf(buf, bufsize, format, impl::Types{args...}, arr);
 }
 
 template <size_t N, typename ...Args>

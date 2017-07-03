@@ -123,8 +123,13 @@ inline bool operator>=(string_view lhs, string_view rhs) {
 
 enum struct errc {
     success = 0,
-    io_error,         // Writer failed. (XXX: Writer::Put() etc should probably return an error code?!)
-    conversion_error, // Value could not be converted to string. (E.g.: trying to format a non-existant date.)
+    conversion_error,       // Value could not be converted to string. (E.g.: trying to format a non-existant date.)
+    index_out_of_range,     // Argument index out of range
+    invalid_argument,
+    invalid_format_string,
+    io_error,               // Writer failed. (XXX: Writer::Put() etc should probably return an error code?!)
+    not_supported,          // Conversion not supported
+    value_out_of_range,     // Value of integer argument out of range [INT_MIN, INT_MAX]
 };
 
 enum struct Align : unsigned char {

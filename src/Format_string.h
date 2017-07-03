@@ -10,7 +10,7 @@
 #endif
 #endif
 
-#if _MSC_VER >= 1910 || __cplusplus >= 201703
+#if (_MSC_VER >= 1910 && _HAS_CXX17) || __cplusplus >= 201703
 #define FMTXX_HAS_STD_STRING_VIEW 1
 #elif __cplusplus > 201103 && FMTXX_HAS_INCLUDE(<experimental/string_view>)
 #define FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW 1

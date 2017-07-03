@@ -22,7 +22,7 @@
 
 #if FMTXX_HAS_CPP_ATTRIBUTE(clang::fallthrough)
 #  define FMTXX_FALLTHROUGH [[clang::fallthrough]]
-#elif FMTXX_HAS_CPP_ATTRIBUTE(fallthrough) || __cplusplus >= 201703 || _MSC_VER >= 1910
+#elif FMTXX_HAS_CPP_ATTRIBUTE(fallthrough) || __cplusplus >= 201703 || (_MSC_VER >= 1910 && _HAS_CXX17)
 #  define FMTXX_FALLTHROUGH [[fallthrough]]
 #else
 #  define FMTXX_FALLTHROUGH

@@ -14,16 +14,18 @@
 #include <iterator> // stdext::checked_array_iterator
 #include <limits>
 
-#ifndef __has_cpp_attribute
-#define __has_cpp_attribute(X) 0
+#ifdef __has_cpp_attribute
+#define FMTXX_HAS_CPP_ATTRIBUTE(X) __has_cpp_attribute(X)
+#else
+#define FMTXX_HAS_CPP_ATTRIBUTE(X) 0
 #endif
 
-#if __has_cpp_attribute(clang::fallthrough)
-#  define FALLTHROUGH [[clang::fallthrough]]
-#elif __has_cpp_attribute(fallthrough) || __cplusplus >= 201703 || _MSC_VER >= 1910
-#  define FALLTHROUGH [[fallthrough]]
+#if FMTXX_HAS_CPP_ATTRIBUTE(clang::fallthrough)
+#  define FMTXX_FALLTHROUGH [[clang::fallthrough]]
+#elif FMTXX_HAS_CPP_ATTRIBUTE(fallthrough) || __cplusplus >= 201703 || _MSC_VER >= 1910
+#  define FMTXX_FALLTHROUGH [[fallthrough]]
 #else
-#  define FALLTHROUGH
+#  define FMTXX_FALLTHROUGH
 #endif
 
 using namespace fmtxx;
@@ -478,13 +480,13 @@ errc fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sext, ui
     {
     default:
         conv = 'd';
-        FALLTHROUGH;
+        FMTXX_FALLTHROUGH;
     case 'd':
     case 'i':
         sign = ComputeSignChar(sext < 0, spec.sign, spec.fill);
         if (sext < 0)
             number = 0 - static_cast<uint64_t>(sext);
-        FALLTHROUGH;
+        FMTXX_FALLTHROUGH;
     case 'u':
         base = 10;
         break;
@@ -1221,7 +1223,7 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
     {
     default:
         conv = 's';
-        FALLTHROUGH;
+        FMTXX_FALLTHROUGH;
     case 's':
     case 'S':
         options.exponent_char = (conv == 's') ? 'e' : 'E';

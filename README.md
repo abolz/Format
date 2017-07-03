@@ -46,13 +46,13 @@ namespace fmtxx {
 
 enum struct errc {
     success = 0,
-    conversion_error,       // Value could not be converted to string. (E.g.: trying to format a non-existant date.)
-    index_out_of_range,     // Argument index out of range
+    conversion_error,
+    index_out_of_range,
     invalid_argument,
     invalid_format_string,
-    io_error,               // Writer failed. (XXX: Writer::Put() etc should probably return an error code?!)
-    not_supported,          // Conversion not supported
-    value_out_of_range,     // Value of integer argument out of range [INT_MIN, INT_MAX]
+    io_error,
+    not_supported,
+    value_out_of_range,
 };
 
 enum struct Align : unsigned char {

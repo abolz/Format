@@ -665,9 +665,7 @@ struct Options {
     bool emit_positive_exponent_sign = true;  //   E G A
 };
 
-using Vector = double_conversion::Vector<char>;
-
-static int CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int precision, Options const& options)
+static int CreateFixedRepresentation(char* buf, int bufsize, int num_digits, int decpt, int precision, Options const& options)
 {
     assert(options.decimal_point != '\0');
 
@@ -683,11 +681,11 @@ static int CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int 
 
             int const nextra = 2 + (precision - num_digits);
             // nextra includes the decimal point.
-            std::fill_n(buf.start() + num_digits, nextra, '0');
+            std::fill_n(buf + num_digits, nextra, '0');
             buf[num_digits + 1] = options.decimal_point;
 
             // digits0.[000][000] --> 0.[000]digits[000]
-            std::rotate(buf.start(), buf.start() + num_digits, buf.start() + (num_digits + 2 + -decpt));
+            std::rotate(buf, buf + num_digits, buf + (num_digits + 2 + -decpt));
 
             return 2 + precision;
         }
@@ -710,7 +708,7 @@ static int CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int 
         int const nextra = precision > 0 ? 1 + precision : (options.use_alternative_form ? 1 : 0);
         // nextra includes the decimal point -- if any.
 
-        std::fill_n(buf.start() + num_digits, nzeros + nextra, '0');
+        std::fill_n(buf + num_digits, nzeros + nextra, '0');
         if (nextra > 0)
         {
             buf[decpt] = options.decimal_point;
@@ -722,7 +720,7 @@ static int CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int 
     {
         // dig.its[000]
 
-        auto I = MakeArrayIterator(buf.start(), buf.length());
+        auto I = MakeArrayIterator(buf, bufsize);
 
         assert(precision >= num_digits - decpt); // >= 1
 
@@ -737,13 +735,13 @@ static int CreateFixedRepresentation(Vector buf, int num_digits, int decpt, int 
 
     if (options.thousands_sep != '\0')
     {
-        last += InsertThousandsSep(buf.start(), buf.start() + buf.length(), decpt, last, options.thousands_sep, 3);
+        last += InsertThousandsSep(buf, buf + bufsize, decpt, last, options.thousands_sep, 3);
     }
 
     return last;
 }
 
-static void GenerateFixedDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
+static void GenerateFixedDigits(double v, int requested_digits, char* buf, int bufsize, int* num_digits, int* decpt)
 {
     Double const d{v};
 
@@ -753,11 +751,13 @@ static void GenerateFixedDigits(double v, int requested_digits, Vector vec, int*
 
     if (d.IsZero())
     {
-        vec[0] = '0';
+        buf[0] = '0';
         *num_digits = 1;
         *decpt = 1;
         return;
     }
+
+    double_conversion::Vector<char> vec(buf, bufsize);
 
     bool const fast_worked = FastFixedDtoa(v, requested_digits, vec, num_digits, decpt);
     if (!fast_worked)
@@ -768,21 +768,22 @@ static void GenerateFixedDigits(double v, int requested_digits, Vector vec, int*
 
 static int ToFixed(char* first, char* last, double d, int precision, Options const& options)
 {
-    Vector buf(first, static_cast<int>(last - first));
+    char* buf = first;
+    int bufsize = static_cast<int>(last - first);
 
     int num_digits = 0;
     int decpt = 0;
 
-    GenerateFixedDigits(d, precision, buf, &num_digits, &decpt);
+    GenerateFixedDigits(d, precision, buf, bufsize, &num_digits, &decpt);
 
     assert(num_digits >= 0);
 
-    return CreateFixedRepresentation(buf, num_digits, decpt, precision, options);
+    return CreateFixedRepresentation(buf, bufsize, num_digits, decpt, precision, options);
 }
 
 // Append a decimal representation of EXPONENT to BUF.
 // Returns the number of characters written.
-static int AppendExponent(Vector buf, int pos, int exponent, Options const& options)
+static int AppendExponent(char* buf, int /*bufsize*/, int pos, int exponent, Options const& options)
 {
     assert(exponent > -10000);
     assert(exponent <  10000);
@@ -812,7 +813,7 @@ static int AppendExponent(Vector buf, int pos, int exponent, Options const& opti
     return pos;
 }
 
-static int CreateExponentialRepresentation(Vector buf, int num_digits, int exponent, int precision, Options const& options)
+static int CreateExponentialRepresentation(char* buf, int bufsize, int num_digits, int exponent, int precision, Options const& options)
 {
     assert(options.decimal_point != '\0');
 
@@ -823,7 +824,7 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
     {
         // d.igits[000]e+123
 
-        auto I = MakeArrayIterator(buf.start(), buf.length());
+        auto I = MakeArrayIterator(buf, bufsize);
 
         std::copy_backward(I + pos, I + (pos + num_digits - 1), I + (pos + num_digits));
         I[pos] = options.decimal_point;
@@ -840,7 +841,7 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
     {
         // d.0[000]e+123
 
-        std::fill_n(buf.start() + pos, 1 + precision, '0');
+        std::fill_n(buf + pos, 1 + precision, '0');
         buf[pos] = options.decimal_point;
         pos += 1 + precision;
     }
@@ -852,12 +853,12 @@ static int CreateExponentialRepresentation(Vector buf, int num_digits, int expon
             buf[pos++] = options.decimal_point;
     }
 
-    return AppendExponent(buf, pos, exponent, options);
+    return AppendExponent(buf, bufsize, pos, exponent, options);
 }
 
-static void GeneratePrecisionDigits(double v, int requested_digits, Vector vec, int* num_digits, int* decpt)
+static void GeneratePrecisionDigits(double v, int requested_digits, char* buf, int bufsize, int* num_digits, int* decpt)
 {
-    assert(vec.length() >= 1);
+    assert(bufsize >= 1);
     assert(requested_digits >= 0);
 
     Double const d{v};
@@ -874,11 +875,13 @@ static void GeneratePrecisionDigits(double v, int requested_digits, Vector vec, 
 
     if (d.IsZero())
     {
-        vec[0] = '0';
+        buf[0] = '0';
         *num_digits = 1;
         *decpt = 1;
         return;
     }
+
+    double_conversion::Vector<char> vec(buf, bufsize);
 
     bool const fast_worked = FastDtoa(v, double_conversion::FAST_DTOA_PRECISION, requested_digits, vec, num_digits, decpt);
     if (!fast_worked)
@@ -889,31 +892,33 @@ static void GeneratePrecisionDigits(double v, int requested_digits, Vector vec, 
 
 static int ToExponential(char* first, char* last, double d, int precision, Options const& options)
 {
-    Vector buf(first, static_cast<int>(last - first));
+    char* buf = first;
+    int bufsize = static_cast<int>(last - first);
 
     int num_digits = 0;
     int decpt = 0;
 
-    GeneratePrecisionDigits(d, precision + 1, buf, &num_digits, &decpt);
+    GeneratePrecisionDigits(d, precision + 1, buf, bufsize, &num_digits, &decpt);
 
     assert(num_digits > 0);
 
     int const exponent = decpt - 1;
-    return CreateExponentialRepresentation(buf, num_digits, exponent, precision, options);
+    return CreateExponentialRepresentation(buf, bufsize, num_digits, exponent, precision, options);
 }
 
 static int ToGeneral(char* first, char* last, double d, int precision, Options const& options)
 {
-    assert(precision >= 0);
+    char* buf = first;
+    int bufsize = static_cast<int>(last - first);
 
-    Vector buf(first, static_cast<int>(last - first));
+    assert(precision >= 0);
 
     int num_digits = 0;
     int decpt = 0;
 
     int const P = precision == 0 ? 1 : precision;
 
-    GeneratePrecisionDigits(d, P, buf, &num_digits, &decpt);
+    GeneratePrecisionDigits(d, P, buf, bufsize, &num_digits, &decpt);
 
     assert(num_digits > 0);
     assert(num_digits <= P); // GeneratePrecisionDigits is allowed to return fewer digits if they are all 0's.
@@ -934,7 +939,7 @@ static int ToGeneral(char* first, char* last, double d, int precision, Options c
             prec = std::min(prec, num_digits - decpt);
         }
 
-        return CreateFixedRepresentation(buf, num_digits, decpt, prec, options);
+        return CreateFixedRepresentation(buf, bufsize, num_digits, decpt, prec, options);
     }
     else
     {
@@ -944,7 +949,7 @@ static int ToGeneral(char* first, char* last, double d, int precision, Options c
             prec = std::min(prec, num_digits - 1);
         }
 
-        return CreateExponentialRepresentation(buf, num_digits, X, prec, options);
+        return CreateExponentialRepresentation(buf, bufsize, num_digits, X, prec, options);
     }
 }
 
@@ -962,9 +967,10 @@ static int CountLeadingZeros64(uint64_t n)
     return z;
 }
 
-static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, Vector buffer, int* num_digits, int* binary_exponent)
+static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, char* buffer, int buffer_size, int* num_digits, int* binary_exponent)
 {
-    assert(buffer.length() >= 52/4 + 1);
+    assert(buffer_size >= 52/4 + 1);
+    UnusedParameter(buffer_size);
 
     char const* const xdigits = upper ? kUpperHexDigits : kLowerHexDigits;
 
@@ -1053,21 +1059,22 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
 
 static int ToHex(char* first, char* last, double d, int precision, Options const& options)
 {
-    Vector buf(first, static_cast<int>(last - first));
+    char* buf = first;
+    int bufsize = static_cast<int>(last - first);
 
     int num_digits = 0;
     int binary_exponent = 0;
 
-    GenerateHexDigits(d, precision, options.normalize, options.use_upper_case_digits, buf, &num_digits, &binary_exponent);
+    GenerateHexDigits(d, precision, options.normalize, options.use_upper_case_digits, buf, bufsize, &num_digits, &binary_exponent);
 
     assert(num_digits > 0);
 
-    return CreateExponentialRepresentation(buf, num_digits, binary_exponent, precision, options);
+    return CreateExponentialRepresentation(buf, bufsize, num_digits, binary_exponent, precision, options);
 }
 
-static void GenerateShortestDigits(double v, Vector vec, int* num_digits, int* decpt)
+static void GenerateShortestDigits(double v, char* buf, int bufsize, int* num_digits, int* decpt)
 {
-    assert(vec.length() >= 17 + 1 /*null*/);
+    assert(bufsize >= 17 + 1 /*null*/);
 
     Double const d{v};
 
@@ -1076,11 +1083,13 @@ static void GenerateShortestDigits(double v, Vector vec, int* num_digits, int* d
 
     if (d.IsZero())
     {
-        vec[0] = '0';
+        buf[0] = '0';
         *num_digits = 1;
         *decpt = 1;
         return;
     }
+
+    double_conversion::Vector<char> vec(buf, bufsize);
 
     bool const fast_worked = FastDtoa(v, double_conversion::FAST_DTOA_SHORTEST, -1, vec, num_digits, decpt);
     if (!fast_worked)
@@ -1091,15 +1100,16 @@ static void GenerateShortestDigits(double v, Vector vec, int* num_digits, int* d
 
 static int ToECMAScript(char* first, char* last, double d, char decimal_point, char exponent_char)
 {
-    Vector buf(first, static_cast<int>(last - first));
-    assert(buf.length() >= 24);
+    char* buf = first;
+    int bufsize = static_cast<int>(last - first);
+    assert(bufsize >= 24);
 
-    auto I = MakeArrayIterator(buf.start(), buf.length());
+    auto I = MakeArrayIterator(buf, bufsize);
 
     int num_digits = 0;
     int decpt = 0;
 
-    GenerateShortestDigits(d, buf, &num_digits, &decpt);
+    GenerateShortestDigits(d, buf, bufsize, &num_digits, &decpt);
 
     assert(num_digits > 0);
 
@@ -1148,7 +1158,7 @@ static int ToECMAScript(char* first, char* last, double d, char decimal_point, c
     {
         // dE+123
 
-        int const endpos = AppendExponent(buf, /*pos*/ 1, n - 1, options);
+        int const endpos = AppendExponent(buf, bufsize, /*pos*/ 1, n - 1, options);
         return endpos;
     }
     else
@@ -1157,7 +1167,7 @@ static int ToECMAScript(char* first, char* last, double d, char decimal_point, c
 
         std::copy_backward(I + 1, I + k, I + (k + 1));
         I[1] = decimal_point;
-        int const endpos = AppendExponent(buf, /*pos*/ k + 1, n - 1, options);
+        int const endpos = AppendExponent(buf, bufsize, /*pos*/ k + 1, n - 1, options);
         return endpos;
     }
 }

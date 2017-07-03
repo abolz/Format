@@ -8,10 +8,22 @@ addons:
     sources:
       - ubuntu-toolchain-r-test
     packages:
+      - g++-5
       - g++-6
+      - g++-7
 
 matrix:
   include:
+    - os: linux
+      compiler: gcc
+      env:
+        - COMPILER=g++-5
+        - CONFIGURATION=release
+    - os: linux
+      compiler: gcc
+      env:
+        - COMPILER=g++-5
+        - CONFIGURATION=debug
     - os: linux
       compiler: gcc
       env:
@@ -21,6 +33,16 @@ matrix:
       compiler: gcc
       env:
         - COMPILER=g++-6
+        - CONFIGURATION=debug
+    - os: linux
+      compiler: gcc
+      env:
+        - COMPILER=g++-7
+        - CONFIGURATION=release
+    - os: linux
+      compiler: gcc
+      env:
+        - COMPILER=g++-7
         - CONFIGURATION=debug
     - os: osx
       compiler: clang

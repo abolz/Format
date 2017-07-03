@@ -72,12 +72,12 @@ inline errc PrintString(Writer& w, string_view val)
 
 inline errc PrettyPrint(Writer& w, char const* val)
 {
-    return pp::PrintString(w, val != nullptr ? val : "(null)");
+    return fmtxx::pp::PrintString(w, val != nullptr ? val : "(null)");
 }
 
 inline errc PrettyPrint(Writer& w, char* val)
 {
-    return pp::PrintString(w, val != nullptr ? val : "(null)");
+    return fmtxx::pp::PrintString(w, val != nullptr ? val : "(null)");
 }
 
 template <typename T>
@@ -89,15 +89,13 @@ errc PrintTuple(Writer& /*w*/, T const& /*object*/, std::integral_constant<size_
 template <typename T>
 errc PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, 1>)
 {
-    // print the last tuple element
-    return pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - 1>(object));
+    return fmtxx::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - 1>(object));
 }
 
 template <typename T, size_t N>
 errc PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, N>)
 {
-    // print the next tuple element
-    auto const ec1 = pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - N>(object));
+    auto const ec1 = fmtxx::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - N>(object));
     if (ec1 != errc::success)
         return ec1;
 
@@ -106,8 +104,7 @@ errc PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, N>)
     if (!w.Put(' '))
         return errc::io_error;
 
-    // print the remaining tuple elements
-    auto const ec2 = pp::PrintTuple(w, object, std::integral_constant<size_t, N - 1>());
+    auto const ec2 = fmtxx::pp::PrintTuple(w, object, std::integral_constant<size_t, N - 1>());
     if (ec2 != errc::success)
         return ec2;
 
@@ -120,7 +117,7 @@ errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
     if (!w.Put('{'))
         return errc::io_error;
 
-    auto const ec = pp::PrintTuple(w, object, typename std::tuple_size<T>::type());
+    auto const ec = fmtxx::pp::PrintTuple(w, object, typename std::tuple_size<T>::type());
     if (ec != errc::success)
         return ec;
 
@@ -133,7 +130,7 @@ errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
 template <typename T>
 errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::false_type)
 {
-    return FormatValue<>{}(w, {}, object);
+    return fmtxx::format_value(w, {}, object);
 }
 
 template <typename T>
@@ -142,13 +139,13 @@ errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_typ
     if (!w.Put('['))
         return errc::io_error;
 
-    auto I = begin(object);
-    auto E = end(object);
+    auto I = begin(object); // using ADL
+    auto E = end(object); // using ADL
     if (I != E)
     {
         for (;;)
         {
-            auto const ec = pp::PrettyPrint(w, *I);
+            auto const ec = fmtxx::pp::PrettyPrint(w, *I);
             if (ec != errc::success)
                 return ec;
             if (++I == E)
@@ -169,25 +166,25 @@ errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_typ
 template <typename T>
 errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::false_type)
 {
-    return pp::DispatchTuple(w, object, IsTuple<T>{});
+    return fmtxx::pp::DispatchTuple(w, object, IsTuple<T>{});
 }
 
 template <typename T>
 errc DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::true_type)
 {
-    return pp::PrintString(w, string_view{object.data(), object.size()});
+    return fmtxx::pp::PrintString(w, string_view{object.data(), object.size()});
 }
 
 template <typename T>
 errc DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::false_type)
 {
-    return pp::DispatchContainer(w, object, IsContainer<T>{});
+    return fmtxx::pp::DispatchContainer(w, object, IsContainer<T>{});
 }
 
 template <typename T>
 errc PrettyPrint(Writer& w, T const& object)
 {
-    return pp::DispatchString(w, object, TreatAsString<T>{});
+    return fmtxx::pp::DispatchString(w, object, TreatAsString<T>{});
 }
 
 } // namespace pp
@@ -195,7 +192,7 @@ errc PrettyPrint(Writer& w, T const& object)
 template <typename T>
 struct FormatValue<PrettyPrinter<T>> {
     errc operator()(Writer& w, FormatSpec const& /*spec*/, PrettyPrinter<T> const& value) const {
-        return pp::PrettyPrint(w, value.object);
+        return fmtxx::pp::PrettyPrint(w, value.object);
     }
 };
 

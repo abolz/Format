@@ -253,7 +253,7 @@ struct Util
 private:
     template <typename T>
     static inline errc format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::true_type) {
-        return format_int(w, spec, value, static_cast<std::make_unsigned_t<T>>(value));
+        return format_int(w, spec, value, static_cast<typename std::make_unsigned<T>::type>(value));
     }
 
     template <typename T>
@@ -298,7 +298,7 @@ struct FormatValue : impl::StreamValue<T>
 };
 
 template <typename T>
-struct FormatValue<T, std::enable_if_t< TreatAsString<T>::value >>
+struct FormatValue<T, typename std::enable_if< TreatAsString<T>::value >::type>
 {
     errc operator()(Writer& w, FormatSpec const& spec, T const& val) const {
         return Util::format_string(w, spec, val.data(), val.size());
@@ -450,14 +450,14 @@ struct FormatValue<void>
 {
     template <typename T>
     errc operator()(Writer& w, FormatSpec const& spec, T const& val) const {
-        return FormatValue<std::decay_t<T>>{}(w, spec, val);
+        return FormatValue<typename std::decay<T>::type>{}(w, spec, val);
     }
 };
 
 template <
     typename WriterT,
     typename T,
-    typename = std::enable_if_t< std::is_base_of<Writer, std::remove_reference_t<WriterT>>::value >
+    typename = typename std::enable_if< std::is_base_of<Writer, typename std::remove_reference<WriterT>::type>::value >::type
 >
 errc format_value(WriterT&& w, FormatSpec const& spec, T const& value) {
     return FormatValue<>{}(w, spec, value);
@@ -622,7 +622,7 @@ FMTXX_API int  DoArrayPrintf (char* buf, size_t bufsize, string_view format, Typ
 
 // HACK
 template <typename ...Args>
-using ArgArray = std::conditional_t<sizeof...(Args) != 0, Arg[], Arg*>;
+using ArgArray = typename std::conditional<sizeof...(Args) != 0, Arg[], Arg*>::type;
 
 } // namespace impl
 

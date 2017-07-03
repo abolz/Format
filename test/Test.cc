@@ -109,14 +109,14 @@ static std::string FormatArgs1(fmtxx::string_view format, Args const&... args)
 
 struct FormatFn {
     template <typename Buffer, typename ...Args>
-    auto operator()(Buffer& fb, fmtxx::string_view format, Args const&... args) const {
+    fmtxx::errc operator()(Buffer& fb, fmtxx::string_view format, Args const&... args) const {
         return fmtxx::format(fb, format, args...);
     }
 };
 
 struct PrintfFn {
     template <typename Buffer, typename ...Args>
-    auto operator()(Buffer& fb, fmtxx::string_view format, Args const&... args) const {
+    fmtxx::errc operator()(Buffer& fb, fmtxx::string_view format, Args const&... args) const {
         return fmtxx::printf(fb, format, args...);
     }
 };
@@ -910,7 +910,7 @@ namespace fmtxx
 {
     template <>
     struct FormatValue<Foo> {
-        auto operator()(Writer& w, FormatSpec const& spec, Foo const& value) const {
+        fmtxx::errc operator()(Writer& w, FormatSpec const& spec, Foo const& value) const {
             return fmtxx::format_value(w, spec, value.value);
         }
     };
@@ -923,7 +923,7 @@ namespace fmtxx
     template <typename K, typename V, typename Pr, typename Alloc>
     struct FormatValue<std::map<K, V, Pr, Alloc>>
     {
-        auto operator()(Writer& w, FormatSpec const& spec, std::map<K, V, Pr, Alloc> const& value) const
+        fmtxx::errc operator()(Writer& w, FormatSpec const& spec, std::map<K, V, Pr, Alloc> const& value) const
         {
             //auto const key = spec.key;
             auto const key = spec.style;
@@ -957,7 +957,7 @@ TEST_CASE("Custom", "1")
     CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{}'", foo2_ns::Foo2{123}));
 
 #if 1
-    std::map<std::string, int, std::less<>> map = {{"eins", 1}, {"zwei", 2}};
+    std::map<std::string, int> map = {{"eins", 1}, {"zwei", 2}};
     //
     // XXX:
     // Must be a separate function like vformat(format, map)...
@@ -1011,7 +1011,7 @@ namespace fmtxx
 {
     template <>
     struct FormatValue<std::vector<char>> {
-        auto operator()(Writer& w, FormatSpec const& spec, std::vector<char> const& vec) const {
+        fmtxx::errc operator()(Writer& w, FormatSpec const& spec, std::vector<char> const& vec) const {
             return fmtxx::Util::format_string(w, spec, vec.data(), vec.size());
         }
     };

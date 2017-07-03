@@ -12,7 +12,7 @@ namespace fmtxx
     template <>
     struct FormatValue<Vector2D>
     {
-        auto operator()(Writer& w, FormatSpec const& spec, Vector2D const& value) const
+        errc operator()(Writer& w, FormatSpec const& spec, Vector2D const& value) const
         {
             if (spec.conv == 'p' || spec.conv == 'P')
             {

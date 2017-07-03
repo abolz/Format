@@ -33,7 +33,7 @@ solution "Format"
     configuration { "gmake" }
         buildoptions {
             "-march=native",
-            "-std=c++14",
+            "-std=c++11",
             "-Wformat",
 --            "-Wsign-compare",
 --            "-Wsign-conversion",

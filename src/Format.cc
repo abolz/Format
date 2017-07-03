@@ -55,16 +55,19 @@ inline constexpr T Clip(T x, T lower, T upper) { return std::min(std::max(lower,
 template <typename T>
 inline void UnusedParameter(T&&) {}
 
-template <typename RanIt>
-static auto MakeArrayIterator(RanIt first, intptr_t n)
-{
 #if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
+template <typename RanIt>
+static stdext::checked_array_iterator<RanIt> MakeArrayIterator(RanIt first, intptr_t n)
+{
     return stdext::make_checked_array_iterator(first, n);
-#else
-    UnusedParameter(n);
-    return first;
-#endif
 }
+#else
+template <typename RanIt>
+static RanIt MakeArrayIterator(RanIt first, intptr_t /*n*/)
+{
+    return first;
+}
+#endif
 
 //------------------------------------------------------------------------------
 //

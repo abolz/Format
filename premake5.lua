@@ -59,7 +59,7 @@ solution "Format"
 
     configuration { "vs*" }
         buildoptions {
-            "/std:c++latest",
+            -- "/std:c++latest",
 --            "/arch:AVX2",
 --            "/GR-",
         }
@@ -97,7 +97,7 @@ project "fmtxx"
             "-fvisibility=hidden",
         }
 
---project "fmt"
+-- project "fmt"
 --    language "C++"
 --    kind "SharedLib"
 --    files {

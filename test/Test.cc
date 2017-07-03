@@ -927,7 +927,7 @@ namespace fmtxx
         {
             //auto const key = spec.key;
             auto const key = spec.style;
-            auto const I = value.find(std::string_view(key.data(), key.size()));
+            auto const I = value.find(std::string(key.data(), key.size()));
             if (I == value.end()) {
                 return fmtxx::format(w, "[[key '{}' does not exist]]", key);
             }
@@ -957,7 +957,7 @@ TEST_CASE("Custom", "1")
     CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{}'", foo2_ns::Foo2{123}));
 
 #if 1
-    std::map<std::string_view, int, std::less<>> map = {{"eins", 1}, {"zwei", 2}};
+    std::map<std::string, int, std::less<>> map = {{"eins", 1}, {"zwei", 2}};
     //
     // XXX:
     // Must be a separate function like vformat(format, map)...
@@ -1038,7 +1038,7 @@ TEST_CASE("Vector", "1")
 
 TEST_CASE("FormatPretty1", "1")
 {
-    std::map<int, std::string_view> map = {
+    std::map<int, std::string> map = {
         {0, "null"},
         {1, "eins"},
         {2, "zwei"},
@@ -1046,7 +1046,7 @@ TEST_CASE("FormatPretty1", "1")
 
     char buf[1000];
     auto const len = fmtxx::snformat(buf, "  {}  ", fmtxx::pretty(map));
-    CHECK(std::string_view(buf, len) == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
+    CHECK(std::string(buf, len) == R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )");
 
     char arr1[] = "hello";
     CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));

@@ -1,21 +1,11 @@
 #pragma once
-#define FMTXX_USE_STD_STRING_VIEW 0
 
 #include <cassert>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#if FMTXX_USE_STD_STRING_VIEW
-#if _MSC_VER || __cplusplus >= 201703
-#  include <string_view>
-#else
-#  include <experimental/string_view>
-   namespace std { using std::experimental::string_view; }
-#endif
-#else
 #include <cstring>
-#endif
 #include <type_traits>
 
 #ifdef _MSC_VER
@@ -44,10 +34,7 @@
 
 namespace fmtxx {
 
-#if FMTXX_USE_STD_STRING_VIEW
-using std::string_view;
-#else
-class string_view // A minimal replacement for string_view
+class string_view // A minimal replacement for std::string_view
 {
     char const* data_ = nullptr;
     size_t      size_ = 0;
@@ -72,16 +59,25 @@ public:
         typename T,
         typename DataT = decltype(std::declval<T const&>().data()),
         typename SizeT = decltype(std::declval<T const&>().size()),
-        typename = std::enable_if_t<
+        typename = typename std::enable_if<
             std::is_convertible<DataT, pointer>::value &&
             std::is_convertible<SizeT, size_t>::value
-        >
+        >::type
     >
     string_view(T const& str)
         : data_(str.data())
         , size_(str.size())
     {
     }
+
+    // Convert to string types.
+    template <
+        typename T,
+        typename = typename std::enable_if<
+            std::is_constructible<T, pointer, size_t>::value
+        >::type
+    >
+    explicit operator T() const { return T(data(), size()); }
 
     // Returns a pointer to the start of the string.
     // NOTE: Not neccessarily null-terminated!
@@ -99,7 +95,31 @@ public:
     // Returns an iterator pointing past the end of the string.
     iterator end() const { return data_ + size_; }
 };
-#endif
+
+inline bool operator==(string_view lhs, string_view rhs) {
+    return lhs.size() == rhs.size() && ::memcmp(lhs.data(), rhs.data(), lhs.size()) == 0;
+}
+
+inline bool operator!=(string_view lhs, string_view rhs) {
+    return !(lhs == rhs);
+}
+
+inline bool operator<(string_view lhs, string_view rhs) {
+    int c = ::strncmp(lhs.data(), rhs.data(), lhs.size() < rhs.size() ? lhs.size() : rhs.size());
+    return c < 0 || (c == 0 && lhs.size() < rhs.size());
+}
+
+inline bool operator>(string_view lhs, string_view rhs) {
+    return rhs < lhs;
+}
+
+inline bool operator<=(string_view lhs, string_view rhs) {
+    return !(rhs < lhs);
+}
+
+inline bool operator>=(string_view lhs, string_view rhs) {
+    return !(lhs < rhs);
+}
 
 enum struct errc {
     success = 0,
@@ -124,7 +144,7 @@ enum struct Sign : unsigned char {
 
 struct FMTXX_VISIBILITY_DEFAULT FormatSpec
 {
-    string_view style;
+    string_view style; // XXX: Points into the format string. Only valid while formatting arguments...
     int   width = 0;
     int   prec  = -1;
     char  fill  = ' ';
@@ -248,17 +268,6 @@ struct TreatAsString : std::false_type {};
 
 template <>
 struct TreatAsString< string_view > : std::true_type {};
-
-//
-// XXX:
-//
-// Would be nice if this could be enabled. Need std::string forward
-// declaration...
-// Or recheck if including <string> in real-world scenarios really increases the
-// compile time that much and probably merge 'Format_string.h' into 'Format.h'.
-//
-//template <typename Alloc>
-//struct TreatAsString< std::basic_string<char, std::char_traits<char>, Alloc> > : std::true_type {};
 
 namespace impl
 {

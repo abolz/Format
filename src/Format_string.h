@@ -2,14 +2,25 @@
 
 #include "Format.h"
 
-#include <string>
-#if !FMTXX_USE_STD_STRING_VIEW
-#if _MSC_VER || __cplusplus >= 201703
-#  include <string_view>
+#ifndef FMTXX_HAS_INCLUDE
+#ifdef __has_include
+#define FMTXX_HAS_INCLUDE(X) __has_include(X)
 #else
-#  include <experimental/string_view>
-   namespace std { using std::experimental::string_view; }
+#define FMTXX_HAS_INCLUDE(X) 0
 #endif
+#endif
+
+#if _MSC_VER >= 1910 || __cplusplus >= 201703
+#define FMTXX_HAS_STD_STRING_VIEW 1
+#elif __cplusplus > 201103 && FMTXX_HAS_INCLUDE(<experimental/string_view>)
+#define FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW 1
+#endif
+
+#include <string>
+#if FMTXX_HAS_STD_STRING_VIEW
+#include <string_view>
+#elif FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
+#include <experimental/string_view>
 #endif
 
 namespace fmtxx {
@@ -20,9 +31,15 @@ struct TreatAsString< std::basic_string<char, std::char_traits<char>, Alloc> >
 {
 };
 
-#if !FMTXX_USE_STD_STRING_VIEW
+#if FMTXX_HAS_STD_STRING_VIEW
 template <>
 struct TreatAsString< std::string_view >
+    : std::true_type
+{
+};
+#elif FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
+template <>
+struct TreatAsString< std::experimental::string_view >
     : std::true_type
 {
 };

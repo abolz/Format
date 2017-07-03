@@ -26,9 +26,8 @@ before_build:
   - ps: 7z x premake.zip
 
 build_script:
-  - ps: ./premake5 "$TOOLSET"
-  - ps: msbuild ".\build\$TOOLSET\Test.vcxproj"
+  - premake5 %TOOLSET%
+  - msbuild .\build\%TOOLSET%\Test.vcxproj
 
 test_script:
-  - ps: $cmd = ".\build\$TOOLSET\bin\$($env:CONFIGURATION)\Test.exe"
-  - ps: Invoke-Expression $cmd
+  - .\build\%TOOLSET%\bin\%CONFIGURATION%\Test.exe

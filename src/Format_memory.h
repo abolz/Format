@@ -37,6 +37,9 @@ public:
     // NOTE: not null-terminated!
     char* data() const { return ptr_; }
 
+    // Returns the buffer capacity.
+    size_t capacity() const { return capacity_; }
+
     // Returns the length of the formatted string.
     size_t size() const { return size_; }
 

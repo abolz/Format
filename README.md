@@ -157,6 +157,9 @@ namespace fmtxx {
 
 class StringWriter;
 
+class TreatAsString<std::string     > : std::true_type {};
+class TreatAsString<std::string_view> : std::true_type {}; // if available
+
 struct StringFormatResult {
     std::string str;
     errc ec = errc::success;

@@ -1,6 +1,4 @@
-image:
-  - Visual Studio 2015
-  - Visual Studio 2017
+image: Visual Studio 2017
 
 platform:
   - x64
@@ -8,6 +6,11 @@ platform:
 configuration:
   - Release
   - Debug
+
+environment:
+  matrix:
+    - TOOLSET: vs2015
+    - TOOLSET: vs2017
 
 clone_script:
   - cmd: git clone -q --branch=%APPVEYOR_REPO_BRANCH% https://github.com/%APPVEYOR_REPO_NAME%.git %APPVEYOR_BUILD_FOLDER%
@@ -23,9 +26,9 @@ before_build:
   - ps: 7z x premake.zip
 
 build_script:
-  - ps: ./premake5 vs2017
-  - ps: msbuild .\build\vs2017\Test.vcxproj
+  - ps: ./premake5 "$(TOOLSET)"
+  - ps: msbuild ".\build\$(TOOLSET)\Test.vcxproj"
 
 test_script:
-  - ps: $cmd = ".\build\vs2017\bin\$($env:CONFIGURATION)\Test.exe"
+  - ps: $cmd = ".\build\$(TOOLSET)\bin\$($env:CONFIGURATION)\Test.exe"
   - ps: Invoke-Expression $cmd

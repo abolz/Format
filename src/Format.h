@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <type_traits>
+#include <utility> // forward
 
 #ifdef _MSC_VER
 #  define FMTXX_VISIBILITY_DEFAULT
@@ -506,96 +507,142 @@ errc format_value(WriterT&& w, FormatSpec const& spec, T const& value) {
 
 namespace impl {
 
-class Types
+//==============================================================================
+//
+//  This is getting **REALLY** complicated...
+//  It kind of works for me...
+//  I hope I have all these forwards, decays, etc correct... :/
+//
+//  >>>> Needs clean up! <<<<
+//
+//==============================================================================
+
+enum class EType {
+    T_NONE,
+    T_FORMATSPEC,
+    T_STRING,
+    T_OTHER,
+    T_PCHAR,
+    T_PVOID,
+    T_BOOL,
+    T_CHAR,
+    T_SCHAR,        // XXX: promote to int?
+    T_SSHORT,       // XXX: promote to int?
+    T_SINT,
+    T_SLONGLONG,
+    T_ULONGLONG,
+    T_DOUBLE,       // Includes 'float'
+
+    T_LAST,         // Unused -- must be last.
+};
+
+// XXX:
+// Keep in sync with Arg::Arg() below!!!
+template <typename T> struct GetTypeImpl                     { static const EType value = TreatAsString<T>::value ? EType::T_STRING : EType::T_OTHER; };
+template <>           struct GetTypeImpl<FormatSpec        > { static const EType value = EType::T_FORMATSPEC; };
+template <>           struct GetTypeImpl<char const*       > { static const EType value = EType::T_PCHAR; };
+template <>           struct GetTypeImpl<char*             > { static const EType value = EType::T_PCHAR; };
+template <>           struct GetTypeImpl<std::nullptr_t    > { static const EType value = EType::T_PVOID; };
+template <>           struct GetTypeImpl<void const*       > { static const EType value = EType::T_PVOID; };
+template <>           struct GetTypeImpl<void*             > { static const EType value = EType::T_PVOID; };
+template <>           struct GetTypeImpl<bool              > { static const EType value = EType::T_BOOL; };
+template <>           struct GetTypeImpl<char              > { static const EType value = EType::T_CHAR; };
+template <>           struct GetTypeImpl<signed char       > { static const EType value = EType::T_SCHAR; };
+template <>           struct GetTypeImpl<signed short      > { static const EType value = EType::T_SSHORT; };
+template <>           struct GetTypeImpl<signed int        > { static const EType value = EType::T_SINT; };
+#if LONG_MAX == INT_MAX
+template <>           struct GetTypeImpl<signed long       > { static const EType value = EType::T_SINT; };
+#else
+template <>           struct GetTypeImpl<signed long       > { static const EType value = EType::T_SLONGLONG; };
+#endif
+template <>           struct GetTypeImpl<signed long long  > { static const EType value = EType::T_SLONGLONG; };
+template <>           struct GetTypeImpl<unsigned char     > { static const EType value = EType::T_ULONGLONG; };
+template <>           struct GetTypeImpl<unsigned short    > { static const EType value = EType::T_ULONGLONG; };
+template <>           struct GetTypeImpl<unsigned int      > { static const EType value = EType::T_ULONGLONG; };
+template <>           struct GetTypeImpl<unsigned long     > { static const EType value = EType::T_ULONGLONG; };
+template <>           struct GetTypeImpl<unsigned long long> { static const EType value = EType::T_ULONGLONG; };
+template <>           struct GetTypeImpl<double            > { static const EType value = EType::T_DOUBLE; };
+template <>           struct GetTypeImpl<float             > { static const EType value = EType::T_DOUBLE; };
+
+template <typename T>
+struct GetType : GetTypeImpl<typename std::decay<T>::type>
 {
-public:
-    using value_type = uintptr_t; // uint64_t; // uint32_t;
+};
+
+template <EType>
+struct IsSafeRValueType : std::true_type {};
+//
+// Do not allow to push rvalue references to these types into a FormattingArgs list.
+// Arg (below) stores pointers to these arguments.
+//
+// XXX:
+//
+// Could allow "views" (eg. StringView, std::string_view etc) but that would need something
+// like TreatAsStringRef... But the current situation is better than nothing.
+//
+template <> struct IsSafeRValueType<EType::T_FORMATSPEC> : std::false_type {};
+template <> struct IsSafeRValueType<EType::T_STRING    > : std::false_type {};
+template <> struct IsSafeRValueType<EType::T_OTHER     > : std::false_type {};
+
+template <typename T>
+struct IsString : std::integral_constant<bool, GetType<T>::value == EType::T_STRING>
+{
+};
+
+struct Types
+{
+    using value_type =  uint64_t; // uintptr_t; // uint64_t; // uint32_t;
 
     static const int kBitsPerArg = 4;
     static const int kMaxArgs    = CHAR_BIT * sizeof(value_type) / kBitsPerArg;
     static const int kMaxTypes   = 1 << kBitsPerArg;
     static const int kTypeMask   = kMaxTypes - 1;
+    static_assert(static_cast<int>(EType::T_LAST) <= kMaxTypes, "invalid value for kBitsPerArg");
 
-    enum EType {
-        T_NONE,
-        T_FORMATSPEC,
-        T_OTHER,
-        T_BOOL,
-        T_STRING,
-        T_PVOID,
-        T_PCHAR,
-        T_CHAR,
-        T_SCHAR,  // XXX: promote to int?
-        T_SSHORT, // XXX: promote to int?
-        T_SINT,
-        T_SLONGLONG,
-        T_ULONGLONG,
-        T_DOUBLE, // includes 'float'
-
-        T_LAST,
-    };
-    static_assert(T_LAST <= kMaxTypes, "invalid value for kBitsPerArg");
-
-    value_type const types = 0;
+    value_type /*const*/ types = 0;
 
     Types() = default;
     Types(Types const&) = default;
 
     template <typename Arg1, typename ...Args>
-    explicit Types(Arg1 const& arg1, Args const&... args) : types(Make(arg1, args...))
+    explicit Types(Arg1 const& arg1, Args const&... args) : types(make_types(arg1, args...))
     {
     }
 
-    EType operator[](int index) const
-    {
-        if (index < 0 || index >= kMaxArgs)
-            return T_NONE;
-        return static_cast<EType>((types >> (kBitsPerArg * index)) & kTypeMask);
+    EType operator[](int index) const {
+        return (index >= 0 && index < kMaxArgs) ? get_type_at(index) : EType::T_NONE;
     }
 
-private:
-    // XXX:
-    // Keep in sync with Arg::Arg() below!!!
-    template <typename T>
-    static unsigned GetId(T                  const&) { return TreatAsString<T>::value ? T_STRING : T_OTHER; }
-    static unsigned GetId(bool               const&) { return T_BOOL; }
-    static unsigned GetId(std::nullptr_t     const&) { return T_PVOID; }
-    static unsigned GetId(void const*        const&) { return T_PVOID; }
-    static unsigned GetId(void*              const&) { return T_PVOID; }
-    static unsigned GetId(char const*        const&) { return T_PCHAR; }
-    static unsigned GetId(char*              const&) { return T_PCHAR; }
-    static unsigned GetId(char               const&) { return T_CHAR; }
-    static unsigned GetId(signed char        const&) { return T_SCHAR; }
-    static unsigned GetId(signed short       const&) { return T_SSHORT; }
-    static unsigned GetId(signed int         const&) { return T_SINT; }
-#if LONG_MAX == INT_MAX
-    static unsigned GetId(signed long        const&) { return T_SINT; }
-#else
-    static unsigned GetId(signed long        const&) { return T_SLONGLONG; }
-#endif
-    static unsigned GetId(signed long long   const&) { return T_SLONGLONG; }
-    static unsigned GetId(unsigned char      const&) { return T_ULONGLONG; }
-    static unsigned GetId(unsigned short     const&) { return T_ULONGLONG; }
-    static unsigned GetId(unsigned int       const&) { return T_ULONGLONG; }
-    static unsigned GetId(unsigned long      const&) { return T_ULONGLONG; }
-    static unsigned GetId(unsigned long long const&) { return T_ULONGLONG; }
-    static unsigned GetId(double             const&) { return T_DOUBLE; }
-    static unsigned GetId(float              const&) { return T_DOUBLE; }
-    static unsigned GetId(FormatSpec         const&) { return T_FORMATSPEC; }
+    EType get_type_at(int index) const {
+        assert(index >= 0);
+        assert(index < kMaxArgs);
+        auto const t = (types >> (kBitsPerArg * index)) & kTypeMask;
+        assert(t < kMaxTypes);
+        return static_cast<EType>(t);
+    }
 
-    static value_type Make() { return 0; }
+    void set_type_at(int index, EType type)
+    {
+        assert(index >= 0);
+        assert(index < kMaxArgs);
+        types |= static_cast<value_type>(type) << (kBitsPerArg * index);
+    }
+
+    static value_type make_types() { return 0; }
 
     template <typename A1, typename ...An>
-    static value_type Make(A1 const& a1, An const&... an)
+    static value_type make_types(A1 const& /*a1*/, An const&... an)
     {
         static_assert(1 + sizeof...(An) <= kMaxArgs, "too many arguments");
-        return (Make(an...) << kBitsPerArg) | GetId(a1);
+        return (make_types(an...) << kBitsPerArg) | static_cast<value_type>(GetType<A1>::value);
     }
 };
 
-class Arg
+template <int N>
+struct FormattingArgsImpl;
+
+struct Arg
 {
-public:
     using Func = errc (*)(Writer& w, FormatSpec const& spec, void const* value);
 
     template <typename T>
@@ -604,12 +651,12 @@ public:
         return fmtxx::format_value(w, spec, *static_cast<T const*>(value));
     }
 
-    struct Other { void const* value; Func func; };
     struct String { char const* data; size_t size; };
+    struct Other { void const* value; Func func; };
 
     union {
-        Other other;
         String string;
+        Other other;
         void const* pvoid;
         char const* pchar;
         char char_;
@@ -622,19 +669,27 @@ public:
         double double_;
     };
 
-    template <typename T> Arg(T const& v, /*TreatAsString*/ std::false_type) : other{ &v, &FormatValue_fn<T> } {}
-    template <typename T> Arg(T const& v, /*TreatAsString*/ std::true_type) : string{v.data(), v.size()} {}
+    Arg() = default;
+
+    template <typename T> Arg(T const& v, /*IsString*/ std::true_type) : string{v.data(), v.size()} {}
+    //
+    // XXX:
+    // Taking the address here doesn't mix well with the function overloads below...
+    // I hope I have all these forwards, decays, etc correct... :/
+    //
+    template <typename T> Arg(T const& v, /*IsString*/ std::false_type) : other{ &v, &FormatValue_fn<T> } {}
 
     // XXX:
     // Keep in sync with Types::GetId() above!!!
     template <typename T>
-    Arg(T                  const& v) : Arg(v, TreatAsString<T>{}) {}
-    Arg(bool               const& v) : bool_(v) {}
+    Arg(T                  const& v) : Arg(v, IsString<T>{}) {}
+    Arg(FormatSpec         const& v) : pvoid(&v) {}
+    Arg(char const*        const& v) : pchar(v) {}
+    Arg(char*              const& v) : pchar(v) {}
     Arg(std::nullptr_t     const& v) : pvoid(v) {}
     Arg(void const*        const& v) : pvoid(v) {}
     Arg(void*              const& v) : pvoid(v) {}
-    Arg(char const*        const& v) : pchar(v) {}
-    Arg(char*              const& v) : pchar(v) {}
+    Arg(bool               const& v) : bool_(v) {}
     Arg(char               const& v) : char_(v) {}
     Arg(signed char        const& v) : schar(v) {}
     Arg(signed short       const& v) : sshort(v) {}
@@ -652,32 +707,73 @@ public:
     Arg(unsigned long long const& v) : ulonglong(v) {}
     Arg(double             const& v) : double_(v) {}
     Arg(float              const& v) : double_(static_cast<double>(v)) {}
-    Arg(FormatSpec         const& v) : pvoid(&v) {}
+
+    template <int N>
+    Arg(FormattingArgsImpl<N> const&)
+    {
+        static_assert(N == 0 /*always false*/,
+            "Formatting variadic FormattingArgs in combination with other arguments "
+            "is (currently) not supported. The only valid syntax for FormattingArgs is "
+            "as a single argument to the formatting functions.");
+    }
 };
 
-template <typename ...Args>
-struct PackedArgs
+template <int MaxArgs = Types::kMaxArgs>
+struct FormattingArgsImpl
 {
-    Arg const arr[sizeof...(Args)];
-    Types const types;
+    static_assert(MaxArgs > 0, "invalid parameter");
+    static_assert(MaxArgs <= Types::kMaxArgs, "invalid parameter");
 
-    PackedArgs(Args const&... args) : arr{args...}, types{args...} {}
+    //
+    // For internal use only!
+    // XXX: Clean up the implementation!!!
+    //
+    fmtxx::impl::Arg _args[MaxArgs];
+    fmtxx::impl::Types _types;
+
+    // Add some arguments to this list.
+    // Returns the index of the last argument added, or -1 if argument could not be
+    // added to the list.
+    template <typename ...Ts>
+    int push_back(Ts&&... vals)
+    {
+        static_assert(sizeof...(Ts) > 0, "Too few arguments");
+        static_assert(sizeof...(Ts) <= impl::Types::kMaxArgs, "Too many arguments");
+
+        int indices[] = { _push_back(std::forward<Ts>(vals))... };
+        return indices[sizeof...(Ts) - 1];
+    }
+
+private:
+    int _num_args = 0;
+
+    template <typename T>
+    int _push_back(T&& val)
+    {
+        static_assert(
+            std::is_lvalue_reference<T>::value
+                || impl::IsSafeRValueType<impl::GetType<T>::value>::value,
+            "You can not add a rvalues of non-built-in types to FormattingArgs. "
+            "Store your argument somewhere and push a reference.");
+
+        int const index = _num_args;
+        assert(index < MaxArgs &&
+            "Sorry, not implemented: "
+            "The formatting functions currently can handle at most [kMaxArgs] arguments");
+        if (index < MaxArgs)
+        {
+            _args[index] = std::forward<T>(val);
+            _types.set_type_at(index, GetType<T>::value);
+            _num_args++;
+        }
+        //else
+        //{
+        //    abort();
+        //}
+
+        return index;
+    }
 };
-
-template <>
-struct PackedArgs<>
-{
-    Arg const* const arr = nullptr;
-    Types const types = {};
-
-    PackedArgs() = default;
-};
-
-template <typename ...Args>
-PackedArgs<Args...> pack_args(Args const&... args)
-{
-    return PackedArgs<Args...>(args...);
-}
 
 FMTXX_API errc DoFormat      (Writer& w,                 StringView format, Arg const* args, Types types);
 FMTXX_API errc DoPrintf      (Writer& w,                 StringView format, Arg const* args, Types types);
@@ -688,62 +784,100 @@ FMTXX_API int  DoFilePrintf  (std::FILE* file,           StringView format, Arg 
 FMTXX_API int  DoArrayFormat (char* buf, size_t bufsize, StringView format, Arg const* args, Types types);
 FMTXX_API int  DoArrayPrintf (char* buf, size_t bufsize, StringView format, Arg const* args, Types types);
 
+// XXX: Reuse FormattingArgs...
+template <typename ...Args>
+using ArgArray = typename std::conditional<sizeof...(Args) != 0, Arg[], Arg*>::type;
+
 } // namespace impl
+
+using FormattingArgs = impl::FormattingArgsImpl<>;
 
 template <typename ...Args>
 inline errc format(Writer& w, StringView format, Args const&... args)
 {
-    auto const pa = fmtxx::impl::pack_args(args...);
-    return fmtxx::impl::DoFormat(w, format, pa.arr, pa.types);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFormat(w, format, arr, fmtxx::impl::Types{args...});
 }
 
 template <typename ...Args>
 inline errc printf(Writer& w, StringView format, Args const&... args)
 {
-    auto const pa = fmtxx::impl::pack_args(args...);
-    return fmtxx::impl::DoPrintf(w, format, pa.arr, pa.types);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoPrintf(w, format, arr, fmtxx::impl::Types{args...});
 }
 
 template <typename ...Args>
 inline errc format(std::FILE* file, StringView format, Args const&... args)
 {
-    auto const pa = fmtxx::impl::pack_args(args...);
-    return fmtxx::impl::DoFormat(file, format, pa.arr, pa.types);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFormat(file, format, arr, fmtxx::impl::Types{args...});
 }
 
 template <typename ...Args>
 inline errc printf(std::FILE* file, StringView format, Args const&... args)
 {
-    auto const pa = fmtxx::impl::pack_args(args...);
-    return fmtxx::impl::DoPrintf(file, format, pa.arr, pa.types);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoPrintf(file, format, arr, fmtxx::impl::Types{args...});
+}
+
+template <typename WriterT>
+inline errc format(WriterT& w, StringView format, FormattingArgs const& args)
+{
+    return fmtxx::impl::DoFormat(w, format, args._args, args._types);
+}
+
+template <typename WriterT>
+inline errc printf(WriterT& w, StringView format, FormattingArgs const& args)
+{
+    return fmtxx::impl::DoPrintf(w, format, args._args, args._types);
 }
 
 template <typename ...Args>
 inline int fformat(std::FILE* file, StringView format, Args const&... args)
 {
-    auto const pa = fmtxx::impl::pack_args(args...);
-    return fmtxx::impl::DoFileFormat(file, format, pa.arr, pa.types);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFileFormat(file, format, arr, fmtxx::impl::Types{args...});
 }
 
 template <typename ...Args>
 inline int fprintf(std::FILE* file, StringView format, Args const&... args)
 {
-    auto const pa = fmtxx::impl::pack_args(args...);
-    return fmtxx::impl::DoFilePrintf(file, format, pa.arr, pa.types);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFilePrintf(file, format, arr, fmtxx::impl::Types{args...});
+}
+
+inline int fformat(std::FILE* file, StringView format, FormattingArgs const& args)
+{
+    return fmtxx::impl::DoFileFormat(file, format, args._args, args._types);
+}
+
+inline int fprintf(std::FILE* file, StringView format, FormattingArgs const& args)
+{
+    return fmtxx::impl::DoFilePrintf(file, format, args._args, args._types);
 }
 
 template <typename ...Args>
 inline int snformat(char* buf, size_t bufsize, StringView format, Args const&... args)
 {
-    auto const pa = fmtxx::impl::pack_args(args...);
-    return fmtxx::impl::DoArrayFormat(buf, bufsize, format, pa.arr, pa.types);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoArrayFormat(buf, bufsize, format, arr, fmtxx::impl::Types{args...});
 }
 
 template <typename ...Args>
 inline int snprintf(char* buf, size_t bufsize, StringView format, Args const&... args)
 {
-    auto const pa = fmtxx::impl::pack_args(args...);
-    return fmtxx::impl::DoArrayPrintf(buf, bufsize, format, pa.arr, pa.types);
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoArrayPrintf(buf, bufsize, format, arr, fmtxx::impl::Types{args...});
+}
+
+inline int snformat(char* buf, size_t bufsize, StringView format, FormattingArgs const& args)
+{
+    return fmtxx::impl::DoArrayFormat(buf, bufsize, format, args._args, args._types);
+}
+
+inline int snprintf(char* buf, size_t bufsize, StringView format, FormattingArgs const& args)
+{
+    return fmtxx::impl::DoArrayPrintf(buf, bufsize, format, args._args, args._types);
 }
 
 template <size_t N, typename ...Args>
@@ -756,6 +890,18 @@ template <size_t N, typename ...Args>
 inline int snprintf(char (&buf)[N], StringView format, Args const&... args)
 {
     return fmtxx::snprintf(&buf[0], N, format, args...);
+}
+
+template <size_t N>
+inline int snformat(char (&buf)[N], StringView format, FormattingArgs const& args)
+{
+    return fmtxx::snformat(&buf[0], N, format, args._args, args._types);
+}
+
+template <size_t N>
+inline int snprintf(char (&buf)[N], StringView format, FormattingArgs const& args)
+{
+    return fmtxx::snprintf(&buf[0], N, format, args._args, args._types);
 }
 
 } // namespace fmtxx

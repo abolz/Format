@@ -63,7 +63,7 @@ template <typename Fn>
 struct FILEFormatter
 {
     template <typename ...Args>
-    FormatterResult operator ()(fmtxx::string_view format, Args const&... args) const
+    FormatterResult operator ()(fmtxx::StringView format, Args const&... args) const
     {
         char buf[1024 * 8] = {0};
         FILE* f = fmemopen(buf, sizeof(buf), "w");
@@ -1094,3 +1094,22 @@ TEST_CASE("Format", "ArrayWriter")
     REQUIRE(buf2[3] == '\0');
 }
 
+//------------------------------------------------------------------------------
+
+TEST_CASE("FormattingArgs", "1")
+{
+    fmtxx::FormattingArgs args;
+
+    const std::string str_world = "world";
+    int i = 42;
+    args.push_back(i);
+    args.push_back(42);
+    //args.push_back("hello", std::string("world"));     // should not compile
+    args.push_back("hello", str_world);
+
+    auto const s = fmtxx::string_format("{} {} {} {}", args).str;
+    CHECK(s == "42 42 hello world");
+
+    //fmtxx::format(stdout, "", 1, args);     // should not compile
+    //fmtxx::format(stdout, "", args, 1);     // should not compile
+}

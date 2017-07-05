@@ -76,14 +76,14 @@ inline bool StringWriter::Pad(char c, size_t count)
 }
 
 template <typename ...Args>
-errc format(std::string& str, string_view format, Args const&... args)
+errc format(std::string& str, StringView format, Args const&... args)
 {
     StringWriter w{str};
     return fmtxx::format(w, format, args...);
 }
 
 template <typename ...Args>
-errc printf(std::string& str, string_view format, Args const&... args)
+errc printf(std::string& str, StringView format, Args const&... args)
 {
     StringWriter w{str};
     return fmtxx::printf(w, format, args...);
@@ -96,7 +96,7 @@ struct StringFormatResult
 };
 
 template <typename ...Args>
-StringFormatResult string_format(string_view format, Args const&... args)
+StringFormatResult string_format(StringView format, Args const&... args)
 {
     StringFormatResult r;
     r.ec = fmtxx::format(r.str, format, args...);
@@ -104,7 +104,7 @@ StringFormatResult string_format(string_view format, Args const&... args)
 }
 
 template <typename ...Args>
-StringFormatResult string_printf(string_view format, Args const&... args)
+StringFormatResult string_printf(StringView format, Args const&... args)
 {
     StringFormatResult r;
     r.ec = fmtxx::printf(r.str, format, args...);

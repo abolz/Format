@@ -58,7 +58,7 @@ struct IsTuple : decltype( IsTupleImpl::test(std::declval<T>()) )
 template <typename T>
 errc PrettyPrint(Writer& w, T const& value);
 
-inline errc PrintString(Writer& w, string_view val)
+inline errc PrintString(Writer& w, StringView val)
 {
     if (!w.Put('"'))
         return errc::io_error;
@@ -172,7 +172,7 @@ errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::false_ty
 template <typename T>
 errc DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::true_type)
 {
-    return fmtxx::pp::PrintString(w, string_view{object.data(), object.size()});
+    return fmtxx::pp::PrintString(w, StringView{object.data(), object.size()});
 }
 
 template <typename T>

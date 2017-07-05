@@ -232,7 +232,7 @@ static errc PrintAndPadString(Writer& w, FormatSpec const& spec, char const* str
     return errc::success;
 }
 
-static errc PrintAndPadString(Writer& w, FormatSpec const& spec, string_view str)
+static errc PrintAndPadString(Writer& w, FormatSpec const& spec, StringView str)
 {
     return PrintAndPadString(w, spec, str.data(), str.size());
 }
@@ -1392,7 +1392,7 @@ static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Types::value_type 
 
 static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
 
-static bool ParseInt(int& value, string_view::iterator& f, string_view::iterator end)
+static bool ParseInt(int& value, StringView::iterator& f, StringView::iterator end)
 {
     assert(f != end && IsDigit(*f)); // internal error
     auto const f0 = f;
@@ -1455,7 +1455,7 @@ static errc GetIntArg(int& value, int index, Types types, Arg const* args)
     }
 }
 
-static errc ParseLBrace(int& value, string_view::iterator& f, string_view::iterator end, int& nextarg, Types types, Arg const* args)
+static errc ParseLBrace(int& value, StringView::iterator& f, StringView::iterator end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end && *f == '{'); // internal error
 
@@ -1482,7 +1482,7 @@ static errc ParseLBrace(int& value, string_view::iterator& f, string_view::itera
     return GetIntArg(value, index, types, args);
 }
 
-static errc ParseFormatSpecArg(FormatSpec& spec, string_view::iterator& f, string_view::iterator end, int& nextarg, Types types, Arg const* args)
+static errc ParseFormatSpecArg(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end && *f == '*');
 
@@ -1532,7 +1532,7 @@ static bool ParseAlign(FormatSpec& spec, char c)
     return false;
 }
 
-static errc ParseFormatSpec(FormatSpec& spec, string_view::iterator& f, string_view::iterator end, int& nextarg, Types types, Arg const* args)
+static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end && *f == ':');
 
@@ -1648,7 +1648,7 @@ static errc ParseFormatSpec(FormatSpec& spec, string_view::iterator& f, string_v
     }
 }
 
-static errc ParseStyle(FormatSpec& spec, string_view::iterator& f, string_view::iterator end)
+static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::iterator end)
 {
     assert(f != end && *f == '!');
 
@@ -1721,7 +1721,7 @@ static errc ParseStyle(FormatSpec& spec, string_view::iterator& f, string_view::
 #endif
 }
 
-static errc ParseReplacementField(FormatSpec& spec, string_view::iterator& f, string_view::iterator end, int& nextarg, Types types, Arg const* args)
+static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end);
 
@@ -1763,7 +1763,7 @@ static errc ParseReplacementField(FormatSpec& spec, string_view::iterator& f, st
     return errc::success;
 }
 
-errc fmtxx::impl::DoFormat(Writer& w, string_view format, Types types, Arg const* args)
+errc fmtxx::impl::DoFormat(Writer& w, StringView format, Types types, Arg const* args)
 {
     if (format.empty())
         return errc::success;
@@ -1844,7 +1844,7 @@ errc fmtxx::impl::DoFormat(Writer& w, string_view format, Types types, Arg const
     return errc::success;
 }
 
-static errc ParseAsterisk(int& value, string_view::iterator& f, string_view::iterator end, int& nextarg, Types types, Arg const* args)
+static errc ParseAsterisk(int& value, StringView::iterator& f, StringView::iterator end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end && *f == '*'); // internal error
 
@@ -1876,7 +1876,7 @@ static errc ParseAsterisk(int& value, string_view::iterator& f, string_view::ite
     return GetIntArg(value, index, types, args);
 }
 
-static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, string_view::iterator& f, string_view::iterator end, int& nextarg, Types types, Arg const* args)
+static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Types types, Arg const* args)
 {
     assert(f != end && *(f - 1) == '%');
 
@@ -2034,7 +2034,7 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, string_view::itera
     }
 }
 
-errc fmtxx::impl::DoPrintf(Writer& w, string_view format, Types types, Arg const* args)
+errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Types types, Arg const* args)
 {
     if (format.empty())
         return errc::success;
@@ -2101,19 +2101,19 @@ errc fmtxx::impl::DoPrintf(Writer& w, string_view format, Types types, Arg const
     return errc::success;
 }
 
-errc fmtxx::impl::DoFormat(std::FILE* file, string_view format, Types types, Arg const* args)
+errc fmtxx::impl::DoFormat(std::FILE* file, StringView format, Types types, Arg const* args)
 {
     FILEWriter w{file};
     return fmtxx::impl::DoFormat(w, format, types, args);
 }
 
-errc fmtxx::impl::DoPrintf(std::FILE* file, string_view format, Types types, Arg const* args)
+errc fmtxx::impl::DoPrintf(std::FILE* file, StringView format, Types types, Arg const* args)
 {
     FILEWriter w{file};
     return fmtxx::impl::DoPrintf(w, format, types, args);
 }
 
-int fmtxx::impl::DoFileFormat(std::FILE* file, string_view format, Types types, Arg const* args)
+int fmtxx::impl::DoFileFormat(std::FILE* file, StringView format, Types types, Arg const* args)
 {
     FILEWriter w{file};
 
@@ -2124,7 +2124,7 @@ int fmtxx::impl::DoFileFormat(std::FILE* file, string_view format, Types types, 
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::DoFilePrintf(std::FILE* file, string_view format, Types types, Arg const* args)
+int fmtxx::impl::DoFilePrintf(std::FILE* file, StringView format, Types types, Arg const* args)
 {
     FILEWriter w{file};
 
@@ -2135,7 +2135,7 @@ int fmtxx::impl::DoFilePrintf(std::FILE* file, string_view format, Types types, 
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, string_view format, Types types, Arg const* args)
+int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, StringView format, Types types, Arg const* args)
 {
     ArrayWriter w{buf, bufsize};
 
@@ -2147,7 +2147,7 @@ int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, string_view format, Ty
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, string_view format, Types types, Arg const* args)
+int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, StringView format, Types types, Arg const* args)
 {
     ArrayWriter w{buf, bufsize};
 

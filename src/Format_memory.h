@@ -44,7 +44,7 @@ public:
     size_t size() const { return size_; }
 
     // Returns a reference to the formatted string.
-    string_view view() const { return string_view(data(), size()); }
+    StringView view() const { return StringView(data(), size()); }
 
 private:
     bool Grow(size_t req);

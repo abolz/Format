@@ -170,14 +170,14 @@ inline bool StreamWriter::Pad(char c, size_t count)
 }
 
 template <typename ...Args>
-errc format(std::ostream& os, string_view format, Args const&... args)
+errc format(std::ostream& os, StringView format, Args const&... args)
 {
     StreamWriter w{os};
     return fmtxx::format(w, format, args...);
 }
 
 template <typename ...Args>
-errc printf(std::ostream& os, string_view format, Args const&... args)
+errc printf(std::ostream& os, StringView format, Args const&... args)
 {
     StreamWriter w{os};
     return fmtxx::printf(w, format, args...);

@@ -34,7 +34,7 @@
 
 namespace fmtxx {
 
-class string_view // A minimal replacement for std::string_view
+class StringView // A minimal replacement for std::string_view
 {
     char const* data_ = nullptr;
     size_t      size_ = 0;
@@ -44,11 +44,11 @@ public:
     using iterator = char const*;
 
 public:
-    string_view() = default;
-    string_view(pointer p, size_t len) : data_(p), size_(len) {}
+    StringView() = default;
+    StringView(pointer p, size_t len) : data_(p), size_(len) {}
 
     // Construct from null-terminated C-string.
-    string_view(pointer c_str)
+    StringView(pointer c_str)
         : data_(c_str)
         , size_(c_str ? ::strlen(c_str) : 0u)
     {
@@ -64,7 +64,7 @@ public:
             std::is_convertible<SizeT, size_t>::value
         >::type
     >
-    string_view(T const& str)
+    StringView(T const& str)
         : data_(str.data())
         , size_(str.size())
     {
@@ -96,28 +96,28 @@ public:
     iterator end() const { return data_ + size_; }
 };
 
-inline bool operator==(string_view lhs, string_view rhs) {
+inline bool operator==(StringView lhs, StringView rhs) {
     return lhs.size() == rhs.size() && ::memcmp(lhs.data(), rhs.data(), lhs.size()) == 0;
 }
 
-inline bool operator!=(string_view lhs, string_view rhs) {
+inline bool operator!=(StringView lhs, StringView rhs) {
     return !(lhs == rhs);
 }
 
-inline bool operator<(string_view lhs, string_view rhs) {
+inline bool operator<(StringView lhs, StringView rhs) {
     int c = ::strncmp(lhs.data(), rhs.data(), lhs.size() < rhs.size() ? lhs.size() : rhs.size());
     return c < 0 || (c == 0 && lhs.size() < rhs.size());
 }
 
-inline bool operator>(string_view lhs, string_view rhs) {
+inline bool operator>(StringView lhs, StringView rhs) {
     return rhs < lhs;
 }
 
-inline bool operator<=(string_view lhs, string_view rhs) {
+inline bool operator<=(StringView lhs, StringView rhs) {
     return !(rhs < lhs);
 }
 
-inline bool operator>=(string_view lhs, string_view rhs) {
+inline bool operator>=(StringView lhs, StringView rhs) {
     return !(lhs < rhs);
 }
 
@@ -149,7 +149,7 @@ enum struct Sign : unsigned char {
 
 struct FMTXX_VISIBILITY_DEFAULT FormatSpec
 {
-    string_view style; // XXX: Points into the format string. Only valid while formatting arguments...
+    StringView style; // XXX: Points into the format string. Only valid while formatting arguments...
     int   width = 0;
     int   prec  = -1;
     char  fill  = ' ';
@@ -223,7 +223,7 @@ public:
     size_t size() const { return size_; }
 
     // Returns the string.
-    string_view view() const { return string_view(data(), size()); }
+    StringView view() const { return StringView(data(), size()); }
 
     // Null-terminate the buffer.
     // Returns the length of the string not including the null-character.
@@ -272,7 +272,7 @@ template <typename T>
 struct TreatAsString : std::false_type {};
 
 template <>
-struct TreatAsString< string_view > : std::true_type {};
+struct TreatAsString< StringView > : std::true_type {};
 
 namespace impl
 {
@@ -604,14 +604,14 @@ public:
     Arg(FormatSpec         const& v) : pvoid(&v) {}
 };
 
-FMTXX_API errc DoFormat      (Writer& w,                 string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf      (Writer& w,                 string_view format, Types types, Arg const* args);
-FMTXX_API errc DoFormat      (std::FILE* file,           string_view format, Types types, Arg const* args);
-FMTXX_API errc DoPrintf      (std::FILE* file,           string_view format, Types types, Arg const* args);
-FMTXX_API int  DoFileFormat  (std::FILE* file,           string_view format, Types types, Arg const* args);
-FMTXX_API int  DoFilePrintf  (std::FILE* file,           string_view format, Types types, Arg const* args);
-FMTXX_API int  DoArrayFormat (char* buf, size_t bufsize, string_view format, Types types, Arg const* args);
-FMTXX_API int  DoArrayPrintf (char* buf, size_t bufsize, string_view format, Types types, Arg const* args);
+FMTXX_API errc DoFormat      (Writer& w,                 StringView format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf      (Writer& w,                 StringView format, Types types, Arg const* args);
+FMTXX_API errc DoFormat      (std::FILE* file,           StringView format, Types types, Arg const* args);
+FMTXX_API errc DoPrintf      (std::FILE* file,           StringView format, Types types, Arg const* args);
+FMTXX_API int  DoFileFormat  (std::FILE* file,           StringView format, Types types, Arg const* args);
+FMTXX_API int  DoFilePrintf  (std::FILE* file,           StringView format, Types types, Arg const* args);
+FMTXX_API int  DoArrayFormat (char* buf, size_t bufsize, StringView format, Types types, Arg const* args);
+FMTXX_API int  DoArrayPrintf (char* buf, size_t bufsize, StringView format, Types types, Arg const* args);
 
 // HACK
 template <typename ...Args>
@@ -620,69 +620,69 @@ using ArgArray = typename std::conditional<sizeof...(Args) != 0, Arg[], Arg*>::t
 } // namespace impl
 
 template <typename ...Args>
-inline errc format(Writer& w, string_view format, Args const&... args)
+inline errc format(Writer& w, StringView format, Args const&... args)
 {
     fmtxx::impl::ArgArray<Args...> arr = {args...};
     return fmtxx::impl::DoFormat(w, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-inline errc printf(Writer& w, string_view format, Args const&... args)
+inline errc printf(Writer& w, StringView format, Args const&... args)
 {
     fmtxx::impl::ArgArray<Args...> arr = {args...};
     return fmtxx::impl::DoPrintf(w, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-inline errc format(std::FILE* file, string_view format, Args const&... args)
+inline errc format(std::FILE* file, StringView format, Args const&... args)
 {
     fmtxx::impl::ArgArray<Args...> arr = {args...};
     return fmtxx::impl::DoFormat(file, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-inline errc printf(std::FILE* file, string_view format, Args const&... args)
+inline errc printf(std::FILE* file, StringView format, Args const&... args)
 {
     fmtxx::impl::ArgArray<Args...> arr = {args...};
     return fmtxx::impl::DoPrintf(file, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-inline int fformat(std::FILE* file, string_view format, Args const&... args)
+inline int fformat(std::FILE* file, StringView format, Args const&... args)
 {
     fmtxx::impl::ArgArray<Args...> arr = {args...};
     return fmtxx::impl::DoFileFormat(file, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-inline int fprintf(std::FILE* file, string_view format, Args const&... args)
+inline int fprintf(std::FILE* file, StringView format, Args const&... args)
 {
     fmtxx::impl::ArgArray<Args...> arr = {args...};
     return fmtxx::impl::DoFilePrintf(file, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-inline int snformat(char* buf, size_t bufsize, string_view format, Args const&... args)
+inline int snformat(char* buf, size_t bufsize, StringView format, Args const&... args)
 {
     fmtxx::impl::ArgArray<Args...> arr = {args...};
     return fmtxx::impl::DoArrayFormat(buf, bufsize, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <typename ...Args>
-inline int snprintf(char* buf, size_t bufsize, string_view format, Args const&... args)
+inline int snprintf(char* buf, size_t bufsize, StringView format, Args const&... args)
 {
     fmtxx::impl::ArgArray<Args...> arr = {args...};
     return fmtxx::impl::DoArrayPrintf(buf, bufsize, format, fmtxx::impl::Types{args...}, arr);
 }
 
 template <size_t N, typename ...Args>
-inline int snformat(char (&buf)[N], string_view format, Args const&... args)
+inline int snformat(char (&buf)[N], StringView format, Args const&... args)
 {
     return fmtxx::snformat(&buf[0], N, format, args...);
 }
 
 template <size_t N, typename ...Args>
-inline int snprintf(char (&buf)[N], string_view format, Args const&... args)
+inline int snprintf(char (&buf)[N], StringView format, Args const&... args)
 {
     return fmtxx::snprintf(&buf[0], N, format, args...);
 }

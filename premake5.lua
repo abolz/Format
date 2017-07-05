@@ -153,6 +153,7 @@ AddExampleProject("Example1")
 AddExampleProject("Example2")
 AddExampleProject("Example3")
 AddExampleProject("Example4")
+AddExampleProject("Example5")
 
 -- Doesn't work with MinGW (std::condition_variable not implemented...)
 -- project "Benchmark"

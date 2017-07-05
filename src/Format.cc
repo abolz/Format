@@ -1687,14 +1687,9 @@ static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::it
 
     auto const f0 = f;
 
-    // The test is required because of the deref below. (string_view is not constructible
-    // from string_view::iterator's.)
-    if NOT_EXPECTED(f0 == end)
-        return errc::invalid_format_string;
-
     f = std::find(f, end, delim == '\0' ? '}' : delim);
 
-    spec.style = { &*f0, static_cast<size_t>(f - f0) };
+    spec.style = {f0, f};
 
     if (delim != '\0')
     {
@@ -1708,14 +1703,9 @@ static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::it
     ++f;
     auto const f0 = f;
 
-    // The test is required because of the deref below. (string_view is not constructible
-    // from string_view::iterator's.)
-    if NOT_EXPECTED(f0 == end)
-        return errc::invalid_format_string;
-
     f = std::find(f, end, '}');
 
-    spec.style = { &*f0, static_cast<size_t>(f - f0) };
+    spec.style = {f0, f};
 
     return errc::success;
 #endif

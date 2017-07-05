@@ -54,6 +54,13 @@ public:
     {
     }
 
+    // Construct from iterator range.
+    StringView(iterator first, iterator last)
+        : data_(first)
+        , size_(static_cast<size_t>(last - first))
+    {
+    }
+
     // Construct from contiguous character sequence
     template <
         typename T,

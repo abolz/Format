@@ -139,6 +139,28 @@ enum struct errc {
     value_out_of_range,     // Value of integer argument out of range [INT_MIN, INT_MAX]
 };
 
+// Wraps an error code, may be checked for failure.
+// Replaces err::operator bool() in most cases (and is more explicit).
+struct Failed
+{
+    const errc ec = errc::success;
+
+    Failed() = default;
+    Failed(errc ec) : ec(ec) {}
+    operator errc() const { return ec; }
+    explicit operator bool() const { return ec != errc::success; }
+};
+
+//struct Succeeded
+//{
+//    const errc ec = errc::success;
+//
+//    Succeeded() = default;
+//    Succeeded(errc ec) : ec(ec) {}
+//    operator errc() const { return ec; }
+//    explicit operator bool() const { return ec == errc::success; }
+//};
+
 enum struct Align : unsigned char {
     Default,
     Left,

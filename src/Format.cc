@@ -1356,6 +1356,7 @@ static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& arg, Ty
     switch (type)
     {
     case Types::T_NONE:
+    case Types::T_FORMATSPEC:
         assert(!"internal error");
         break;
     case Types::T_OTHER:
@@ -1382,7 +1383,7 @@ static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& arg, Ty
         return Util::format_int(w, spec, arg.ulonglong);
     case Types::T_DOUBLE:
         return Util::format_double(w, spec, arg.double_);
-    case Types::T_FORMATSPEC:
+    case Types::T_LAST:
         assert(!"internal error");
         break;
     }

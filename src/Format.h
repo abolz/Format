@@ -468,26 +468,32 @@ namespace impl {
 class Types
 {
 public:
-    using value_type = uint64_t;
+    using value_type = uintptr_t; // uint64_t; // uint32_t;
 
-    enum EType : unsigned {
-        T_NONE,       //  0
-        T_OTHER,      //  1
-        T_BOOL,       //  2
-        T_STRING,     //  3
-        T_PVOID,      //  4
-        T_PCHAR,      //  5
-        T_CHAR,       //  6
-        T_SCHAR,      //  7 XXX: promote to int?
-        T_SSHORT,     //  8 XXX: promote to int?
-        T_SINT,       //  9
-        T_SLONGLONG,  // 10
-        T_ULONGLONG,  // 11
-                      // 12
-                      // 13
-        T_DOUBLE,     // 14 includes 'float' and 'long double'
-        T_FORMATSPEC, // 15
+    static const int kBitsPerArg = 4;
+    static const int kMaxArgs    = CHAR_BIT * sizeof(value_type) / kBitsPerArg;
+    static const int kMaxTypes   = 1 << kBitsPerArg;
+    static const int kTypeMask   = kMaxTypes - 1;
+
+    enum EType {
+        T_NONE,
+        T_FORMATSPEC,
+        T_OTHER,
+        T_BOOL,
+        T_STRING,
+        T_PVOID,
+        T_PCHAR,
+        T_CHAR,
+        T_SCHAR,  // XXX: promote to int?
+        T_SSHORT, // XXX: promote to int?
+        T_SINT,
+        T_SLONGLONG,
+        T_ULONGLONG,
+        T_DOUBLE, // includes 'float'
+
+        T_LAST,
     };
+    static_assert(T_LAST <= kMaxTypes, "invalid value for kBitsPerArg");
 
     value_type const types = 0;
 
@@ -501,9 +507,9 @@ public:
 
     EType operator[](int index) const
     {
-        if (index < 0 || index >= 16)
+        if (index < 0 || index >= kMaxArgs)
             return T_NONE;
-        return static_cast<EType>((types >> (4 * index)) & 0xF);
+        return static_cast<EType>((types >> (kBitsPerArg * index)) & kTypeMask);
     }
 
 private:
@@ -541,8 +547,8 @@ private:
     template <typename A1, typename ...An>
     static value_type Make(A1 const& a1, An const&... an)
     {
-        static_assert(1 + sizeof...(An) <= 16, "too many arguments");
-        return (Make(an...) << 4) | GetId(a1);
+        static_assert(1 + sizeof...(An) <= kMaxArgs, "too many arguments");
+        return (Make(an...) << kBitsPerArg) | GetId(a1);
     }
 };
 

@@ -52,27 +52,28 @@ public:
 
     explicit StringWriter(std::string& v) : os(v) {}
 
-    bool Put(char c) override;
-    bool Write(char const* str, size_t len) override;
-    bool Pad(char c, size_t count) override;
+private:
+    errc Put(char c) override;
+    errc Write(char const* str, size_t len) override;
+    errc Pad(char c, size_t count) override;
 };
 
-inline bool StringWriter::Put(char c)
+inline errc StringWriter::Put(char c)
 {
     os.push_back(c);
-    return true;
+    return errc::success;
 }
 
-inline bool StringWriter::Write(char const* str, size_t len)
+inline errc StringWriter::Write(char const* str, size_t len)
 {
     os.append(str, len);
-    return true;
+    return errc::success;
 }
 
-inline bool StringWriter::Pad(char c, size_t count)
+inline errc StringWriter::Pad(char c, size_t count)
 {
     os.append(count, c);
-    return true;
+    return errc::success;
 }
 
 template <typename ...Args>

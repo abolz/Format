@@ -173,9 +173,26 @@ class FMTXX_VISIBILITY_DEFAULT Writer
 public:
     FMTXX_API virtual ~Writer() noexcept;
 
-    virtual bool Put(char c) = 0;
-    virtual bool Write(char const* str, size_t len) = 0;
-    virtual bool Pad(char c, size_t count) = 0;
+    errc put(char c) {
+        return Put(c);
+    }
+
+    errc put_nonzero(char c) {
+        return c == '\0' ? errc::success : Put(c);
+    }
+
+    errc write(char const* str, size_t len) {
+        return len == 0 ? errc::success : Write(str, len);
+    }
+
+    errc pad(char c, size_t count) {
+        return count == 0 ? errc::success : Pad(c, count);
+    }
+
+private:
+    virtual errc Put(char c) = 0;
+    virtual errc Write(char const* str, size_t len) = 0;
+    virtual errc Pad(char c, size_t count) = 0;
 };
 
 class FMTXX_VISIBILITY_DEFAULT FILEWriter : public Writer
@@ -189,15 +206,16 @@ public:
         assert(file_ != nullptr);
     }
 
-    FMTXX_API bool Put(char c) noexcept override;
-    FMTXX_API bool Write(char const* str, size_t len) noexcept override;
-    FMTXX_API bool Pad(char c, size_t count) noexcept override;
-
     // Returns the FILE stream.
     std::FILE* file() const { return file_; }
 
     // Returns the number of bytes successfully transmitted (since construction).
     size_t size() const { return size_; }
+
+private:
+    FMTXX_API errc Put(char c) noexcept override;
+    FMTXX_API errc Write(char const* str, size_t len) noexcept override;
+    FMTXX_API errc Pad(char c, size_t count) noexcept override;
 };
 
 class FMTXX_VISIBILITY_DEFAULT ArrayWriter : public Writer
@@ -215,10 +233,6 @@ public:
     template <size_t N>
     explicit ArrayWriter(char (&buf)[N]) : ArrayWriter(buf, N) {}
 
-    FMTXX_API bool Put(char c) noexcept override;
-    FMTXX_API bool Write(char const* str, size_t len) noexcept override;
-    FMTXX_API bool Pad(char c, size_t count) noexcept override;
-
     // Returns a pointer to the string.
     // The string is null-terminated if Finish() has been called.
     char* data() const { return buf_; }
@@ -235,6 +249,11 @@ public:
     // Null-terminate the buffer.
     // Returns the length of the string not including the null-character.
     FMTXX_API size_t Finish() noexcept;
+
+private:
+    FMTXX_API errc Put(char c) noexcept override;
+    FMTXX_API errc Write(char const* str, size_t len) noexcept override;
+    FMTXX_API errc Pad(char c, size_t count) noexcept override;
 };
 
 struct Util

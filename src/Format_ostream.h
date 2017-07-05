@@ -48,18 +48,18 @@ namespace impl
         int_type overflow(int_type ch = traits_type::eof()) override {
             if (traits_type::eq_int_type(ch, traits_type::eof()))
                 return 0;
-            if (w_.Put(static_cast<char>(ch)))
-                return ch;
-            return traits_type::eof();
+            if (Failed(w_.put(static_cast<char>(ch))))
+                return traits_type::eof(); // error
+            return ch;
         }
 
         std::streamsize xsputn(char const* str, std::streamsize len) override {
             assert(len >= 0);
             if (len == 0)
                 return 0;
-            if (w_.Write(str, static_cast<size_t>(len)))
-                return len;
-            return 0;
+            if (Failed(w_.write(str, static_cast<size_t>(len))))
+                return 0; // error
+            return len;
         }
     };
 
@@ -90,9 +90,10 @@ public:
     explicit StreamWriter(std::ostream& v);
     ~StreamWriter();
 
-    bool Put(char c) override;
-    bool Write(char const* str, size_t len) override;
-    bool Pad(char c, size_t count) override;
+private:
+    errc Put(char c) override;
+    errc Write(char const* str, size_t len) override;
+    errc Pad(char c, size_t count) override;
 };
 
 inline StreamWriter::StreamWriter(std::ostream& v)
@@ -105,26 +106,26 @@ inline StreamWriter::~StreamWriter()
 {
 }
 
-inline bool StreamWriter::Put(char c)
+inline errc StreamWriter::Put(char c)
 {
     using traits_type = std::ostream::traits_type;
 
     if (!se)
-        return false;
+        return errc::io_error;
 
     if (traits_type::eq_int_type(os.rdbuf()->sputc(c), traits_type::eof()))
     {
         os.setstate(std::ios_base::badbit);
-        return false;
+        return errc::io_error;
     }
 
-    return true;
+    return errc::success;
 }
 
-inline bool StreamWriter::Write(char const* str, size_t len)
+inline errc StreamWriter::Write(char const* str, size_t len)
 {
     if (!se)
-        return false;
+        return errc::io_error;
 
     auto const kMaxLen = static_cast<size_t>( std::numeric_limits<std::streamsize>::max() );
 
@@ -135,19 +136,19 @@ inline bool StreamWriter::Write(char const* str, size_t len)
         if (k != os.rdbuf()->sputn(str, k))
         {
             os.setstate(std::ios_base::badbit);
-            return false;
+            return errc::io_error;
         }
         str += n;
         len -= n;
     }
 
-    return true;
+    return errc::success;
 }
 
-inline bool StreamWriter::Pad(char c, size_t count)
+inline errc StreamWriter::Pad(char c, size_t count)
 {
     if (!se)
-        return false;
+        return errc::io_error;
 
     size_t const kBlockSize = 32;
 
@@ -161,12 +162,12 @@ inline bool StreamWriter::Pad(char c, size_t count)
         if (k != os.rdbuf()->sputn(block, k))
         {
             os.setstate(std::ios_base::badbit);
-            return false;
+            return errc::io_error;
         }
         count -= n;
     }
 
-    return true;
+    return errc::success;
 }
 
 template <typename ...Args>

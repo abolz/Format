@@ -60,14 +60,13 @@ errc PrettyPrint(Writer& w, T const& value);
 
 inline errc PrintString(Writer& w, StringView val)
 {
-    if (!w.Put('"'))
-        return errc::io_error;
-    if (!w.Write(val.data(), val.size()))
-        return errc::io_error;
-    if (!w.Put('"'))
-        return errc::io_error;
+    errc ec = w.put('"');
+    if (ec == errc::success)
+        ec = w.write(val.data(), val.size());
+    if (ec == errc::success)
+        ec = w.put('"');
 
-    return errc::success;
+    return ec;
 }
 
 inline errc PrettyPrint(Writer& w, char const* val)
@@ -95,36 +94,27 @@ errc PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, 1>)
 template <typename T, size_t N>
 errc PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, N>)
 {
-    auto const ec1 = fmtxx::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - N>(object));
-    if (ec1 != errc::success)
-        return ec1;
+    errc ec = fmtxx::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - N>(object));
+    if (ec == errc::success)
+        ec = w.put(',');
+    if (ec == errc::success)
+        ec = w.put(' ');
+    if (ec == errc::success)
+        ec = fmtxx::pp::PrintTuple(w, object, std::integral_constant<size_t, N - 1>());
 
-    if (!w.Put(','))
-        return errc::io_error;
-    if (!w.Put(' '))
-        return errc::io_error;
-
-    auto const ec2 = fmtxx::pp::PrintTuple(w, object, std::integral_constant<size_t, N - 1>());
-    if (ec2 != errc::success)
-        return ec2;
-
-    return errc::success;
+    return ec;
 }
 
 template <typename T>
 errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
 {
-    if (!w.Put('{'))
-        return errc::io_error;
+    errc ec = w.put('{');
+    if (ec == errc::success)
+        ec = fmtxx::pp::PrintTuple(w, object, typename std::tuple_size<T>::type());
+    if (ec == errc::success)
+        ec = w.put('}');
 
-    auto const ec = fmtxx::pp::PrintTuple(w, object, typename std::tuple_size<T>::type());
-    if (ec != errc::success)
-        return ec;
-
-    if (!w.Put('}'))
-        return errc::io_error;
-
-    return errc::success;
+    return ec;
 }
 
 template <typename T>
@@ -136,8 +126,9 @@ errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::false_type)
 template <typename T>
 errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_type)
 {
-    if (!w.Put('['))
-        return errc::io_error;
+    errc ec = w.put('[');
+    if (ec != errc::success)
+        return ec;
 
     auto I = begin(object); // using ADL
     auto E = end(object); // using ADL
@@ -145,22 +136,25 @@ errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_typ
     {
         for (;;)
         {
-            auto const ec = fmtxx::pp::PrettyPrint(w, *I);
+            ec = fmtxx::pp::PrettyPrint(w, *I);
             if (ec != errc::success)
                 return ec;
             if (++I == E)
                 break;
-            if (!w.Put(','))
-                return errc::io_error;
-            if (!w.Put(' '))
-                return errc::io_error;
+            ec = w.put(',');
+            if (ec != errc::success)
+                return ec;
+            ec = w.put(' ');
+            if (ec != errc::success)
+                return ec;
         }
     }
 
-    if (!w.Put(']'))
-        return errc::io_error;
+    ec = w.put(']');
+    if (ec != errc::success)
+        return ec;
 
-    return errc::success;
+    return ec;
 }
 
 template <typename T>

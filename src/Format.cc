@@ -79,17 +79,17 @@ fmtxx::Writer::~Writer() noexcept
 {
 }
 
-bool fmtxx::FILEWriter::Put(char c) noexcept
+errc fmtxx::FILEWriter::Put(char c) noexcept
 {
     if (EOF == std::fputc(c, file_))
-        return false;
+        return errc::io_error;
 
     assert(size_ + 1 > size_ && "integer overflow");
     size_ += 1;
-    return true;
+    return errc::success;
 }
 
-bool fmtxx::FILEWriter::Write(char const* str, size_t len) noexcept
+errc fmtxx::FILEWriter::Write(char const* str, size_t len) noexcept
 {
     size_t n = std::fwrite(str, 1, len, file_);
 
@@ -98,10 +98,10 @@ bool fmtxx::FILEWriter::Write(char const* str, size_t len) noexcept
     // This is unlike ArrayWriter, which counts characters that would have been written on success.
     // (FILEWriter and ArrayWriter are for compatibility with fprintf and snprintf, resp.)
     size_ += n;
-    return n == len;
+    return n == len ? errc::success : errc::io_error;
 }
 
-bool fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
+errc fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
 {
     size_t const kBlockSize = 32;
 
@@ -111,42 +111,13 @@ bool fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
     while (count > 0)
     {
         auto const n = std::min(count, kBlockSize);
-        if (!FILEWriter::Write(block, n))
-            return false;
+        auto const ec = FILEWriter::Write(block, n);
+        if (ec != errc::success)
+            return ec;
         count -= n;
     }
 
-    return true;
-}
-
-bool fmtxx::ArrayWriter::Put(char c) noexcept
-{
-    if (size_ < bufsize_)
-        buf_[size_] = c;
-
-    assert(size_ + 1 > size_ && "integer overflow");
-    size_ += 1;
-    return true;
-}
-
-bool fmtxx::ArrayWriter::Write(char const* str, size_t len) noexcept
-{
-    if (size_ < bufsize_)
-        std::memcpy(buf_ + size_, str, std::min(len, bufsize_ - size_));
-
-    assert(size_ + len > size_ && "integer overflow");
-    size_ += len;
-    return true;
-}
-
-bool fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
-{
-    if (size_ < bufsize_)
-        std::memset(buf_ + size_, static_cast<unsigned char>(c), std::min(count, bufsize_ - size_));
-
-    assert(size_ + count > size_ && "integer overflow");
-    size_ += count;
-    return true;
+    return errc::success;
 }
 
 size_t fmtxx::ArrayWriter::Finish() noexcept
@@ -157,6 +128,36 @@ size_t fmtxx::ArrayWriter::Finish() noexcept
         buf_[bufsize_ - 1] = '\0';
 
     return size_;
+}
+
+errc fmtxx::ArrayWriter::Put(char c) noexcept
+{
+    if (size_ < bufsize_)
+        buf_[size_] = c;
+
+    assert(size_ + 1 > size_ && "integer overflow");
+    size_ += 1;
+    return errc::success;
+}
+
+errc fmtxx::ArrayWriter::Write(char const* str, size_t len) noexcept
+{
+    if (size_ < bufsize_)
+        std::memcpy(buf_ + size_, str, std::min(len, bufsize_ - size_));
+
+    assert(size_ + len > size_ && "integer overflow");
+    size_ += len;
+    return errc::success;
+}
+
+errc fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
+{
+    if (size_ < bufsize_)
+        std::memset(buf_ + size_, static_cast<unsigned char>(c), std::min(count, bufsize_ - size_));
+
+    assert(size_ + count > size_ && "integer overflow");
+    size_ += count;
+    return errc::success;
 }
 
 //------------------------------------------------------------------------------
@@ -222,14 +223,13 @@ static errc PrintAndPadString(Writer& w, FormatSpec const& spec, char const* str
 {
     auto const pad = ComputePadding(len, spec.align, spec.width);
 
-    if (pad.left > 0  && !w.Pad(spec.fill, pad.left))
-        return errc::io_error;
-    if (len > 0       && !w.Write(str, len))
-        return errc::io_error;
-    if (pad.right > 0 && !w.Pad(spec.fill, pad.right))
-        return errc::io_error;
+    errc ec = w.pad(spec.fill, pad.left);
+    if (ec == errc::success)
+        ec = w.write(str, len);
+    if (ec == errc::success)
+        ec = w.pad(spec.fill, pad.right);
 
-    return errc::success;
+    return ec;
 }
 
 static errc PrintAndPadString(Writer& w, FormatSpec const& spec, StringView str)
@@ -238,84 +238,98 @@ static errc PrintAndPadString(Writer& w, FormatSpec const& spec, StringView str)
 }
 
 template <typename F>
-static bool ForEachEscaped(char const* str, size_t len, F func)
+static errc ForEachEscaped(char const* str, size_t len, F func)
 {
     for (size_t i = 0; i < len; ++i)
     {
         char const ch = str[i];
 
-        bool res = true;
+        errc ec;
         switch (ch)
         {
         case '"':
         case '\\':
-//      case '\'':
-//      case '?':
-            res = func('\\') && func(ch);
+        case '\'':
+        case '?':
+            ec = func('\\');
+            if (ec == errc::success)
+                ec = func(ch);
             break;
-//      case '\a':
-//          res = func('\\') && func('a');
-//          break;
-//      case '\b':
-//          res = func('\\') && func('b');
-//          break;
-//      case '\f':
-//          res = func('\\') && func('f');
-//          break;
-//      case '\n':
-//          res = func('\\') && func('n');
-//          break;
-//      case '\r':
-//          res = func('\\') && func('r');
-//          break;
-//      case '\t':
-//          res = func('\\') && func('t');
-//          break;
-//      case '\v':
-//          res = func('\\') && func('v');
-//          break;
+        case '\a':
+            ec = func('\\');
+            if (ec == errc::success)
+                ec = func('a');
+            break;
+        case '\b':
+            ec = func('\\');
+            if (ec == errc::success)
+                ec = func('b');
+            break;
+        case '\f':
+            ec = func('\\');
+            if (ec == errc::success)
+                ec = func('f');
+            break;
+        case '\n':
+            ec = func('\\');
+            if (ec == errc::success)
+                ec = func('n');
+            break;
+        case '\r':
+            ec = func('\\');
+            if (ec == errc::success)
+                ec = func('r');
+            break;
+        case '\t':
+            ec = func('\\');
+            if (ec == errc::success)
+                ec = func('t');
+            break;
+        case '\v':
+            ec = func('\\');
+            if (ec == errc::success)
+                ec = func('v');
+            break;
         default:
-            res = func(ch);
+            ec = func(ch);
             break;
         }
 
-        if (!res)
-            return false;
+        if (ec != errc::success)
+            return ec;
     }
 
-    return true;
+    return errc::success;
+}
+
+static errc WriteEscaped(Writer& w, char const* str, size_t len, size_t quoted_len)
+{
+    if (len == 0)
+        return errc::success;
+    if (len == quoted_len)
+        return w.write(str, len);
+
+    return ForEachEscaped(str, len, [&](char c) { return w.put(c); });
 }
 
 static errc PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t quoted_len = 0;
-    ForEachEscaped(str, len, [&](char) { ++quoted_len; return true; });
+    ForEachEscaped(str, len, [&](char) { ++quoted_len; return errc::success; });
 
     auto const pad = ComputePadding(2 + quoted_len, spec.align, spec.width);
 
-    if (pad.left > 0 && !w.Pad(spec.fill, pad.left))
-        return errc::io_error;
-    if (!w.Put('"'))
-        return errc::io_error;
-    if (len > 0)
-    {
-        if (len < quoted_len)
-        {
-            if (!ForEachEscaped(str, len, [&](char ch) { return w.Put(ch); }))
-                return errc::io_error;
-        }
-        else
-        {
-            if (!w.Write(str, len))
-                return errc::io_error;
-        }
-    }
-    if (!w.Put('"'))
-        return errc::io_error;
-    if (pad.right > 0 && !w.Pad(spec.fill, pad.right))
-        return errc::io_error;
+    errc ec = w.pad(spec.fill, pad.left);
+    if (ec == errc::success)
+        ec = w.put('"');
+    if (ec == errc::success)
+        ec = WriteEscaped(w, str, len, quoted_len);
+    if (ec == errc::success)
+        ec = w.put('"');
+    if (ec == errc::success)
+        ec = w.pad(spec.fill, pad.right);
 
-    return errc::success;
+    return ec;
 }
 
 errc fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* str, size_t len)
@@ -357,20 +371,19 @@ static errc PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign, char
 
     auto const pad = ComputePadding(len, spec.zero ? Align::PadAfterSign : spec.align, spec.width);
 
-    if (pad.left > 0       && !w.Pad(spec.fill, pad.left))
-        return errc::io_error;
-    if (sign != '\0'       && !w.Put(sign))
-        return errc::io_error;
-    if (nprefix > 0        && !w.Write(prefix, nprefix))
-        return errc::io_error;
-    if (pad.after_sign > 0 && !w.Pad(spec.zero ? '0' : spec.fill, pad.after_sign))
-        return errc::io_error;
-    if (ndigits > 0        && !w.Write(digits, ndigits))
-        return errc::io_error;
-    if (pad.right > 0      && !w.Pad(spec.fill, pad.right))
-        return errc::io_error;
+    errc ec = w.pad(spec.fill, pad.left);
+    if (ec == errc::success)
+        ec = w.put_nonzero(sign);
+    if (ec == errc::success)
+        ec = w.write(prefix, nprefix);
+    if (ec == errc::success)
+        ec = w.pad(spec.zero ? '0' : spec.fill, pad.after_sign);
+    if (ec == errc::success)
+        ec = w.write(digits, ndigits);
+    if (ec == errc::success)
+        ec = w.pad(spec.fill, pad.right);
 
-    return errc::success;
+    return ec;
 }
 
 static constexpr char const* kDecDigits100/*[100*2 + 1]*/ =
@@ -454,7 +467,7 @@ static int InsertThousandsSep(char* first, char* last, int off1, int off2, char 
 
     if (off1 != off2)
     {
-        auto I = MakeArrayIterator(first, static_cast<int>(last - first));
+        auto I = MakeArrayIterator(first, last - first);
         std::copy_backward(I + off1, I + off2, I + (off2 + nsep));
     }
 
@@ -1600,10 +1613,10 @@ static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringVie
                 spec.width = 0; // [recover]
             break;
         case '{':
-            if (errc::success == ParseLBrace(spec.width, f, end, nextarg, args, types))
-                FixNegativeFieldWidth(spec);
-            else
+            if (errc::success != ParseLBrace(spec.width, f, end, nextarg, args, types))
                 spec.width = 0; // [recover]
+            else
+                FixNegativeFieldWidth(spec);
             break;
 // Precision
         case '.':
@@ -1718,7 +1731,7 @@ static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, Str
 
     if (*f == '*')
     {
-        auto const ec = ParseFormatSpecArg(spec, f, end, nextarg, args, types);
+        errc ec = ParseFormatSpecArg(spec, f, end, nextarg, args, types);
         if (ec != errc::success)
             spec = {}; // [recover]
 
@@ -1728,7 +1741,7 @@ static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, Str
 
     if (*f == ':')
     {
-        auto const ec = ParseFormatSpec(spec, f, end, nextarg, args, types);
+        errc ec = ParseFormatSpec(spec, f, end, nextarg, args, types);
         if (ec != errc::success)
             spec = {}; // [recover]
 
@@ -1738,7 +1751,7 @@ static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, Str
 
     if (*f == '!')
     {
-        auto const ec = ParseStyle(spec, f, end);
+        errc ec = ParseStyle(spec, f, end);
         if (ec != errc::success)
             spec.style = {}; // [recover]
 
@@ -1767,9 +1780,12 @@ errc fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types 
     for (;;)
     {
         f = std::find_if(f, end, [](char ch) { return ch == '{' || ch == '}'; });
-
-        if (f != s && !w.Write(&*s, static_cast<size_t>(f - s)))
-            return errc::io_error;
+        if (f != s)
+        {
+            errc ec = w.write(&*s, static_cast<size_t>(f - s));
+            if (ec != errc::success)
+                return ec;
+        }
 
         if (f == end) // done.
             break;
@@ -1806,7 +1822,7 @@ errc fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types 
         FormatSpec spec;
         if (*f != '}')
         {
-            auto const ec = ParseReplacementField(spec, f, end, nextarg, args, types);
+            errc ec = ParseReplacementField(spec, f, end, nextarg, args, types);
             if (ec != errc::success)
                 return ec;
         }
@@ -1827,7 +1843,7 @@ errc fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types 
         if NOT_EXPECTED(arg_type == Types::T_FORMATSPEC)
             return errc::invalid_argument;
 
-        auto const ec = CallFormatFunc(w, spec, args[arg_index], arg_type);
+        errc ec = CallFormatFunc(w, spec, args[arg_index], arg_type);
         if (ec != errc::success)
             return ec;
     }
@@ -1934,10 +1950,10 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
             }
             break;
         case '*':
-            if (errc::success == ParseAsterisk(spec.width, f, end, nextarg, args, types))
-                FixNegativeFieldWidth(spec);
-            else
+            if (errc::success != ParseAsterisk(spec.width, f, end, nextarg, args, types))
                 spec.width = 0; // [recover]
+            else
+                FixNegativeFieldWidth(spec);
             break;
 // Precision
         case '.':
@@ -2038,9 +2054,12 @@ errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types 
     for (;;)
     {
         f = std::find(f, end, '%');
-
-        if (f != s && !w.Write(&*s, static_cast<size_t>(f - s)))
-            return errc::io_error;
+        if (f != s)
+        {
+            errc ec = w.write(&*s, static_cast<size_t>(f - s));
+            if (ec != errc::success)
+                return ec;
+        }
 
         if (f == end) // done.
             break;
@@ -2061,7 +2080,7 @@ errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types 
         FormatSpec spec;
         if (*f != 's') // %s is like {}
         {
-            auto const ec = ParsePrintfSpec(arg_index, spec, f, end, nextarg, args, types);
+            errc ec = ParsePrintfSpec(arg_index, spec, f, end, nextarg, args, types);
             if (ec != errc::success)
                 return ec;
         }
@@ -2084,7 +2103,7 @@ errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types 
         if NOT_EXPECTED(arg_type == Types::T_FORMATSPEC)
             return errc::invalid_argument;
 
-        auto const ec = CallFormatFunc(w, spec, args[arg_index], arg_type);
+        errc ec = CallFormatFunc(w, spec, args[arg_index], arg_type);
         if (ec != errc::success)
             return ec;
     }
@@ -2107,33 +2126,24 @@ errc fmtxx::impl::DoPrintf(std::FILE* file, StringView format, Arg const* args, 
 int fmtxx::impl::DoFileFormat(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
-
-    auto const ec = fmtxx::impl::DoFormat(w, format, args, types);
-    if (ec != errc::success || w.size() > static_cast<size_t>(INT_MAX))
+    if (errc::success != fmtxx::impl::DoFormat(w, format, args, types) || w.size() > static_cast<size_t>(INT_MAX))
         return -1;
-
     return static_cast<int>(w.size());
 }
 
 int fmtxx::impl::DoFilePrintf(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
-
-    auto const ec = fmtxx::impl::DoPrintf(w, format, args, types);
-    if (ec != errc::success || w.size() > static_cast<size_t>(INT_MAX))
+    if (errc::success != fmtxx::impl::DoPrintf(w, format, args, types) || w.size() > static_cast<size_t>(INT_MAX))
         return -1;
-
     return static_cast<int>(w.size());
 }
 
 int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
 {
     ArrayWriter w{buf, bufsize};
-
-    auto const ec = fmtxx::impl::DoFormat(w, format, args, types);
-    if (ec != errc::success || w.size() > static_cast<size_t>(INT_MAX))
+    if (errc::success != fmtxx::impl::DoFormat(w, format, args, types) || w.size() > static_cast<size_t>(INT_MAX))
         return -1;
-
     w.Finish();
     return static_cast<int>(w.size());
 }
@@ -2141,11 +2151,8 @@ int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, StringView format, Arg
 int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
 {
     ArrayWriter w{buf, bufsize};
-
-    auto const ec = fmtxx::impl::DoPrintf(w, format, args, types);
-    if (ec != errc::success || w.size() > static_cast<size_t>(INT_MAX))
+    if (errc::success != fmtxx::impl::DoPrintf(w, format, args, types) || w.size() > static_cast<size_t>(INT_MAX))
         return -1;
-
     w.Finish();
     return static_cast<int>(w.size());
 }

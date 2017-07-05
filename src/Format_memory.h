@@ -29,10 +29,6 @@ public:
     MemoryWriterBase(MemoryWriterBase const&) = delete;
     MemoryWriterBase& operator=(MemoryWriterBase const&) = delete;
 
-    bool Put(char c) override;
-    bool Write(char const* str, size_t len) override;
-    bool Pad(char c, size_t count) override;
-
     // Returns a pointer to the formatted string.
     // NOTE: not null-terminated!
     char* data() const { return ptr_; }
@@ -47,26 +43,30 @@ public:
     StringView view() const { return StringView(data(), size()); }
 
 private:
+    errc Put(char c) override;
+    errc Write(char const* str, size_t len) override;
+    errc Pad(char c, size_t count) override;
+
     bool Grow(size_t req);
 
     virtual bool Resize(size_t new_capacity) = 0;
 };
 
-inline bool MemoryWriterBase::Put(char c)
+inline errc MemoryWriterBase::Put(char c)
 {
     assert(size_ <= capacity_);
     assert(size_ + 1 > size_ && "integer overflow");
 
     if (size_ + 1 > capacity_ && !Grow(1))
-        return false;
+        return errc::io_error;
 
     assert(size_ + 1 <= capacity_);
 
     ptr_[size_++] = c;
-    return true;
+    return errc::success;
 }
 
-inline bool MemoryWriterBase::Write(char const* str, size_t len)
+inline errc MemoryWriterBase::Write(char const* str, size_t len)
 {
     // TODO:
     // Write as much as possible...
@@ -75,16 +75,16 @@ inline bool MemoryWriterBase::Write(char const* str, size_t len)
     assert(size_ + len >= size_ && "integer overflow");
 
     if (size_ + len > capacity_ && !Grow(len))
-        return false;
+        return errc::io_error;
 
     assert(size_ + len <= capacity_);
 
     std::memcpy(ptr_ + size_, str, len);
     size_ += len;
-    return true;
+    return errc::success;
 }
 
-inline bool MemoryWriterBase::Pad(char c, size_t count)
+inline errc MemoryWriterBase::Pad(char c, size_t count)
 {
     // TODO:
     // Write as much as possible...
@@ -93,13 +93,13 @@ inline bool MemoryWriterBase::Pad(char c, size_t count)
     assert(size_ + count >= size_ && "integer overflow");
 
     if (size_ + count > capacity_ && !Grow(count))
-        return false;
+        return errc::io_error;
 
     assert(size_ + count <= capacity_);
 
     std::memset(ptr_ + size_, static_cast<unsigned char>(c), count);
     size_ += count;
-    return true;
+    return errc::success;
 }
 
 inline bool MemoryWriterBase::Grow(size_t req)

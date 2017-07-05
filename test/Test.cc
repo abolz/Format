@@ -991,19 +991,20 @@ class VectorBuffer : public fmtxx::Writer
 public:
     explicit VectorBuffer(std::vector<char>& v) : os(v) {}
 
-    bool Put(char c) override {
+private:
+    fmtxx::errc Put(char c) override {
         os.push_back(c);
-        return true;
+        return fmtxx::errc::success;
     }
 
-    bool Write(char const* str, size_t len) override {
+    fmtxx::errc Write(char const* str, size_t len) override {
         os.insert(os.end(), str, str + len);
-        return true;
+        return fmtxx::errc::success;
     }
 
-    bool Pad(char c, size_t count) override {
+    fmtxx::errc Pad(char c, size_t count) override {
         os.resize(os.size() + count, c);
-        return true;
+        return fmtxx::errc::success;
     }
 };
 

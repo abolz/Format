@@ -94,7 +94,10 @@ bool fmtxx::FILEWriter::Write(char const* str, size_t len) noexcept
     size_t n = std::fwrite(str, 1, len, file_);
 
     assert(size_ + len > size_ && "integer overflow");
-    size_ += len;
+    // Count the number of characters successfully transmitted.
+    // This is unlike ArrayWriter, which counts characters that would have been written on success.
+    // (FILEWriter and ArrayWriter are for compatibility with fprintf and snprintf, resp.)
+    size_ += n;
     return n == len;
 }
 

@@ -189,7 +189,7 @@ public:
     // Returns the FILE stream.
     std::FILE* file() const { return file_; }
 
-    // Returns the number of bytes written (since construction).
+    // Returns the number of bytes successfully transmitted (since construction).
     size_t size() const { return size_; }
 };
 

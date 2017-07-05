@@ -1848,13 +1848,10 @@ public:
     void AssignUInt64(uint64_t value);
     void AssignBignum(const Bignum& other);
 
-    // void AssignDecimalString(Vector<const char> value);
-    // void AssignHexString(Vector<const char> value);
-
     void AssignPowerUInt16(uint16_t base, int exponent);
 
-    void AddUInt64(uint64_t operand);
-    void AddBignum(const Bignum& other);
+    //void AddUInt64(uint64_t operand);
+    //void AddBignum(const Bignum& other);
     // Precondition: this >= other.
     void SubtractBignum(const Bignum& other);
 
@@ -1862,15 +1859,12 @@ public:
     void ShiftLeft(int shift_amount);
     void MultiplyByUInt32(uint32_t factor);
     void MultiplyByUInt64(uint64_t factor);
-    void MultiplyByPowerOfTen(int exponent);
     void Times10() { return MultiplyByUInt32(10); }
     // Pseudocode:
     //  int result = this / other;
     //  this = this % other;
     // In the worst case this function is in O(this/other).
     uint16_t DivideModuloIntBignum(const Bignum& other);
-
-    // bool ToHexString(char* buffer, int buffer_size) const;
 
     // Returns
     //  -1 if a < b,
@@ -2003,58 +1997,58 @@ inline void Bignum::AssignBignum(const Bignum& other)
     used_digits_ = other.used_digits_;
 }
 
-inline void Bignum::AddUInt64(uint64_t operand)
-{
-    if (operand == 0)
-        return;
-    Bignum other;
-    other.AssignUInt64(operand);
-    AddBignum(other);
-}
+//inline void Bignum::AddUInt64(uint64_t operand)
+//{
+//    if (operand == 0)
+//        return;
+//    Bignum other;
+//    other.AssignUInt64(operand);
+//    AddBignum(other);
+//}
 
-inline void Bignum::AddBignum(const Bignum& other)
-{
-    DOUBLE_CONVERSION_ASSERT(IsClamped());
-    DOUBLE_CONVERSION_ASSERT(other.IsClamped());
-
-    // If this has a greater exponent than other append zero-bigits to this.
-    // After this call exponent_ <= other.exponent_.
-    Align(other);
-
-    // There are two possibilities:
-    //   aaaaaaaaaaa 0000  (where the 0s represent a's exponent)
-    //     bbbbb 00000000
-    //   ----------------
-    //   ccccccccccc 0000
-    // or
-    //    aaaaaaaaaa 0000
-    //  bbbbbbbbb 0000000
-    //  -----------------
-    //  cccccccccccc 0000
-    // In both cases we might need a carry bigit.
-
-    EnsureCapacity(1 + Max(BigitLength(), other.BigitLength()) - exponent_);
-    Chunk carry = 0;
-    int bigit_pos = other.exponent_ - exponent_;
-    DOUBLE_CONVERSION_ASSERT(bigit_pos >= 0);
-    for (int i = 0; i < other.used_digits_; ++i)
-    {
-        Chunk sum = bigits_[bigit_pos] + other.bigits_[i] + carry;
-        bigits_[bigit_pos] = sum & kBigitMask;
-        carry = sum >> kBigitSize;
-        bigit_pos++;
-    }
-
-    while (carry != 0)
-    {
-        Chunk sum = bigits_[bigit_pos] + carry;
-        bigits_[bigit_pos] = sum & kBigitMask;
-        carry = sum >> kBigitSize;
-        bigit_pos++;
-    }
-    used_digits_ = Max(bigit_pos, used_digits_);
-    DOUBLE_CONVERSION_ASSERT(IsClamped());
-}
+//inline void Bignum::AddBignum(const Bignum& other)
+//{
+//    DOUBLE_CONVERSION_ASSERT(IsClamped());
+//    DOUBLE_CONVERSION_ASSERT(other.IsClamped());
+//
+//    // If this has a greater exponent than other append zero-bigits to this.
+//    // After this call exponent_ <= other.exponent_.
+//    Align(other);
+//
+//    // There are two possibilities:
+//    //   aaaaaaaaaaa 0000  (where the 0s represent a's exponent)
+//    //     bbbbb 00000000
+//    //   ----------------
+//    //   ccccccccccc 0000
+//    // or
+//    //    aaaaaaaaaa 0000
+//    //  bbbbbbbbb 0000000
+//    //  -----------------
+//    //  cccccccccccc 0000
+//    // In both cases we might need a carry bigit.
+//
+//    EnsureCapacity(1 + Max(BigitLength(), other.BigitLength()) - exponent_);
+//    Chunk carry = 0;
+//    int bigit_pos = other.exponent_ - exponent_;
+//    DOUBLE_CONVERSION_ASSERT(bigit_pos >= 0);
+//    for (int i = 0; i < other.used_digits_; ++i)
+//    {
+//        Chunk sum = bigits_[bigit_pos] + other.bigits_[i] + carry;
+//        bigits_[bigit_pos] = sum & kBigitMask;
+//        carry = sum >> kBigitSize;
+//        bigit_pos++;
+//    }
+//
+//    while (carry != 0)
+//    {
+//        Chunk sum = bigits_[bigit_pos] + carry;
+//        bigits_[bigit_pos] = sum & kBigitMask;
+//        carry = sum >> kBigitSize;
+//        bigit_pos++;
+//    }
+//    used_digits_ = Max(bigit_pos, used_digits_);
+//    DOUBLE_CONVERSION_ASSERT(IsClamped());
+//}
 
 inline void Bignum::SubtractBignum(const Bignum& other)
 {
@@ -2154,60 +2148,6 @@ inline void Bignum::MultiplyByUInt64(uint64_t factor)
         used_digits_++;
         carry >>= kBigitSize;
     }
-}
-
-inline void Bignum::MultiplyByPowerOfTen(int exponent)
-{
-    const uint64_t kFive27 = 0x6765c793fa10079d;
-    const uint16_t kFive1 = 5;
-    const uint16_t kFive2 = kFive1 * 5;
-    const uint16_t kFive3 = kFive2 * 5;
-    const uint16_t kFive4 = kFive3 * 5;
-    const uint16_t kFive5 = kFive4 * 5;
-    const uint16_t kFive6 = kFive5 * 5;
-    const uint32_t kFive7 = kFive6 * 5;
-    const uint32_t kFive8 = kFive7 * 5;
-    const uint32_t kFive9 = kFive8 * 5;
-    const uint32_t kFive10 = kFive9 * 5;
-    const uint32_t kFive11 = kFive10 * 5;
-    const uint32_t kFive12 = kFive11 * 5;
-    const uint32_t kFive13 = kFive12 * 5;
-    const uint32_t kFive1_to_12[] = {kFive1,
-                                     kFive2,
-                                     kFive3,
-                                     kFive4,
-                                     kFive5,
-                                     kFive6,
-                                     kFive7,
-                                     kFive8,
-                                     kFive9,
-                                     kFive10,
-                                     kFive11,
-                                     kFive12};
-
-    DOUBLE_CONVERSION_ASSERT(exponent >= 0);
-    if (exponent == 0)
-        return;
-    if (used_digits_ == 0)
-        return;
-
-    // We shift by exponent at the end just before returning.
-    int remaining_exponent = exponent;
-    while (remaining_exponent >= 27)
-    {
-        MultiplyByUInt64(kFive27);
-        remaining_exponent -= 27;
-    }
-    while (remaining_exponent >= 13)
-    {
-        MultiplyByUInt32(kFive13);
-        remaining_exponent -= 13;
-    }
-    if (remaining_exponent > 0)
-    {
-        MultiplyByUInt32(kFive1_to_12[remaining_exponent - 1]);
-    }
-    ShiftLeft(exponent);
 }
 
 inline void Bignum::Square()

@@ -51,7 +51,7 @@ public:
     // Construct from null-terminated C-string.
     StringView(pointer c_str)
         : data_(c_str)
-        , size_(c_str ? Length(c_str) : 0u)
+        , size_(c_str ? ::strlen(c_str) : 0u)
     {
     }
 
@@ -102,34 +102,10 @@ public:
 
     // Returns an iterator pointing past the end of the string.
     iterator end() const { return data_ + size_; }
-
-    // Test if *this equals rhs.
-    bool equal(StringView rhs) const;
-
-    // Lexicographically compare *this and rhs.
-    bool less(StringView rhs) const;
-
-private:
-    static size_t Length(char const* c_str) {
-        return ::strlen(c_str);
-    }
-
-    static int Compare(char const* lhs, char const* rhs, size_t n) {
-        return ::memcmp(lhs, rhs, n);
-    }
 };
 
-inline bool StringView::equal(StringView rhs) const {
-    return size() == rhs.size() && Compare(data(), rhs.data(), size()) == 0;
-}
-
-inline bool StringView::less(StringView rhs) const {
-    int c = Compare(data(), rhs.data(), size() < rhs.size() ? size() : rhs.size());
-    return c < 0 || (c == 0 && size() < rhs.size());
-}
-
 inline bool operator==(StringView lhs, StringView rhs) {
-    return lhs.equal(rhs);
+    return lhs.size() == rhs.size() && ::memcmp(lhs.data(), rhs.data(), lhs.size()) == 0;
 }
 
 inline bool operator!=(StringView lhs, StringView rhs) {
@@ -137,7 +113,8 @@ inline bool operator!=(StringView lhs, StringView rhs) {
 }
 
 inline bool operator<(StringView lhs, StringView rhs) {
-    return lhs.less(rhs);
+    int c = ::memcmp(lhs.data(), rhs.data(), lhs.size() < rhs.size() ? lhs.size() : rhs.size());
+    return c < 0 || (c == 0 && lhs.size() < rhs.size());
 }
 
 inline bool operator>(StringView lhs, StringView rhs) {

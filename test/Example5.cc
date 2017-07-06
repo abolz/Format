@@ -3,7 +3,7 @@
 
 int main()
 {
-    fmtxx::FormattingArgs args;
+    fmtxx::FormatArgs args;
 
     const std::string str_world = "world";
 

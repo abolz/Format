@@ -72,12 +72,12 @@ inline errc PrintString(Writer& w, StringView val)
 
 inline errc PrettyPrint(Writer& w, char const* val)
 {
-    return fmtxx::pp::PrintString(w, val != nullptr ? val : "(null)");
+    return ::fmtxx::pp::PrintString(w, val != nullptr ? val : "(null)");
 }
 
 inline errc PrettyPrint(Writer& w, char* val)
 {
-    return fmtxx::pp::PrintString(w, val != nullptr ? val : "(null)");
+    return ::fmtxx::pp::PrintString(w, val != nullptr ? val : "(null)");
 }
 
 template <typename T>
@@ -89,19 +89,19 @@ errc PrintTuple(Writer& /*w*/, T const& /*object*/, std::integral_constant<size_
 template <typename T>
 errc PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, 1>)
 {
-    return fmtxx::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - 1>(object));
+    return ::fmtxx::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - 1>(object));
 }
 
 template <typename T, size_t N>
 errc PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, N>)
 {
-    if (Failed ec = fmtxx::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - N>(object)))
+    if (Failed ec = ::fmtxx::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - N>(object)))
         return ec;
     if (Failed ec = w.put(','))
         return ec;
     if (Failed ec = w.put(' '))
         return ec;
-    if (Failed ec = fmtxx::pp::PrintTuple(w, object, std::integral_constant<size_t, N - 1>()))
+    if (Failed ec = ::fmtxx::pp::PrintTuple(w, object, std::integral_constant<size_t, N - 1>()))
         return ec;
 
     return errc::success;
@@ -112,7 +112,7 @@ errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
 {
     if (Failed ec = w.put('{'))
         return ec;
-    if (Failed ec = fmtxx::pp::PrintTuple(w, object, typename std::tuple_size<T>::type()))
+    if (Failed ec = ::fmtxx::pp::PrintTuple(w, object, typename std::tuple_size<T>::type()))
         return ec;
     if (Failed ec = w.put('}'))
         return ec;
@@ -123,7 +123,7 @@ errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
 template <typename T>
 errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::false_type)
 {
-    return fmtxx::format_value(w, {}, object);
+    return ::fmtxx::format_value(w, {}, object);
 }
 
 template <typename T>
@@ -138,7 +138,7 @@ errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_typ
     {
         for (;;)
         {
-            if (Failed ec = fmtxx::pp::PrettyPrint(w, *I))
+            if (Failed ec = ::fmtxx::pp::PrettyPrint(w, *I))
                 return ec;
             if (++I == E)
                 break;
@@ -158,25 +158,25 @@ errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_typ
 template <typename T>
 errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::false_type)
 {
-    return fmtxx::pp::DispatchTuple(w, object, IsTuple<T>{});
+    return ::fmtxx::pp::DispatchTuple(w, object, IsTuple<T>{});
 }
 
 template <typename T>
 errc DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::true_type)
 {
-    return fmtxx::pp::PrintString(w, StringView{object.data(), object.size()});
+    return ::fmtxx::pp::PrintString(w, StringView{object.data(), object.size()});
 }
 
 template <typename T>
 errc DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::false_type)
 {
-    return fmtxx::pp::DispatchContainer(w, object, IsContainer<T>{});
+    return ::fmtxx::pp::DispatchContainer(w, object, IsContainer<T>{});
 }
 
 template <typename T>
 errc PrettyPrint(Writer& w, T const& object)
 {
-    return fmtxx::pp::DispatchString(w, object, TreatAsString<T>{});
+    return ::fmtxx::pp::DispatchString(w, object, TreatAsString<T>{});
 }
 
 } // namespace pp
@@ -184,7 +184,7 @@ errc PrettyPrint(Writer& w, T const& object)
 template <typename T>
 struct FormatValue<PrettyPrinter<T>> {
     errc operator()(Writer& w, FormatSpec const& /*spec*/, PrettyPrinter<T> const& value) const {
-        return fmtxx::pp::PrettyPrint(w, value.object);
+        return ::fmtxx::pp::PrettyPrint(w, value.object);
     }
 };
 

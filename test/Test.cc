@@ -1098,7 +1098,7 @@ TEST_CASE("Format", "ArrayWriter")
 
 TEST_CASE("FormattingArgs", "1")
 {
-    fmtxx::FormattingArgs args;
+    fmtxx::FormatArgs args;
 
     const std::string str_world = "world";
     int i = 42;
@@ -1110,6 +1110,8 @@ TEST_CASE("FormattingArgs", "1")
     auto const s = fmtxx::string_format("{} {} {} {}", args).str;
     CHECK(s == "42 42 hello world");
 
-    //fmtxx::format(stdout, "", 1, args);     // should not compile
-    //fmtxx::format(stdout, "", args, 1);     // should not compile
+    //fmtxx::format(stdout, "", 1, args);           // should not compile
+    //fmtxx::format(stdout, "", 1, args.get());     // should not compile
+    //fmtxx::format(stdout, "", args, 1);           // should not compile
+    //fmtxx::format(stdout, "", args.get(), 1);     // should not compile
 }

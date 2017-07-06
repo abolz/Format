@@ -80,26 +80,26 @@ template <typename ...Args>
 inline errc format(std::string& str, StringView format, Args const&... args)
 {
     StringWriter w{str};
-    return fmtxx::format(w, format, args...);
+    return ::fmtxx::format(w, format, args...);
 }
 
 template <typename ...Args>
 inline errc printf(std::string& str, StringView format, Args const&... args)
 {
     StringWriter w{str};
-    return fmtxx::printf(w, format, args...);
+    return ::fmtxx::printf(w, format, args...);
 }
 
-inline errc format(std::string& str, StringView format, FormattingArgs const& args)
+inline errc format(std::string& str, StringView format, FormatArgs const& args)
 {
     StringWriter w{str};
-    return fmtxx::format(w, format, args);
+    return ::fmtxx::format(w, format, args);
 }
 
-inline errc printf(std::string& str, StringView format, FormattingArgs const& args)
+inline errc printf(std::string& str, StringView format, FormatArgs const& args)
 {
     StringWriter w{str};
-    return fmtxx::printf(w, format, args);
+    return ::fmtxx::printf(w, format, args);
 }
 
 struct StringFormatResult
@@ -112,7 +112,7 @@ template <typename ...Args>
 inline StringFormatResult string_format(StringView format, Args const&... args)
 {
     StringFormatResult r;
-    r.ec = fmtxx::format(r.str, format, args...);
+    r.ec = ::fmtxx::format(r.str, format, args...);
     return r;
 }
 
@@ -120,21 +120,21 @@ template <typename ...Args>
 inline StringFormatResult string_printf(StringView format, Args const&... args)
 {
     StringFormatResult r;
-    r.ec = fmtxx::printf(r.str, format, args...);
+    r.ec = ::fmtxx::printf(r.str, format, args...);
     return r;
 }
 
-inline StringFormatResult string_format(StringView format, FormattingArgs const& args)
+inline StringFormatResult string_format(StringView format, FormatArgs const& args)
 {
     StringFormatResult r;
-    r.ec = fmtxx::format(r.str, format, args);
+    r.ec = ::fmtxx::format(r.str, format, args);
     return r;
 }
 
-inline StringFormatResult string_printf(StringView format, FormattingArgs const& args)
+inline StringFormatResult string_printf(StringView format, FormatArgs const& args)
 {
     StringFormatResult r;
-    r.ec = fmtxx::printf(r.str, format, args);
+    r.ec = ::fmtxx::printf(r.str, format, args);
     return r;
 }
 

@@ -174,26 +174,26 @@ template <typename ...Args>
 inline errc format(std::ostream& os, StringView format, Args const&... args)
 {
     StreamWriter w{os};
-    return fmtxx::format(w, format, args...);
+    return ::fmtxx::format(w, format, args...);
 }
 
 template <typename ...Args>
 inline errc printf(std::ostream& os, StringView format, Args const&... args)
 {
     StreamWriter w{os};
-    return fmtxx::printf(w, format, args...);
+    return ::fmtxx::printf(w, format, args...);
 }
 
-inline errc format(std::ostream& os, StringView format, FormattingArgs const& args)
+inline errc format(std::ostream& os, StringView format, FormatArgs const& args)
 {
     StreamWriter w{os};
-    return fmtxx::format(w, format, args);
+    return ::fmtxx::format(w, format, args);
 }
 
-inline errc printf(std::ostream& os, StringView format, FormattingArgs const& args)
+inline errc printf(std::ostream& os, StringView format, FormatArgs const& args)
 {
     StreamWriter w{os};
-    return fmtxx::printf(w, format, args);
+    return ::fmtxx::printf(w, format, args);
 }
 
 } // namespace fmtxx

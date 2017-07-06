@@ -1115,3 +1115,13 @@ TEST_CASE("FormattingArgs", "1")
     //fmtxx::format(stdout, "", args, 1);           // should not compile
     //fmtxx::format(stdout, "", args.get(), 1);     // should not compile
 }
+
+////static void alpha_delta_227529() {}
+////struct S { int i; void func() {} };
+//TEST_CASE("Should-not-compile", "1")
+//{
+//    //fmtxx::format(stdout, "", alpha_delta_227529);
+//    //fmtxx::format(stdout, "", &S::func);
+//    //fmtxx::format(stdout, "", &S::i);
+//    fmtxx::format(stdout, "", (int*)nullptr);
+//}

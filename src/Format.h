@@ -333,10 +333,10 @@ namespace impl
     struct StreamValue
     {
         static_assert(sizeof(T) == 0,
-            "Formatting objects of type T is not natively supported. "
+            "Formatting objects of type T is not supported. "
             "Specialize FormatValue or TreatAsString, or, if objects of type T "
-            "should be formatted using operator<<(std::ostream, ...), include "
-            "'Format_ostream.h'");
+            "can be formatted using 'operator<<(std::ostream, T const&)', "
+            "include 'Format_ostream.h'.");
     };
 }
 
@@ -512,6 +512,7 @@ namespace impl {
 enum class EType {
     T_NONE,
     T_FORMATSPEC,
+    //T_FORMATARGS,
     T_STRING,
     T_OTHER,
     T_PCHAR,
@@ -532,6 +533,7 @@ enum class EType {
 // Keep in sync with Arg::Arg() below!!!
 template <typename T> struct GetTypeImpl                     { static const EType value = TreatAsString<T>::value ? EType::T_STRING : EType::T_OTHER; };
 template <>           struct GetTypeImpl<FormatSpec        > { static const EType value = EType::T_FORMATSPEC; };
+//template <>           struct GetTypeImpl<FormatArgs        > { static const EType value = EType::T_FORMATARGS; };
 template <>           struct GetTypeImpl<char const*       > { static const EType value = EType::T_PCHAR; };
 template <>           struct GetTypeImpl<char*             > { static const EType value = EType::T_PCHAR; };
 template <>           struct GetTypeImpl<std::nullptr_t    > { static const EType value = EType::T_PVOID; };
@@ -573,13 +575,9 @@ struct IsSafeRValueType : std::true_type {};
 // like TreatAsStringRef... But the current situation is better than nothing.
 //
 template <> struct IsSafeRValueType<EType::T_FORMATSPEC> : std::false_type {};
+//template <> struct IsSafeRValueType<EType::T_FORMATARGS> : std::false_type {};
 template <> struct IsSafeRValueType<EType::T_STRING    > : std::false_type {};
 template <> struct IsSafeRValueType<EType::T_OTHER     > : std::false_type {};
-
-template <typename T>
-struct IsString : std::integral_constant<bool, GetType<T>::value == EType::T_STRING>
-{
-};
 
 struct Types
 {
@@ -589,7 +587,10 @@ struct Types
     static const int kMaxArgs    = CHAR_BIT * sizeof(value_type) / kBitsPerArg;
     static const int kMaxTypes   = 1 << kBitsPerArg;
     static const int kTypeMask   = kMaxTypes - 1;
-    static_assert(static_cast<int>(EType::T_LAST) <= kMaxTypes, "invalid value for kBitsPerArg");
+
+    static_assert(
+        static_cast<int>(EType::T_LAST) <= kMaxTypes,
+        "Invalid value for kBitsPerArg");
 
     value_type /*const*/ types = 0;
 
@@ -626,7 +627,7 @@ struct Types
     template <typename A1, typename ...An>
     static value_type make_types(A1 const& /*a1*/, An const&... an)
     {
-        static_assert(1 + sizeof...(An) <= kMaxArgs, "too many arguments");
+        static_assert(1 + sizeof...(An) <= kMaxArgs, "Too many arguments");
         return (make_types(an...) << kBitsPerArg) | static_cast<value_type>(GetType<A1>::value);
     }
 };
@@ -662,13 +663,28 @@ struct Arg
     Arg() = default;
 
     template <typename T> Arg(T const& v, /*IsString*/ std::true_type) : string{v.data(), v.size()} {}
-    template <typename T> Arg(T const& v, /*IsString*/ std::false_type) : other{ &v, &FormatValue_fn<T> } {}
+    template <typename T> Arg(T const& v, /*IsString*/ std::false_type) : other{ &v, &FormatValue_fn<T> }
+    {
+        static_assert(
+            !std::is_function<T>::value,
+            "Formatting function types is not supported");
+        static_assert(
+            !std::is_pointer<T>::value && !std::is_member_pointer<T>::value,
+            "Formatting non-void pointer types is not allowed. "
+            "A cast to void* or intptr_t is required.");
+        static_assert(
+            !std::is_same<FormatArgs, T>::value,
+            "Formatting variadic FormattingArgs in combination with other arguments "
+            "is (currently) not supported. The only valid syntax for FormattingArgs is "
+            "as a single argument to the formatting functions.");
+    }
 
     // XXX:
     // Keep in sync with Types::GetId() above!!!
     template <typename T>
-    Arg(T                  const& v) : Arg(v, IsString<T>{}) {}
+    Arg(T                  const& v) : Arg(v, TreatAsString<typename std::decay<T>::type>{}) {}
     Arg(FormatSpec         const& v) : pvoid(&v) {}
+    //Arg(FormatArgs         const& v) : pvoid(&v) {}
     Arg(char const*        const& v) : pchar(v) {}
     Arg(char*              const& v) : pchar(v) {}
     Arg(std::nullptr_t     const& v) : pvoid(v) {}
@@ -692,16 +708,6 @@ struct Arg
     Arg(unsigned long long const& v) : ulonglong(v) {}
     Arg(double             const& v) : double_(v) {}
     Arg(float              const& v) : double_(static_cast<double>(v)) {}
-    //
-    // NOTE:
-    //
-    // If you're looking at this:
-    //
-    // Formatting variadic FormattingArgs in combination with other arguments
-    // is (currently) not supported. The only valid syntax for FormattingArgs is
-    // as a single argument to the formatting functions.
-    //
-    Arg(FormatArgs const&) = delete/*(... message...)*/;
 };
 
 FMTXX_API errc DoFormat      (Writer& w,                 StringView format, Arg const* args, Types types);
@@ -750,9 +756,9 @@ private:
     template <typename T>
     int _push_back(T&& val)
     {
-        static_assert( std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<impl::GetType<T>::value>::value,
-            "You can not add rvalues of non-built-in types to FormatArgs. "
-            "Store your argument somewhere and add a reference." );
+        static_assert(
+            std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<impl::GetType<T>::value>::value,
+            "Adding rvalues of non-built-in types to FormatArgs is not allowed. ");
 
         if (_num_args < kMaxArgs)
         {

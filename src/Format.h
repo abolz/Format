@@ -144,7 +144,7 @@ enum struct errc {
 // Replaces err::operator bool() in most cases (and is more explicit).
 struct Failed
 {
-    const errc ec = errc::success;
+    errc const ec = errc::success;
 
     Failed() = default;
     Failed(errc ec) : ec(ec) {}
@@ -210,8 +210,8 @@ private:
 
 class FMTXX_VISIBILITY_DEFAULT FILEWriter : public Writer
 {
-    std::FILE* file_;
-    size_t     size_ = 0;
+    std::FILE* const file_;
+    size_t           size_ = 0;
 
 public:
     explicit FILEWriter(std::FILE* v) : file_(v)
@@ -645,10 +645,10 @@ struct Types
 {
     using value_type =  uint64_t;
 
-    static const int kBitsPerArg = 4;
-    static const int kMaxArgs    = CHAR_BIT * sizeof(value_type) / kBitsPerArg;
-    static const int kMaxTypes   = 1 << kBitsPerArg;
-    static const int kTypeMask   = kMaxTypes - 1;
+    static constexpr int kBitsPerArg = 4;
+    static constexpr int kMaxArgs    = CHAR_BIT * sizeof(value_type) / kBitsPerArg;
+    static constexpr int kMaxTypes   = 1 << kBitsPerArg;
+    static constexpr int kTypeMask   = kMaxTypes - 1;
 
     static_assert(static_cast<int>(Arg::T_LAST) <= kMaxTypes, "Invalid value for kBitsPerArg");
 

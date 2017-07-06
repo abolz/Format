@@ -1331,39 +1331,39 @@ static void FixNegativeFieldWidth(FormatSpec& spec)
     }
 }
 
-static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& arg, EType type)
+static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& arg, Arg::Type type)
 {
     switch (type)
     {
-    case EType::T_NONE:
-    case EType::T_FORMATSPEC:
+    case Arg::T_NONE:
+    case Arg::T_FORMATSPEC:
         assert(!"internal error");
         break;
-    case EType::T_OTHER:
+    case Arg::T_OTHER:
         return arg.other.func(w, spec, arg.other.value);
-    case EType::T_STRING:
+    case Arg::T_STRING:
         return Util::format_string(w, spec, arg.string.data, arg.string.size);
-    case EType::T_PVOID:
+    case Arg::T_PVOID:
         return Util::format_pointer(w, spec, arg.pvoid);
-    case EType::T_PCHAR:
+    case Arg::T_PCHAR:
         return Util::format_string(w, spec, arg.pchar);
-    case EType::T_CHAR:
+    case Arg::T_CHAR:
         return Util::format_char(w, spec, arg.char_);
-    case EType::T_BOOL:
+    case Arg::T_BOOL:
         return Util::format_bool(w, spec, arg.bool_);
-    case EType::T_SCHAR:
+    case Arg::T_SCHAR:
         return Util::format_int(w, spec, arg.schar);
-    case EType::T_SSHORT:
+    case Arg::T_SSHORT:
         return Util::format_int(w, spec, arg.sshort);
-    case EType::T_SINT:
+    case Arg::T_SINT:
         return Util::format_int(w, spec, arg.sint);
-    case EType::T_SLONGLONG:
+    case Arg::T_SLONGLONG:
         return Util::format_int(w, spec, arg.slonglong);
-    case EType::T_ULONGLONG:
+    case Arg::T_ULONGLONG:
         return Util::format_int(w, spec, arg.ulonglong);
-    case EType::T_DOUBLE:
+    case Arg::T_DOUBLE:
         return Util::format_double(w, spec, arg.double_);
-    case EType::T_LAST:
+    case Arg::T_LAST:
         assert(!"internal error");
         break;
     }
@@ -1402,22 +1402,22 @@ static errc GetIntArg(int& value, int index, Arg const* args, Types types)
 {
     switch (types[index])
     {
-    case EType::T_NONE:
+    case Arg::T_NONE:
         return errc::index_out_of_range;
 
-    case EType::T_SCHAR:
+    case Arg::T_SCHAR:
         value = args[index].schar;
         return errc::success;
 
-    case EType::T_SSHORT:
+    case Arg::T_SSHORT:
         value = args[index].sshort;
         return errc::success;
 
-    case EType::T_SINT:
+    case Arg::T_SINT:
         value = args[index].sint;
         return errc::success;
 
-    case EType::T_SLONGLONG:
+    case Arg::T_SLONGLONG:
         if NOT_EXPECTED(args[index].slonglong > INT_MAX)
             return errc::value_out_of_range;
         if NOT_EXPECTED(args[index].slonglong < INT_MIN)
@@ -1425,7 +1425,7 @@ static errc GetIntArg(int& value, int index, Arg const* args, Types types)
         value = static_cast<int>(args[index].slonglong);
         return errc::success;
 
-    case EType::T_ULONGLONG:
+    case Arg::T_ULONGLONG:
         if NOT_EXPECTED(args[index].ulonglong > INT_MAX)
             return errc::value_out_of_range;
         value = static_cast<int>(args[index].ulonglong);
@@ -1482,9 +1482,9 @@ static errc ParseFormatSpecArg(FormatSpec& spec, StringView::iterator& f, String
         index = nextarg++;
     }
 
-    if NOT_EXPECTED(types[index] == EType::T_NONE)
+    if NOT_EXPECTED(types[index] == Arg::T_NONE)
         return errc::index_out_of_range;
-    if NOT_EXPECTED(types[index] != EType::T_FORMATSPEC)
+    if NOT_EXPECTED(types[index] != Arg::T_FORMATSPEC)
         return errc::invalid_argument;
 
     spec = *static_cast<FormatSpec const*>(args[index].pvoid);
@@ -1731,7 +1731,7 @@ static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, Str
     return errc::success;
 }
 
-errc fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types types)
+errc fmtxx::impl::Format(Writer& w, StringView format, Arg const* args, Types types)
 {
     if (format.empty())
         return errc::success;
@@ -1800,9 +1800,9 @@ errc fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types 
 
         auto const arg_type = types[arg_index];
 
-        if NOT_EXPECTED(arg_type == EType::T_NONE)
+        if NOT_EXPECTED(arg_type == Arg::T_NONE)
             return errc::index_out_of_range;
-        if NOT_EXPECTED(arg_type == EType::T_FORMATSPEC)
+        if NOT_EXPECTED(arg_type == Arg::T_FORMATSPEC)
             return errc::invalid_argument;
 
         if (Failed ec = CallFormatFunc(w, spec, args[arg_index], arg_type))
@@ -2002,7 +2002,7 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
     }
 }
 
-errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types types)
+errc fmtxx::impl::Printf(Writer& w, StringView format, Arg const* args, Types types)
 {
     if (format.empty())
         return errc::success;
@@ -2057,9 +2057,9 @@ errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types 
 
         auto const arg_type = types[arg_index];
 
-        if NOT_EXPECTED(arg_type == EType::T_NONE)
+        if NOT_EXPECTED(arg_type == Arg::T_NONE)
             return errc::index_out_of_range;
-        if NOT_EXPECTED(arg_type == EType::T_FORMATSPEC)
+        if NOT_EXPECTED(arg_type == Arg::T_FORMATSPEC)
             return errc::invalid_argument;
 
         if (Failed ec = CallFormatFunc(w, spec, args[arg_index], arg_type))
@@ -2069,23 +2069,23 @@ errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types 
     return errc::success;
 }
 
-errc fmtxx::impl::DoFormat(std::FILE* file, StringView format, Arg const* args, Types types)
+errc fmtxx::impl::Format(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
-    return fmtxx::impl::DoFormat(w, format, args, types);
+    return fmtxx::impl::Format(w, format, args, types);
 }
 
-errc fmtxx::impl::DoPrintf(std::FILE* file, StringView format, Arg const* args, Types types)
+errc fmtxx::impl::Printf(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
-    return fmtxx::impl::DoPrintf(w, format, args, types);
+    return fmtxx::impl::Printf(w, format, args, types);
 }
 
-int fmtxx::impl::DoFileFormat(std::FILE* file, StringView format, Arg const* args, Types types)
+int fmtxx::impl::FileFormat(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
 
-    if (Failed(fmtxx::impl::DoFormat(w, format, args, types)))
+    if (Failed(fmtxx::impl::Format(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;
@@ -2093,11 +2093,11 @@ int fmtxx::impl::DoFileFormat(std::FILE* file, StringView format, Arg const* arg
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::DoFilePrintf(std::FILE* file, StringView format, Arg const* args, Types types)
+int fmtxx::impl::FilePrintf(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
 
-    if (Failed(fmtxx::impl::DoPrintf(w, format, args, types)))
+    if (Failed(fmtxx::impl::Printf(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;
@@ -2105,11 +2105,11 @@ int fmtxx::impl::DoFilePrintf(std::FILE* file, StringView format, Arg const* arg
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
+int fmtxx::impl::ArrayFormat(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
 {
     ArrayWriter w{buf, bufsize};
 
-    if (Failed(fmtxx::impl::DoFormat(w, format, args, types)))
+    if (Failed(fmtxx::impl::Format(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;
@@ -2118,11 +2118,11 @@ int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, StringView format, Arg
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
+int fmtxx::impl::ArrayPrintf(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
 {
     ArrayWriter w{buf, bufsize};
 
-    if (Failed(fmtxx::impl::DoPrintf(w, format, args, types)))
+    if (Failed(fmtxx::impl::Printf(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;

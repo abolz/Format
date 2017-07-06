@@ -35,14 +35,29 @@ using namespace fmtxx::impl;
 
 // Maximum supported minimum field width.
 // This is not an implementation limit, but its just a sane upper bound.
-enum { kMaxFieldWidth = 1024 * 8 };
+static constexpr int kMaxFieldWidth = 1024 * 8;
 
 // Maximum supported integer precision (= minimum number of digits).
-enum { kMaxIntPrec = 256 };
+static constexpr int kMaxIntPrec = 256;
 
 // Maximum supported floating point precision.
 // Precision required for denorm_min (= [751 digits] 10^-323) when using %f
-enum { kMaxFloatPrec = 751 + 323 };
+static constexpr int kMaxFloatPrec = 751 + 323;
+
+static constexpr char const* kUpperDigits = "0123456789ABCDEF";
+static constexpr char const* kLowerDigits = "0123456789abcdef";
+
+static constexpr char const* kDecDigits100 =
+    "00010203040506070809"
+    "10111213141516171819"
+    "20212223242526272829"
+    "30313233343536373839"
+    "40414243444546474849"
+    "50515253545556575859"
+    "60616263646566676869"
+    "70717273747576777879"
+    "80818283848586878889"
+    "90919293949596979899";
 
 //------------------------------------------------------------------------------
 //
@@ -247,56 +262,39 @@ static errc ForEachEscaped(char const* str, size_t len, F func)
         case '\\':
         case '\'':
         case '?':
-            if (Failed ec = func('\\'))
-                return ec;
-            if (Failed ec = func(ch))
-                return ec;
+            if (Failed ec = func('\\')) return ec;
+            if (Failed ec = func(ch)  ) return ec;
             break;
         case '\a':
-            if (Failed ec = func('\\'))
-                return ec;
-            if (Failed ec = func('a'))
-                return ec;
+            if (Failed ec = func('\\')) return ec;
+            if (Failed ec = func('a') ) return ec;
             break;
         case '\b':
-            if (Failed ec = func('\\'))
-                return ec;
-            if (Failed ec = func('b'))
-                return ec;
+            if (Failed ec = func('\\')) return ec;
+            if (Failed ec = func('b') ) return ec;
             break;
         case '\f':
-            if (Failed ec = func('\\'))
-                return ec;
-            if (Failed ec = func('f'))
-                return ec;
+            if (Failed ec = func('\\')) return ec;
+            if (Failed ec = func('f') ) return ec;
             break;
         case '\n':
-            if (Failed ec = func('\\'))
-                return ec;
-            if (Failed ec = func('n'))
-                return ec;
+            if (Failed ec = func('\\')) return ec;
+            if (Failed ec = func('n') ) return ec;
             break;
         case '\r':
-            if (Failed ec = func('\\'))
-                return ec;
-            if (Failed ec = func('r'))
-                return ec;
+            if (Failed ec = func('\\')) return ec;
+            if (Failed ec = func('r') ) return ec;
             break;
         case '\t':
-            if (Failed ec = func('\\'))
-                return ec;
-            if (Failed ec = func('t'))
-                return ec;
+            if (Failed ec = func('\\')) return ec;
+            if (Failed ec = func('t') ) return ec;
             break;
         case '\v':
-            if (Failed ec = func('\\'))
-                return ec;
-            if (Failed ec = func('v'))
-                return ec;
+            if (Failed ec = func('\\')) return ec;
+            if (Failed ec = func('v') ) return ec;
             break;
         default:
-            if (Failed ec = func(ch))
-                return ec;
+            if (Failed ec = func(ch)) return ec;
             break;
         }
     }
@@ -390,18 +388,6 @@ static errc PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign, char
     return errc::success;
 }
 
-static constexpr char const* kDecDigits100/*[100*2 + 1]*/ =
-    "00010203040506070809"
-    "10111213141516171819"
-    "20212223242526272829"
-    "30313233343536373839"
-    "40414243444546474849"
-    "50515253545556575859"
-    "60616263646566676869"
-    "70717273747576777879"
-    "80818283848586878889"
-    "90919293949596979899";
-
 static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
 {
     while (n >= 100)
@@ -426,12 +412,9 @@ static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
     return last;
 }
 
-static constexpr char const* kUpperHexDigits = "0123456789ABCDEF";
-static constexpr char const* kLowerHexDigits = "0123456789abcdef";
-
 static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool capitals)
 {
-    char const* const xdigits = capitals ? kUpperHexDigits : kLowerHexDigits;
+    char const* const xdigits = capitals ? kUpperDigits : kLowerDigits;
 
     assert(base >= 2);
     assert(base <= 16);
@@ -444,10 +427,10 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
         do *--last = xdigits[n & 15]; while (n >>= 4);
         return last;
     case 8:
-        do *--last = kUpperHexDigits[n & 7]; while (n >>= 3);
+        do *--last = kUpperDigits[n & 7]; while (n >>= 3);
         return last;
     case 2:
-        do *--last = kUpperHexDigits[n & 1]; while (n >>= 1);
+        do *--last = kUpperDigits[n & 1]; while (n >>= 1);
         return last;
     }
 
@@ -530,8 +513,8 @@ errc fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sext, ui
 
     static_assert(kMaxIntPrec >= 64, "at least 64-characters are required for UINT64_MAX in base 2");
 
-    enum { kMaxSeps = (kMaxIntPrec - 1) / 3 };
-    enum { kBufSize = kMaxIntPrec + kMaxSeps };
+    constexpr int kMaxSeps = (kMaxIntPrec - 1) / 3;
+    constexpr int kBufSize = kMaxIntPrec + kMaxSeps;
 
     char buf[kBufSize];
 
@@ -540,7 +523,7 @@ errc fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sext, ui
 
     if (spec.prec >= 0)
     {
-        int const prec = std::min(spec.prec, static_cast<int>(kMaxIntPrec));
+        int const prec = std::min(spec.prec, kMaxIntPrec);
         while (l - f < prec)
         {
             *--f = '0';
@@ -645,10 +628,6 @@ struct Double
     uint64_t Sign()        const { return (bits & kSignMask       ) >> 63; }
     uint64_t Exponent()    const { return (bits & kExponentMask   ) >> 52; }
     uint64_t Significand() const { return (bits & kSignificandMask);       }
-
-    int UnbiasedExponent() const {
-        return static_cast<int>(Exponent()) - kExponentBias;
-    }
 
     bool IsZero() const {
         return (bits & ~kSignMask) == 0;
@@ -811,7 +790,7 @@ static int ToFixed(char* first, char* last, double d, int precision, Options con
 }
 
 // Append a decimal representation of EXPONENT to BUF.
-// Returns the number of characters written.
+// Returns pos + number of characters written.
 static int AppendExponent(char* buf, int /*bufsize*/, int pos, int exponent, Options const& options)
 {
     assert(exponent > -10000);
@@ -834,9 +813,9 @@ static int AppendExponent(char* buf, int /*bufsize*/, int pos, int exponent, Opt
 
     int const k = exponent;
 
-    if (k >= 1000 || options.min_exponent_digits >= 4) { buf[pos++] = static_cast<char>('0' + exponent / 1000); exponent %= 1000; }
-    if (k >=  100 || options.min_exponent_digits >= 3) { buf[pos++] = static_cast<char>('0' + exponent /  100); exponent %=  100; }
-    if (k >=   10 || options.min_exponent_digits >= 2) { buf[pos++] = static_cast<char>('0' + exponent /   10); exponent %=   10; }
+    if (k >= 1000 || options.min_exponent_digits >= 4) { buf[pos++] = kUpperDigits[exponent / 1000]; exponent %= 1000; }
+    if (k >=  100 || options.min_exponent_digits >= 3) { buf[pos++] = kUpperDigits[exponent /  100]; exponent %=  100; }
+    if (k >=   10 || options.min_exponent_digits >= 2) { buf[pos++] = kUpperDigits[exponent /   10]; exponent %=   10; }
     buf[pos++] = static_cast<char>('0' + exponent % 10);
 
     return pos;
@@ -1001,7 +980,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
     assert(buffer_size >= 52/4 + 1);
     UnusedParameter(buffer_size);
 
-    char const* const xdigits = upper ? kUpperHexDigits : kLowerHexDigits;
+    char const* const xdigits = upper ? kUpperDigits : kLowerDigits;
 
     Double const d{v};
 
@@ -1309,9 +1288,9 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
     // Scientific   D.[prec digits]E+123
     // Hex          0xH.[prec digits]P+1234
     //
-    enum { kMaxDigitsBeforePoint = 309 };
-    enum { kMaxSeps = (kMaxDigitsBeforePoint - 1) / 3 };
-    enum { kBufSize = kMaxDigitsBeforePoint + kMaxSeps + 1 + kMaxFloatPrec + 1/*null*/ };
+    constexpr int kMaxDigitsBeforePoint = 309;
+    constexpr int kMaxSeps = (kMaxDigitsBeforePoint - 1) / 3;
+    constexpr int kBufSize = kMaxDigitsBeforePoint + kMaxSeps + 1 + kMaxFloatPrec + 1/*null*/;
 
     char buf[kBufSize];
 

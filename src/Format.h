@@ -536,7 +536,6 @@ namespace impl {
 enum class EType {
     T_NONE,
     T_FORMATSPEC,
-    //T_FORMATARGS,
     T_STRING,
     T_OTHER,
     T_PCHAR,
@@ -557,7 +556,6 @@ enum class EType {
 // Keep in sync with Arg::Arg() below!!!
 template <typename T> struct GetTypeImpl                     { static const EType value = TreatAsString<T>::value ? EType::T_STRING : EType::T_OTHER; };
 template <>           struct GetTypeImpl<FormatSpec        > { static const EType value = EType::T_FORMATSPEC; };
-//template <>           struct GetTypeImpl<FormatArgs        > { static const EType value = EType::T_FORMATARGS; };
 template <>           struct GetTypeImpl<char const*       > { static const EType value = EType::T_PCHAR; };
 template <>           struct GetTypeImpl<char*             > { static const EType value = EType::T_PCHAR; };
 template <>           struct GetTypeImpl<std::nullptr_t    > { static const EType value = EType::T_PVOID; };
@@ -590,22 +588,16 @@ struct GetType : GetTypeImpl<typename std::decay<T>::type>
 template <EType>
 struct IsSafeRValueType : std::true_type {};
 //
-// Do not allow to push rvalue references to these types into a FormattingArgs list.
-// Arg (below) stores pointers to these arguments.
-//
-// XXX:
-//
-// Could allow "views" (eg. StringView, std::string_view etc) but that would need something
-// like TreatAsStringRef... But the current situation is better than nothing.
+// Do not allow to push rvalue references of these types into a FormattingArgs list.
+// The Arg class stores pointers to these arguments.
 //
 template <> struct IsSafeRValueType<EType::T_FORMATSPEC> : std::false_type {};
-//template <> struct IsSafeRValueType<EType::T_FORMATARGS> : std::false_type {};
 template <> struct IsSafeRValueType<EType::T_STRING    > : std::false_type {};
 template <> struct IsSafeRValueType<EType::T_OTHER     > : std::false_type {};
 
 struct Types
 {
-    using value_type =  uint64_t; // uintptr_t; // uint64_t; // uint32_t;
+    using value_type =  uint64_t;
 
     static const int kBitsPerArg = 4;
     static const int kMaxArgs    = CHAR_BIT * sizeof(value_type) / kBitsPerArg;
@@ -708,7 +700,6 @@ struct Arg
     template <typename T>
     Arg(T                  const& v) : Arg(v, TreatAsString<typename std::decay<T>::type>{}) {}
     Arg(FormatSpec         const& v) : pvoid(&v) {}
-    //Arg(FormatArgs         const& v) : pvoid(&v) {}
     Arg(char const*        const& v) : pchar(v) {}
     Arg(char*              const& v) : pchar(v) {}
     Arg(std::nullptr_t     const& v) : pvoid(v) {}

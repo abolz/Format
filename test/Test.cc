@@ -1111,9 +1111,7 @@ TEST_CASE("FormattingArgs", "1")
     CHECK(s == "42 42 hello world");
 
     //fmtxx::format(stdout, "", 1, args);           // should not compile
-    //fmtxx::format(stdout, "", 1, args.get());     // should not compile
     //fmtxx::format(stdout, "", args, 1);           // should not compile
-    //fmtxx::format(stdout, "", args.get(), 1);     // should not compile
 }
 
 ////static void alpha_delta_227529() {}

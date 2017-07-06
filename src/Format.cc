@@ -26,6 +26,9 @@
 #  define FALLTHROUGH
 #endif
 
+static_assert(std::numeric_limits<double>::is_iec559,
+    "IEEE-754 implementation required for formatting floating-point numbers");
+
 using namespace fmtxx;
 using namespace fmtxx::impl;
 
@@ -97,7 +100,6 @@ errc fmtxx::FILEWriter::Put(char c) noexcept
     if (EOF == std::fputc(c, file_))
         return errc::io_error;
 
-    assert(size_ + 1 > size_ && "integer overflow");
     size_ += 1;
     return errc::success;
 }
@@ -106,7 +108,6 @@ errc fmtxx::FILEWriter::Write(char const* str, size_t len) noexcept
 {
     size_t n = std::fwrite(str, 1, len, file_);
 
-    assert(size_ + len > size_ && "integer overflow");
     // Count the number of characters successfully transmitted.
     // This is unlike ArrayWriter, which counts characters that would have been written on success.
     // (FILEWriter and ArrayWriter are for compatibility with fprintf and snprintf, resp.)
@@ -147,7 +148,6 @@ errc fmtxx::ArrayWriter::Put(char c) noexcept
     if (size_ < bufsize_)
         buf_[size_] = c;
 
-    assert(size_ + 1 > size_ && "integer overflow");
     size_ += 1;
     return errc::success;
 }
@@ -157,7 +157,6 @@ errc fmtxx::ArrayWriter::Write(char const* str, size_t len) noexcept
     if (size_ < bufsize_)
         std::memcpy(buf_ + size_, str, std::min(len, bufsize_ - size_));
 
-    assert(size_ + len > size_ && "integer overflow");
     size_ += len;
     return errc::success;
 }
@@ -167,7 +166,6 @@ errc fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
     if (size_ < bufsize_)
         std::memset(buf_ + size_, static_cast<unsigned char>(c), std::min(count, bufsize_ - size_));
 
-    assert(size_ + count > size_ && "integer overflow");
     size_ += count;
     return errc::success;
 }
@@ -610,12 +608,12 @@ namespace {
 
 struct Double
 {
-    static uint64_t const kSignMask        = 0x8000000000000000;
-    static uint64_t const kExponentMask    = 0x7FF0000000000000;
-    static uint64_t const kSignificandMask = 0x000FFFFFFFFFFFFF;
-    static uint64_t const kHiddenBit       = 0x0010000000000000;
+    static constexpr uint64_t kSignMask        = 0x8000000000000000;
+    static constexpr uint64_t kExponentMask    = 0x7FF0000000000000;
+    static constexpr uint64_t kSignificandMask = 0x000FFFFFFFFFFFFF;
+    static constexpr uint64_t kHiddenBit       = 0x0010000000000000;
 
-    static int const kExponentBias = 0x3FF;
+    static constexpr int kExponentBias = 0x3FF;
 
     union {
         double const d;
@@ -774,11 +772,8 @@ static void GenerateFixedDigits(double v, int requested_digits, char* buf, int b
     }
 }
 
-static int ToFixed(char* first, char* last, double d, int precision, Options const& options)
+static int ToFixed(char* buf, int bufsize, double d, int precision, Options const& options)
 {
-    char* buf = first;
-    int bufsize = static_cast<int>(last - first);
-
     int num_digits = 0;
     int decpt = 0;
 
@@ -898,11 +893,8 @@ static void GeneratePrecisionDigits(double v, int requested_digits, char* buf, i
     }
 }
 
-static int ToExponential(char* first, char* last, double d, int precision, Options const& options)
+static int ToExponential(char* buf, int bufsize, double d, int precision, Options const& options)
 {
-    char* buf = first;
-    int bufsize = static_cast<int>(last - first);
-
     int num_digits = 0;
     int decpt = 0;
 
@@ -914,11 +906,8 @@ static int ToExponential(char* first, char* last, double d, int precision, Optio
     return CreateExponentialRepresentation(buf, bufsize, num_digits, exponent, precision, options);
 }
 
-static int ToGeneral(char* first, char* last, double d, int precision, Options const& options)
+static int ToGeneral(char* buf, int bufsize, double d, int precision, Options const& options)
 {
-    char* buf = first;
-    int bufsize = static_cast<int>(last - first);
-
     assert(precision >= 0);
 
     int num_digits = 0;
@@ -934,7 +923,7 @@ static int ToGeneral(char* first, char* last, double d, int precision, Options c
     int const X = decpt - 1;
 
     // Trim trailing zeros.
-    while (num_digits > 0 && first[num_digits - 1] == '0')
+    while (num_digits > 0 && buf[num_digits - 1] == '0')
     {
         --num_digits;
     }
@@ -1065,11 +1054,8 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
     }
 }
 
-static int ToHex(char* first, char* last, double d, int precision, Options const& options)
+static int ToHex(char* buf, int bufsize, double d, int precision, Options const& options)
 {
-    char* buf = first;
-    int bufsize = static_cast<int>(last - first);
-
     int num_digits = 0;
     int binary_exponent = 0;
 
@@ -1106,10 +1092,8 @@ static void GenerateShortestDigits(double v, char* buf, int bufsize, int* num_di
     }
 }
 
-static int ToECMAScript(char* first, char* last, double d, char decimal_point, char exponent_char)
+static int ToECMAScript(char* buf, int bufsize, double d, char decimal_point, char exponent_char)
 {
-    char* buf = first;
-    int bufsize = static_cast<int>(last - first);
     assert(bufsize >= 24);
 
     auto I = MakeArrayIterator(buf, bufsize);
@@ -1299,23 +1283,23 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
     {
     case 's':
     case 'S':
-        buflen = dtoa::ToECMAScript(buf, buf + kBufSize, abs_x, options.decimal_point, options.exponent_char);
+        buflen = dtoa::ToECMAScript(buf, kBufSize, abs_x, options.decimal_point, options.exponent_char);
         break;
     case 'f':
     case 'F':
-        buflen = dtoa::ToFixed(buf, buf + kBufSize, abs_x, prec, options);
+        buflen = dtoa::ToFixed(buf, kBufSize, abs_x, prec, options);
         break;
     case 'e':
     case 'E':
-        buflen = dtoa::ToExponential(buf, buf + kBufSize, abs_x, prec, options);
+        buflen = dtoa::ToExponential(buf, kBufSize, abs_x, prec, options);
         break;
     case 'g':
     case 'G':
-        buflen = dtoa::ToGeneral(buf, buf + kBufSize, abs_x, prec, options);
+        buflen = dtoa::ToGeneral(buf, kBufSize, abs_x, prec, options);
         break;
     case 'x':
     case 'X':
-        buflen = dtoa::ToHex(buf, buf + kBufSize, abs_x, prec, options);
+        buflen = dtoa::ToHex(buf, kBufSize, abs_x, prec, options);
         break;
     default:
         buflen = 0;
@@ -2103,7 +2087,7 @@ int fmtxx::impl::DoFileFormat(std::FILE* file, StringView format, Arg const* arg
 
     if (Failed(fmtxx::impl::DoFormat(w, format, args, types)))
         return -1;
-    if (w.size() > static_cast<size_t>(INT_MAX))
+    if (w.size() > INT_MAX)
         return -1;
 
     return static_cast<int>(w.size());
@@ -2115,7 +2099,7 @@ int fmtxx::impl::DoFilePrintf(std::FILE* file, StringView format, Arg const* arg
 
     if (Failed(fmtxx::impl::DoPrintf(w, format, args, types)))
         return -1;
-    if (w.size() > static_cast<size_t>(INT_MAX))
+    if (w.size() > INT_MAX)
         return -1;
 
     return static_cast<int>(w.size());
@@ -2127,7 +2111,7 @@ int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, StringView format, Arg
 
     if (Failed(fmtxx::impl::DoFormat(w, format, args, types)))
         return -1;
-    if (w.size() > static_cast<size_t>(INT_MAX))
+    if (w.size() > INT_MAX)
         return -1;
 
     w.Finish();
@@ -2140,7 +2124,7 @@ int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, StringView format, Arg
 
     if (Failed(fmtxx::impl::DoPrintf(w, format, args, types)))
         return -1;
-    if (w.size() > static_cast<size_t>(INT_MAX))
+    if (w.size() > INT_MAX)
         return -1;
 
     w.Finish();

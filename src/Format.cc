@@ -258,39 +258,39 @@ static errc ForEachEscaped(char const* str, size_t len, F func)
         {
         case '"':
         case '\\':
-        case '\'':
-        case '?':
+        //case '\'':
+        //case '?':
             if (Failed ec = func('\\')) return ec;
             if (Failed ec = func(ch)  ) return ec;
             break;
-        case '\a':
-            if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func('a') ) return ec;
-            break;
-        case '\b':
-            if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func('b') ) return ec;
-            break;
-        case '\f':
-            if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func('f') ) return ec;
-            break;
-        case '\n':
-            if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func('n') ) return ec;
-            break;
-        case '\r':
-            if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func('r') ) return ec;
-            break;
-        case '\t':
-            if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func('t') ) return ec;
-            break;
-        case '\v':
-            if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func('v') ) return ec;
-            break;
+        //case '\a':
+        //    if (Failed ec = func('\\')) return ec;
+        //    if (Failed ec = func('a') ) return ec;
+        //    break;
+        //case '\b':
+        //    if (Failed ec = func('\\')) return ec;
+        //    if (Failed ec = func('b') ) return ec;
+        //    break;
+        //case '\f':
+        //    if (Failed ec = func('\\')) return ec;
+        //    if (Failed ec = func('f') ) return ec;
+        //    break;
+        //case '\n':
+        //    if (Failed ec = func('\\')) return ec;
+        //    if (Failed ec = func('n') ) return ec;
+        //    break;
+        //case '\r':
+        //    if (Failed ec = func('\\')) return ec;
+        //    if (Failed ec = func('r') ) return ec;
+        //    break;
+        //case '\t':
+        //    if (Failed ec = func('\\')) return ec;
+        //    if (Failed ec = func('t') ) return ec;
+        //    break;
+        //case '\v':
+        //    if (Failed ec = func('\\')) return ec;
+        //    if (Failed ec = func('v') ) return ec;
+        //    break;
         default:
             if (Failed ec = func(ch)) return ec;
             break;

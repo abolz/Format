@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <cstring>
 #include <type_traits>
-#include <utility> // forward
 
 #ifdef _MSC_VER
 #  define FMTXX_VISIBILITY_DEFAULT
@@ -685,7 +684,7 @@ public:
 
         assert(_size + sizeof...(Ts) <= kMaxArgs);
 
-        int const unused[] = { (_push_back(std::forward<Ts>(vals)), 0)... };
+        int const unused[] = { (_push_back(static_cast<Ts&&>(vals)), 0)... };
         static_cast<void>(unused);
     }
 
@@ -697,7 +696,7 @@ private:
             std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<impl::GetType<T>::value>::value,
             "Adding rvalues of non-built-in types to FormatArgs is not allowed. ");
 
-        _args[_size] = std::forward<T>(val);
+        _args[_size] = static_cast<T&&>(val);
         _types.set_type(_size, impl::GetType<T>::value);
         ++_size;
     }

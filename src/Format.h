@@ -523,8 +523,8 @@ struct Arg
             "A cast to void* or intptr_t is required.");
         static_assert(
             !std::is_same<FormatArgs, T>::value,
-            "Formatting variadic FormattingArgs in combination with other arguments "
-            "is (currently) not supported. The only valid syntax for FormattingArgs is "
+            "Formatting variadic FormatArgs in combination with other arguments "
+            "is (currently) not supported. The only valid syntax for FormatArgs is "
             "as a single argument to the formatting functions.");
     }
 

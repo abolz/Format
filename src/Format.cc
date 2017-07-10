@@ -300,7 +300,7 @@ static errc ForEachEscaped(char const* str, size_t len, F func)
     return errc::success;
 }
 
-static errc WriteEscaped(Writer& w, char const* str, size_t len, size_t quoted_len)
+static errc WriteQuoted(Writer& w, char const* str, size_t len, size_t quoted_len)
 {
     if (len == 0)
         return errc::success;
@@ -321,7 +321,7 @@ static errc PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char cons
         return ec;
     if (Failed ec = w.put('"'))
         return ec;
-    if (Failed ec = WriteEscaped(w, str, len, quoted_len))
+    if (Failed ec = WriteQuoted(w, str, len, quoted_len))
         return ec;
     if (Failed ec = w.put('"'))
         return ec;
@@ -1668,9 +1668,12 @@ static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::it
 
     auto const f0 = f;
 
+    if NOT_EXPECTED(f0 == end)
+        return errc::invalid_format_string;
+
     f = std::find(f, end, delim == '\0' ? '}' : delim);
 
-    spec.style = {f0, f};
+    spec.style = {&*f0, static_cast<size_t>(f - f0)};
 
     if (delim != '\0')
     {
@@ -1684,9 +1687,12 @@ static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::it
     ++f;
     auto const f0 = f;
 
+    if NOT_EXPECTED(f0 == end)
+        return errc::invalid_format_string;
+
     f = std::find(f, end, '}');
 
-    spec.style = {f0, f};
+    spec.style = {&*f0, static_cast<size_t>(f - f0)};
 
     return errc::success;
 #endif

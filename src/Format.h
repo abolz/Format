@@ -45,24 +45,15 @@ public:
     using iterator = char const*;
 
 public:
-    StringView() = default;
-    StringView(pointer p, size_t len) : data_(p), size_(len) {}
+    constexpr StringView() = default;
+    constexpr StringView(pointer p, size_t len) : data_(p), size_(len) {}
 
-    // Construct from null-terminated C-string.
-    StringView(pointer c_str)
+    constexpr StringView(pointer c_str)
         : data_(c_str)
         , size_(c_str ? ::strlen(c_str) : 0u)
     {
     }
 
-    // Construct from iterator range.
-    StringView(iterator first, iterator last)
-        : data_(first)
-        , size_(static_cast<size_t>(last - first))
-    {
-    }
-
-    // Construct from contiguous character sequence
     template <
         typename T,
         typename DataT = decltype(std::declval<T const&>().data()),
@@ -72,62 +63,34 @@ public:
             std::is_convertible<SizeT, size_t>::value
         >::type
     >
-    StringView(T const& str)
+    constexpr StringView(T const& str)
         : data_(str.data())
         , size_(str.size())
     {
     }
 
-    // Convert to string types.
     template <
         typename T,
-        typename = typename std::enable_if<
-            std::is_constructible<T, pointer, size_t>::value
-        >::type
+        typename = typename std::enable_if< std::is_constructible<T, pointer, size_t>::value >::type
     >
-    explicit operator T() const { return T(data(), size()); }
+    constexpr explicit operator T() const { return T(data(), size()); }
 
     // Returns a pointer to the start of the string.
     // NOTE: Not neccessarily null-terminated!
-    pointer data() const { return data_; }
+    constexpr pointer data() const { return data_; }
 
     // Returns the length of the string.
-    size_t size() const { return size_; }
+    constexpr size_t size() const { return size_; }
 
     // Returns whether the string is empty.
-    bool empty() const { return size_ == 0; }
+    constexpr bool empty() const { return size_ == 0; }
 
     // Returns an iterator pointing to the start of the string.
-    iterator begin() const { return data_; }
+    constexpr iterator begin() const { return data_; }
 
     // Returns an iterator pointing past the end of the string.
-    iterator end() const { return data_ + size_; }
+    constexpr iterator end() const { return data_ + size_; }
 };
-
-inline bool operator==(StringView lhs, StringView rhs) {
-    return lhs.size() == rhs.size() && ::memcmp(lhs.data(), rhs.data(), lhs.size()) == 0;
-}
-
-inline bool operator!=(StringView lhs, StringView rhs) {
-    return !(lhs == rhs);
-}
-
-inline bool operator<(StringView lhs, StringView rhs) {
-    int c = ::memcmp(lhs.data(), rhs.data(), lhs.size() < rhs.size() ? lhs.size() : rhs.size());
-    return c < 0 || (c == 0 && lhs.size() < rhs.size());
-}
-
-inline bool operator>(StringView lhs, StringView rhs) {
-    return rhs < lhs;
-}
-
-inline bool operator<=(StringView lhs, StringView rhs) {
-    return !(rhs < lhs);
-}
-
-inline bool operator>=(StringView lhs, StringView rhs) {
-    return !(lhs < rhs);
-}
 
 enum struct errc {
     success = 0,

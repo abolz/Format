@@ -10,8 +10,8 @@ solution "Format"
 
     warnings "Extra"
 
-    -- exceptionhandling "Off"
-    -- rtti "Off"
+    exceptionhandling "Off"
+    rtti "Off"
 
     configuration { "debug" }
         targetdir (build_dir .. "/bin/debug")
@@ -97,6 +97,34 @@ project "fmtxx"
             "-fvisibility=hidden",
         }
 
+project "gtest"
+    language "C++"
+    kind "StaticLib"
+    files {
+        "test/ext/googletest/googletest/src/*.cc",
+        "test/ext/googletest/googletest/src/*.h",
+    }
+    excludes {
+        "test/ext/googletest/googletest/src/gtest_main.cc",
+    }
+    includedirs {
+        "test/ext/googletest/googletest/",
+        "test/ext/googletest/googletest/include/",
+    }
+
+project "gtest_main"
+    language "C++"
+    kind "StaticLib"
+    files {
+        "test/ext/googletest/googletest/src/gtest_main.cc",
+    }
+    includedirs {
+        "test/ext/googletest/googletest/include/",
+    }
+    links {
+        "gtest",
+    }
+
 -- project "fmt"
 --    language "C++"
 --    kind "SharedLib"
@@ -126,9 +154,12 @@ project "Test"
     }
     includedirs {
         "src/",
+        "test/ext/googletest/googletest/include/",
     }
     links {
         "fmtxx",
+        "gtest",
+        "gtest_main",
     }
 
 function AddExampleProject(name)

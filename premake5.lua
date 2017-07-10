@@ -60,13 +60,15 @@ solution "Format"
     configuration { "vs*" }
         buildoptions {
             -- "/std:c++latest",
---            "/arch:AVX2",
---            "/GR-",
+            "/EHsc",
+            -- "/arch:AVX2",
+            -- "/GR-",
         }
---        defines {
---            "_CRT_SECURE_NO_WARNINGS=1",
---            "_SCL_SECURE_NO_WARNINGS=1",
---        }
+        defines {
+            -- "_CRT_SECURE_NO_WARNINGS=1",
+            -- "_SCL_SECURE_NO_WARNINGS=1",
+            "_HAS_EXCEPTIONS=0",
+        }
 
     configuration { "windows" }
         characterset "Unicode"

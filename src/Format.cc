@@ -1636,7 +1636,6 @@ static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::it
 {
     assert(f != end && *f == '!');
 
-#if 0
     ++f;
     if NOT_EXPECTED(f == end)
         return errc::invalid_format_string;
@@ -1644,18 +1643,6 @@ static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::it
     char delim;
     switch (*f)
     {
-    case '(':
-        ++f;
-        delim = ')';
-        break;
-    case '[':
-        ++f;
-        delim = ']';
-        break;
-    case '{':
-        ++f;
-        delim = '}';
-        break;
     case '\'':
         ++f;
         delim = '\'';
@@ -1663,6 +1650,18 @@ static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::it
     case '"':
         ++f;
         delim = '"';
+        break;
+    case '{':
+        ++f;
+        delim = '}';
+        break;
+    case '(':
+        ++f;
+        delim = ')';
+        break;
+    case '[':
+        ++f;
+        delim = ']';
         break;
     default:
         delim = '\0';
@@ -1686,19 +1685,6 @@ static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::it
     }
 
     return errc::success;
-#else
-    ++f;
-    auto const f0 = f;
-
-    if NOT_EXPECTED(f0 == end)
-        return errc::invalid_format_string;
-
-    f = std::find(f, end, '}');
-
-    spec.style = {&*f0, static_cast<size_t>(f - f0)};
-
-    return errc::success;
-#endif
 }
 
 static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)

@@ -961,11 +961,9 @@ TEST(Custom, 1)
     // Must be a separate function like vformat(format, map)...
     //
     EXPECT_EQ("1, 2" , FormatArgs("{0!eins}, {0!zwei}", map));
-#if 0
     EXPECT_EQ("1, 2" , FormatArgs("{0!{eins}}, {0!{zwei}}", map));
     EXPECT_EQ("1, 2" , FormatArgs("{0!'eins'}, {0!'zwei'}", map));
     EXPECT_EQ("1, 2, 3" , FormatArgs("{0!'eins'}, {0!'zwei'}, {0!'dr}ei'}", map));
-#endif
 #endif
 }
 

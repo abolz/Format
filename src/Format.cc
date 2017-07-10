@@ -573,7 +573,7 @@ errc fmtxx::Util::format_char(Writer& w, FormatSpec const& spec, char ch)
     case 'b':
     case 'B':
     case 'o':
-        return Util::format_int(w, spec, ch);
+        return Util::format_int(w, spec, static_cast<unsigned char>(ch));
     }
 }
 

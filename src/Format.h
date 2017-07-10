@@ -248,7 +248,9 @@ struct Util
     static FMTXX_API errc format_double (Writer& w, FormatSpec const& spec, double x);
 
     template <typename T>
-    static inline errc format_int(Writer& w, FormatSpec const& spec, T value) {
+    static inline errc format_int(Writer& w, FormatSpec const& spec, T value)
+    {
+        static_assert(std::is_integral<T>::value, "T must be an integral type");
         return format_int(w, spec, value, std::is_signed<T>{});
     }
 

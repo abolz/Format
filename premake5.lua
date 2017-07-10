@@ -35,27 +35,27 @@ solution "Format"
             "-march=native",
             "-std=c++11",
             "-Wformat",
---            "-Wsign-compare",
---            "-Wsign-conversion",
---            "-pedantic",
---            "-fvisibility=hidden",
---            "-fno-omit-frame-pointer",
---            "-ftime-report",
+            -- "-Wsign-compare",
+            -- "-Wsign-conversion",
+            -- "-pedantic",
+            -- "-fvisibility=hidden",
+            -- "-fno-omit-frame-pointer",
+            -- "-ftime-report",
         }
 
---    configuration { "gmake", "debug", "linux" }
---        buildoptions {
---            "-fno-omit-frame-pointer",
---            "-fsanitize=undefined",
---            "-fsanitize=address",
-----            "-fsanitize=memory",
-----            "-fsanitize-memory-track-origins",
---        }
---        linkoptions {
---            "-fsanitize=undefined",
---            "-fsanitize=address",
-----            "-fsanitize=memory",
---        }
+    configuration { "gmake", "debug", "linux" }
+        buildoptions {
+            -- "-fno-omit-frame-pointer",
+            -- "-fsanitize=undefined",
+            -- "-fsanitize=address",
+            -- "-fsanitize=memory",
+            -- "-fsanitize-memory-track-origins",
+        }
+        linkoptions {
+            -- "-fsanitize=undefined",
+            -- "-fsanitize=address",
+            -- "-fsanitize=memory",
+        }
 
     configuration { "vs*" }
         buildoptions {
@@ -127,20 +127,20 @@ project "gtest_main"
         "gtest",
     }
 
--- project "fmt"
---    language "C++"
---    kind "SharedLib"
---    files {
---        "ext/fmt/**.h",
---        "ext/fmt/**.cc",
---    }
---    defines {
---        "FMT_SHARED=1",
---        "FMT_EXPORT=1",
---    }
---    includedirs {
---        "ext/",
---    }
+project "fmt"
+   language "C++"
+   kind "SharedLib"
+   files {
+       "ext/fmt/**.h",
+       "ext/fmt/**.cc",
+   }
+   defines {
+       "FMT_SHARED=1",
+       "FMT_EXPORT=1",
+   }
+   includedirs {
+       "ext/",
+   }
 
 --------------------------------------------------------------------------------
 group "Tests"

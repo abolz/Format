@@ -23,7 +23,7 @@ int main() {}
 
 #if HAS_FMTLIB
 #define FMT_HEADER_ONLY 1
-#include "fmt/format.h"
+#include "../ext/fmt/format.h"
 #endif
 
 #include "benchmark/benchmark.h"
@@ -83,16 +83,16 @@ BENCHMARK(warm_up);
     BENCHMARK(test_##NAME); \
     /**/
 
-TEST_INT(int32,             int32_t,    "{}");
-TEST_INT(int32_pad08,       int32_t,    "{:08}");
-TEST_INT(int32_pad32,       int32_t,    "{:32}");
-TEST_INT(int32_pad64,       int32_t,    "{:64}");
-TEST_INT(int32_pad32_l,     int32_t,    "{:<32}");
-TEST_INT(int32_pad64_l,     int32_t,    "{:<64}");
-TEST_INT(int32_x,           int32_t,    "{:x}");
-TEST_INT(int32_x_pad08,     int32_t,    "{:08x}");
-TEST_INT(int32_x_pad32,     int32_t,    "{:32x}");
-TEST_INT(int32_x_pad64,     int32_t,    "{:64x}");
+//TEST_INT(int32,             int32_t,    "{}");
+//TEST_INT(int32_pad08,       int32_t,    "{:08}");
+//TEST_INT(int32_pad32,       int32_t,    "{:32}");
+//TEST_INT(int32_pad64,       int32_t,    "{:64}");
+//TEST_INT(int32_pad32_l,     int32_t,    "{:<32}");
+//TEST_INT(int32_pad64_l,     int32_t,    "{:<64}");
+//TEST_INT(int32_x,           int32_t,    "{:x}");
+//TEST_INT(int32_x_pad08,     int32_t,    "{:08x}");
+//TEST_INT(int32_x_pad32,     int32_t,    "{:32x}");
+//TEST_INT(int32_x_pad64,     int32_t,    "{:64x}");
 
 TEST_INT(int64,             int64_t,    "{}");
 TEST_INT(int64_pad08,       int64_t,    "{:08}");
@@ -105,11 +105,11 @@ TEST_INT(int64_x_pad08,     int64_t,    "{:08x}");
 TEST_INT(int64_x_pad32,     int64_t,    "{:32x}");
 TEST_INT(int64_x_pad64,     int64_t,    "{:64x}");
 
-TEST_INT(uint32,            uint32_t,   "{}");
-TEST_INT(uint32_x,          uint32_t,   "{:x}");
-
-TEST_INT(uint64,            uint64_t,   "{}");
-TEST_INT(uint64_x,          uint64_t,   "{:x}");
+//TEST_INT(uint32,            uint32_t,   "{}");
+//TEST_INT(uint32_x,          uint32_t,   "{:x}");
+//
+//TEST_INT(uint64,            uint64_t,   "{}");
+//TEST_INT(uint64_x,          uint64_t,   "{:x}");
 
 #endif
 
@@ -212,7 +212,7 @@ TEST_MULTI_INT_x16(int64_multi_x16, int64_t, "hello {}");
 
 #endif
 
-#if 0 // ------------------------------------------------------------ TEST_FLOAT
+#if 1 // ------------------------------------------------------------ TEST_FLOAT
 
 static void test_genfloats(benchmark::State& state)
 {
@@ -263,7 +263,7 @@ TEST_FLOAT(double_a_17, double,     "{:.17a}");
     "et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata " \
     "sanctus est Lorem ipsum dolor sit amet."
 
-#if 1 // ----------------------------------------------------------- TEST_STRING
+#if 0 // ----------------------------------------------------------- TEST_STRING
 
 #define TEST_STRING(NAME, FORMAT, ...) \
     static void test_##NAME (benchmark::State& state) \

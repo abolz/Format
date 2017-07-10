@@ -149,21 +149,14 @@ class FMTXX_VISIBILITY_DEFAULT Writer
 public:
     FMTXX_API virtual ~Writer() noexcept;
 
-    errc put(char c) {
-        return Put(c);
-    }
+    // Write a character to the output stream.
+    errc put(char c) { return Put(c); }
 
-    errc put_nonzero(char c) {
-        return c == '\0' ? errc::success : Put(c);
-    }
+    // Insert a range of characters into the output stream.
+    errc write(char const* str, size_t len) { return len == 0 ? errc::success : Write(str, len); }
 
-    errc write(char const* str, size_t len) {
-        return len == 0 ? errc::success : Write(str, len);
-    }
-
-    errc pad(char c, size_t count) {
-        return count == 0 ? errc::success : Pad(c, count);
-    }
+    // Insert a character multiple times into the output stream.
+    errc pad(char c, size_t count) { return count == 0 ? errc::success : Pad(c, count); }
 
 private:
     virtual errc Put(char c) = 0;
@@ -210,7 +203,7 @@ public:
     explicit ArrayWriter(char (&buf)[N]) : ArrayWriter(buf, N) {}
 
     // Returns a pointer to the string.
-    // The string is null-terminated if Finish() has been called.
+    // The string is null-terminated if finish() has been called.
     char* data() const { return buf_; }
 
     // Returns the buffer capacity.
@@ -224,7 +217,7 @@ public:
 
     // Null-terminate the buffer.
     // Returns the length of the string not including the null-character.
-    FMTXX_API size_t Finish() noexcept;
+    FMTXX_API size_t finish() noexcept;
 
 private:
     FMTXX_API errc Put(char c) noexcept override;

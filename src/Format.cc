@@ -141,7 +141,7 @@ errc fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
     return errc::success;
 }
 
-size_t fmtxx::ArrayWriter::Finish() noexcept
+size_t fmtxx::ArrayWriter::finish() noexcept
 {
     if (size_ < bufsize_)
         buf_[size_] = '\0';
@@ -380,7 +380,7 @@ static errc PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign, char
 
     if (Failed ec = w.pad(spec.fill, pad.left))
         return ec;
-    if (Failed ec = w.put_nonzero(sign))
+    if (Failed ec = (sign == '\0') ? errc::success : w.put(sign))
         return ec;
     if (Failed ec = w.write(prefix, nprefix))
         return ec;
@@ -2109,7 +2109,7 @@ int fmtxx::impl::ArrayFormat(char* buf, size_t bufsize, StringView format, Arg c
     if (w.size() > INT_MAX)
         return -1;
 
-    w.Finish();
+    w.finish();
     return static_cast<int>(w.size());
 }
 
@@ -2122,6 +2122,6 @@ int fmtxx::impl::ArrayPrintf(char* buf, size_t bufsize, StringView format, Arg c
     if (w.size() > INT_MAX)
         return -1;
 
-    w.Finish();
+    w.finish();
     return static_cast<int>(w.size());
 }

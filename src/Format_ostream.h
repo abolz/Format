@@ -45,7 +45,8 @@ namespace impl
         explicit StreamBuf(Writer& w) : w_(w) {}
 
     protected:
-        int_type overflow(int_type ch = traits_type::eof()) override {
+        int_type overflow(int_type ch = traits_type::eof()) override
+        {
             if (traits_type::eq_int_type(ch, traits_type::eof()))
                 return 0;
             if (Failed(w_.put(static_cast<char>(ch))))
@@ -53,7 +54,8 @@ namespace impl
             return ch;
         }
 
-        std::streamsize xsputn(char const* str, std::streamsize len) override {
+        std::streamsize xsputn(char const* str, std::streamsize len) override
+        {
             assert(len >= 0);
             if (len == 0)
                 return 0;
@@ -72,7 +74,7 @@ namespace impl
             std::ostream os{&buf};
             os << val;
             if (os.bad())
-                return errc::io_errror;
+                return errc::io_error;
             if (os.fail())
                 return errc::conversion_error;
             return errc::success;

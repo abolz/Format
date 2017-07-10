@@ -600,7 +600,7 @@ template <> struct IsSafeRValueType<Arg::T_OTHER     > : std::false_type {};
 
 struct Types
 {
-    using value_type =  uint64_t;
+    using value_type = uint64_t;
 
     static constexpr int kBitsPerArg = 4;
     static constexpr int kMaxArgs    = CHAR_BIT * sizeof(value_type) / kBitsPerArg;
@@ -666,12 +666,12 @@ public:
     static constexpr int kMaxArgs = impl::Types::kMaxArgs;
 
 //private:
-    impl::Arg   _args[kMaxArgs];
-    impl::Types _types = {};
-    int         _size = 0;
+    impl::Arg   args_[kMaxArgs];
+    impl::Types types_ = {};
+    int         size_ = 0;
 
 public:
-    int size() const { return _size; }
+    int size() const { return size_; }
     int max_size() const { return kMaxArgs; }
 
     // Add arguments to this list.
@@ -682,23 +682,23 @@ public:
         static_assert(sizeof...(Ts) > 0, "Too few arguments");
         static_assert(sizeof...(Ts) <= kMaxArgs, "Too many arguments");
 
-        assert(_size + sizeof...(Ts) <= kMaxArgs);
+        assert(size_ + sizeof...(Ts) <= kMaxArgs);
 
-        int const unused[] = { (_push_back(static_cast<Ts&&>(vals)), 0)... };
+        int const unused[] = { (push_back_(static_cast<Ts&&>(vals)), 0)... };
         static_cast<void>(unused);
     }
 
 private:
     template <typename T>
-    void _push_back(T&& val)
+    void push_back_(T&& val)
     {
         static_assert(
             std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<impl::GetType<T>::value>::value,
             "Adding rvalues of non-built-in types to FormatArgs is not allowed. ");
 
-        _args[_size] = static_cast<T&&>(val);
-        _types.set_type(_size, impl::GetType<T>::value);
-        ++_size;
+        args_[size_] = static_cast<T&&>(val);
+        types_.set_type(size_, impl::GetType<T>::value);
+        ++size_;
     }
 };
 
@@ -733,13 +733,13 @@ inline errc printf(std::FILE* file, StringView format, Args const&... args)
 template <typename WriterT>
 inline errc format(WriterT& w, StringView format, FormatArgs const& args)
 {
-    return ::fmtxx::impl::Format(w, format, args._args, args._types);
+    return ::fmtxx::impl::Format(w, format, args.args_, args.types_);
 }
 
 template <typename WriterT>
 inline errc printf(WriterT& w, StringView format, FormatArgs const& args)
 {
-    return ::fmtxx::impl::Printf(w, format, args._args, args._types);
+    return ::fmtxx::impl::Printf(w, format, args.args_, args.types_);
 }
 
 template <typename ...Args>
@@ -758,12 +758,12 @@ inline int fprintf(std::FILE* file, StringView format, Args const&... args)
 
 inline int fformat(std::FILE* file, StringView format, FormatArgs const& args)
 {
-    return ::fmtxx::impl::FileFormat(file, format, args._args, args._types);
+    return ::fmtxx::impl::FileFormat(file, format, args.args_, args.types_);
 }
 
 inline int fprintf(std::FILE* file, StringView format, FormatArgs const& args)
 {
-    return ::fmtxx::impl::FilePrintf(file, format, args._args, args._types);
+    return ::fmtxx::impl::FilePrintf(file, format, args.args_, args.types_);
 }
 
 template <typename ...Args>
@@ -782,12 +782,12 @@ inline int snprintf(char* buf, size_t bufsize, StringView format, Args const&...
 
 inline int snformat(char* buf, size_t bufsize, StringView format, FormatArgs const& args)
 {
-    return ::fmtxx::impl::ArrayFormat(buf, bufsize, format, args._args, args._types);
+    return ::fmtxx::impl::ArrayFormat(buf, bufsize, format, args.args_, args.types_);
 }
 
 inline int snprintf(char* buf, size_t bufsize, StringView format, FormatArgs const& args)
 {
-    return ::fmtxx::impl::ArrayPrintf(buf, bufsize, format, args._args, args._types);
+    return ::fmtxx::impl::ArrayPrintf(buf, bufsize, format, args.args_, args.types_);
 }
 
 template <size_t N, typename ...Args>
@@ -805,13 +805,13 @@ inline int snprintf(char (&buf)[N], StringView format, Args const&... args)
 template <size_t N>
 inline int snformat(char (&buf)[N], StringView format, FormatArgs const& args)
 {
-    return ::fmtxx::snformat(&buf[0], N, format, args._args, args._types);
+    return ::fmtxx::snformat(&buf[0], N, format, args.args_, args.types_);
 }
 
 template <size_t N>
 inline int snprintf(char (&buf)[N], StringView format, FormatArgs const& args)
 {
-    return ::fmtxx::snprintf(&buf[0], N, format, args._args, args._types);
+    return ::fmtxx::snprintf(&buf[0], N, format, args.args_, args.types_);
 }
 
 } // namespace fmtxx

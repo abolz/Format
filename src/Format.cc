@@ -36,9 +36,17 @@ using namespace fmtxx::impl;
 //
 //------------------------------------------------------------------------------
 
+//#define FAIL(MSG) (0)
+#define FAIL(MSG) (assert(!(MSG)))
+//#define FAIL(MSG) (throw std::runtime_error(MSG))
+
+#define EXPECTED(EXPR)     ((EXPR) ? true : (FAIL(#EXPR), false))
+#define NOT_EXPECTED(EXPR) ((EXPR) ? (FAIL(#EXPR), true) : false)
+
 // Maximum supported minimum field width.
-// This is not an implementation limit, but its just a sane upper bound.
-static constexpr int kMaxFieldWidth = 1024 * 8;
+// This is not an implementation limit, but just an upper bound to prevent
+// allocating huge amounts of memory...
+static constexpr int kMaxFieldWidth = 10000;
 
 // Maximum supported integer precision (= minimum number of digits).
 static constexpr int kMaxIntPrec = 256;
@@ -196,8 +204,8 @@ static Padding ComputePadding(size_t len, Align align, int width)
 {
     assert(width >= 0); // internal error
 
-    if (width > kMaxFieldWidth)
-        width = kMaxFieldWidth;
+    if NOT_EXPECTED(width > kMaxFieldWidth)
+        width = kMaxFieldWidth; // [recover]
 
     Padding pad;
 
@@ -1316,11 +1324,6 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
-
-//#define FAIL(MSG) (throw std::runtime_error(MSG))
-#define FAIL(MSG) (assert(!(MSG)))
-
-#define NOT_EXPECTED(EXPR) ((EXPR) ? (FAIL(#EXPR), true) : false)
 
 static void FixNegativeFieldWidth(FormatSpec& spec)
 {

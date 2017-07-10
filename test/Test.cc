@@ -390,8 +390,8 @@ TEST(Ints, 1)
     EXPECT_EQ("0745650000" , FormatArgs("{:0< 10}",    V));
     EXPECT_EQ("-745650000" , FormatArgs("{:0< 10}",   -V));
 
-    EXPECT_EQ("2147483647"            , FormatArgs("{}", INT_MAX));
-    EXPECT_EQ("-2147483648"           , FormatArgs("{}", INT_MIN));
+    EXPECT_EQ("2147483647"            , FormatArgs("{}", INT32_MAX));
+    EXPECT_EQ("-2147483648"           , FormatArgs("{}", INT32_MIN));
     EXPECT_EQ("9223372036854775807"   , FormatArgs("{}", INT64_MAX));
     EXPECT_EQ("-9223372036854775808"  , FormatArgs("{}", INT64_MIN));
 
@@ -850,11 +850,11 @@ TEST(Floats, 1)
 
 TEST(Pointers, 1)
 {
-#if UINTPTR_MAX , UINT64_MAX
+#if UINTPTR_MAX == UINT64_MAX
     EXPECT_EQ("0x0000000001020304"   , FormatArgs("{}", (void*)0x01020304));
     EXPECT_EQ("18446744073709551615" , FormatArgs("{:d}", (void*)-1));
     EXPECT_EQ("18446744073709551615" , FormatArgs("{:u}", (void*)-1));
-#elif UINTPTR_MAX , UINT32_MAX
+#elif UINTPTR_MAX == UINT32_MAX
     EXPECT_EQ("0x01020304" , FormatArgs("{}", (void*)0x01020304));
     EXPECT_EQ("4294967295" , FormatArgs("{:d}", (void*)-1));
     EXPECT_EQ("4294967295" , FormatArgs("{:u}", (void*)-1));
@@ -955,7 +955,7 @@ TEST(Custom, 1)
     EXPECT_EQ("struct Foo2 '---123'" , FormatArgs("struct Foo2 '{}'", foo2_ns::Foo2{123}));
 
 #if 1
-    std::map<std::string, int> map = {{"eins", 1}, {"zwei", 2}};
+    std::map<std::string, int> map = {{"eins", 1}, {"zwei", 2}, {"dr}ei", 3}};
     //
     // XXX:
     // Must be a separate function like vformat(format, map)...
@@ -964,6 +964,7 @@ TEST(Custom, 1)
 #if 0
     EXPECT_EQ("1, 2" , FormatArgs("{0!{eins}}, {0!{zwei}}", map));
     EXPECT_EQ("1, 2" , FormatArgs("{0!'eins'}, {0!'zwei'}", map));
+    EXPECT_EQ("1, 2, 3" , FormatArgs("{0!'eins'}, {0!'zwei'}, {0!'dr}ei'}", map));
 #endif
 #endif
 }
@@ -1074,17 +1075,17 @@ TEST(ArrayWriter, 1)
 {
     EXPECT_EQ(3 , fmtxx::snprintf(nullptr, 0, "%s", 123));
 
-    char buf0[1];
+    char buf0[1] = {'x'};
     EXPECT_EQ(3 , fmtxx::snprintf(buf0, "%s", 123));
     EXPECT_EQ('\0', buf0[0]);
 
-    char buf1[3];
+    char buf1[3] = {'x','x','x'};
     EXPECT_EQ(3 , fmtxx::snprintf(buf1, "%s", 123));
     EXPECT_EQ('1', buf1[0]);
     EXPECT_EQ('2', buf1[1]);
     EXPECT_EQ('\0', buf1[2]);
 
-    char buf2[4];
+    char buf2[4] = {'x','x','x','x'};
     EXPECT_EQ(3 , fmtxx::snprintf(buf2, "%s", 123));
     EXPECT_EQ('1', buf2[0]);
     EXPECT_EQ('2', buf2[1]);

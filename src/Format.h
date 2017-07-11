@@ -554,13 +554,13 @@ enum struct Type {
     pvoid,
     bool_,
     char_,
-    schar,        // XXX: promote to int?
-    sshort,       // XXX: promote to int?
+    schar,      // XXX: promote to int?
+    sshort,     // XXX: promote to int?
     sint,
     slonglong,
     ulonglong,
-    double_,       // Includes 'float'
-    last,         // Unused -- must be last.
+    double_,    // Includes 'float'
+    last,       // Unused -- must be last.
 };
 
 struct Arg

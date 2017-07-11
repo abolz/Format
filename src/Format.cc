@@ -1321,39 +1321,39 @@ static void FixNegativeFieldWidth(FormatSpec& spec)
     }
 }
 
-static ErrorCode CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& arg, Arg::Type type)
+static ErrorCode CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& arg, Type type)
 {
     switch (type)
     {
-    case Arg::T_NONE:
-    case Arg::T_FORMATSPEC:
+    case Type::none:
+    case Type::formatspec:
         assert(!"internal error");
         break;
-    case Arg::T_OTHER:
+    case Type::other:
         return arg.other.func(w, spec, arg.other.value);
-    case Arg::T_STRING:
+    case Type::string:
         return Util::format_string(w, spec, arg.string.data, arg.string.size);
-    case Arg::T_PVOID:
+    case Type::pvoid:
         return Util::format_pointer(w, spec, arg.pvoid);
-    case Arg::T_PCHAR:
+    case Type::pchar:
         return Util::format_string(w, spec, arg.pchar);
-    case Arg::T_CHAR:
+    case Type::char_:
         return Util::format_char(w, spec, arg.char_);
-    case Arg::T_BOOL:
+    case Type::bool_:
         return Util::format_bool(w, spec, arg.bool_);
-    case Arg::T_SCHAR:
+    case Type::schar:
         return Util::format_int(w, spec, arg.schar);
-    case Arg::T_SSHORT:
+    case Type::sshort:
         return Util::format_int(w, spec, arg.sshort);
-    case Arg::T_SINT:
+    case Type::sint:
         return Util::format_int(w, spec, arg.sint);
-    case Arg::T_SLONGLONG:
+    case Type::slonglong:
         return Util::format_int(w, spec, arg.slonglong);
-    case Arg::T_ULONGLONG:
+    case Type::ulonglong:
         return Util::format_int(w, spec, arg.ulonglong);
-    case Arg::T_DOUBLE:
+    case Type::double_:
         return Util::format_double(w, spec, arg.double_);
-    case Arg::T_LAST:
+    case Type::last:
         assert(!"internal error");
         break;
     }
@@ -1392,22 +1392,22 @@ static ErrorCode GetIntArg(int& value, int index, Arg const* args, Types types)
 {
     switch (types[index])
     {
-    case Arg::T_NONE:
+    case Type::none:
         return ErrorCode::index_out_of_range;
 
-    case Arg::T_SCHAR:
+    case Type::schar:
         value = args[index].schar;
         return ErrorCode::success;
 
-    case Arg::T_SSHORT:
+    case Type::sshort:
         value = args[index].sshort;
         return ErrorCode::success;
 
-    case Arg::T_SINT:
+    case Type::sint:
         value = args[index].sint;
         return ErrorCode::success;
 
-    case Arg::T_SLONGLONG:
+    case Type::slonglong:
         if (args[index].slonglong > INT_MAX)
             return ErrorCode::value_out_of_range;
         if (args[index].slonglong < INT_MIN)
@@ -1415,7 +1415,7 @@ static ErrorCode GetIntArg(int& value, int index, Arg const* args, Types types)
         value = static_cast<int>(args[index].slonglong);
         return ErrorCode::success;
 
-    case Arg::T_ULONGLONG:
+    case Type::ulonglong:
         if (args[index].ulonglong > INT_MAX)
             return ErrorCode::value_out_of_range;
         value = static_cast<int>(args[index].ulonglong);
@@ -1472,9 +1472,9 @@ static ErrorCode ParseFormatSpecArg(FormatSpec& spec, StringView::iterator& f, S
         index = nextarg++;
     }
 
-    if (types[index] == Arg::T_NONE)
+    if (types[index] == Type::none)
         return ErrorCode::index_out_of_range;
-    if (types[index] != Arg::T_FORMATSPEC)
+    if (types[index] != Type::formatspec)
         return ErrorCode::invalid_argument;
 
     spec = *static_cast<FormatSpec const*>(args[index].pvoid);
@@ -1775,9 +1775,9 @@ ErrorCode fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, T
 
         auto const arg_type = types[arg_index];
 
-        if (arg_type == Arg::T_NONE)
+        if (arg_type == Type::none)
             return ErrorCode::index_out_of_range;
-        if (arg_type == Arg::T_FORMATSPEC)
+        if (arg_type == Type::formatspec)
             return ErrorCode::invalid_argument;
 
         if (Failed ec = CallFormatFunc(w, spec, args[arg_index], arg_type))
@@ -2028,9 +2028,9 @@ ErrorCode fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, T
 
         auto const arg_type = types[arg_index];
 
-        if (arg_type == Arg::T_NONE)
+        if (arg_type == Type::none)
             return ErrorCode::index_out_of_range;
-        if (arg_type == Arg::T_FORMATSPEC)
+        if (arg_type == Type::formatspec)
             return ErrorCode::invalid_argument;
 
         if (Failed ec = CallFormatFunc(w, spec, args[arg_index], arg_type))

@@ -545,26 +545,26 @@ ErrorCode format_value(WriterT&& w, FormatSpec const& spec, T const& value) {
 
 namespace impl {
 
+enum struct Type {
+    none,
+    formatspec,
+    string,
+    other,
+    pchar,
+    pvoid,
+    bool_,
+    char_,
+    schar,        // XXX: promote to int?
+    sshort,       // XXX: promote to int?
+    sint,
+    slonglong,
+    ulonglong,
+    double_,       // Includes 'float'
+    last,         // Unused -- must be last.
+};
+
 struct Arg
 {
-    enum Type {
-        T_NONE,
-        T_FORMATSPEC,
-        T_STRING,
-        T_OTHER,
-        T_PCHAR,
-        T_PVOID,
-        T_BOOL,
-        T_CHAR,
-        T_SCHAR,        // XXX: promote to int?
-        T_SSHORT,       // XXX: promote to int?
-        T_SINT,
-        T_SLONGLONG,
-        T_ULONGLONG,
-        T_DOUBLE,       // Includes 'float'
-        T_LAST,         // Unused -- must be last.
-    };
-
     using Func = ErrorCode (*)(Writer& w, FormatSpec const& spec, void const* value);
 
     template <typename T>
@@ -645,46 +645,46 @@ using ArgArray = typename std::conditional< N != 0, Arg[], Arg* >::type;
 
 // XXX:
 // Keep in sync with Arg::Arg() above!!!
-template <typename T> struct SelectType                     { static const Arg::Type value = TreatAsString<T>::value ? Arg::T_STRING : Arg::T_OTHER; };
-template <>           struct SelectType<FormatSpec        > { static const Arg::Type value = Arg::T_FORMATSPEC; };
-template <>           struct SelectType<char const*       > { static const Arg::Type value = Arg::T_PCHAR; };
-template <>           struct SelectType<char*             > { static const Arg::Type value = Arg::T_PCHAR; };
-template <>           struct SelectType<std::nullptr_t    > { static const Arg::Type value = Arg::T_PVOID; };
-template <>           struct SelectType<void const*       > { static const Arg::Type value = Arg::T_PVOID; };
-template <>           struct SelectType<void*             > { static const Arg::Type value = Arg::T_PVOID; };
-template <>           struct SelectType<bool              > { static const Arg::Type value = Arg::T_BOOL; };
-template <>           struct SelectType<char              > { static const Arg::Type value = Arg::T_CHAR; };
-template <>           struct SelectType<signed char       > { static const Arg::Type value = Arg::T_SCHAR; };
-template <>           struct SelectType<signed short      > { static const Arg::Type value = Arg::T_SSHORT; };
-template <>           struct SelectType<signed int        > { static const Arg::Type value = Arg::T_SINT; };
+template <typename T> struct SelectType                     { static const Type value = TreatAsString<T>::value ? Type::string : Type::other; };
+template <>           struct SelectType<FormatSpec        > { static const Type value = Type::formatspec; };
+template <>           struct SelectType<char const*       > { static const Type value = Type::pchar; };
+template <>           struct SelectType<char*             > { static const Type value = Type::pchar; };
+template <>           struct SelectType<std::nullptr_t    > { static const Type value = Type::pvoid; };
+template <>           struct SelectType<void const*       > { static const Type value = Type::pvoid; };
+template <>           struct SelectType<void*             > { static const Type value = Type::pvoid; };
+template <>           struct SelectType<bool              > { static const Type value = Type::bool_; };
+template <>           struct SelectType<char              > { static const Type value = Type::char_; };
+template <>           struct SelectType<signed char       > { static const Type value = Type::schar; };
+template <>           struct SelectType<signed short      > { static const Type value = Type::sshort; };
+template <>           struct SelectType<signed int        > { static const Type value = Type::sint; };
 #if LONG_MAX == INT_MAX
-template <>           struct SelectType<signed long       > { static const Arg::Type value = Arg::T_SINT; };
+template <>           struct SelectType<signed long       > { static const Type value = Type::sint; };
 #else
-template <>           struct SelectType<signed long       > { static const Arg::Type value = Arg::T_SLONGLONG; };
+template <>           struct SelectType<signed long       > { static const Type value = Type::slonglong; };
 #endif
-template <>           struct SelectType<signed long long  > { static const Arg::Type value = Arg::T_SLONGLONG; };
-template <>           struct SelectType<unsigned char     > { static const Arg::Type value = Arg::T_ULONGLONG; };
-template <>           struct SelectType<unsigned short    > { static const Arg::Type value = Arg::T_ULONGLONG; };
-template <>           struct SelectType<unsigned int      > { static const Arg::Type value = Arg::T_ULONGLONG; };
-template <>           struct SelectType<unsigned long     > { static const Arg::Type value = Arg::T_ULONGLONG; };
-template <>           struct SelectType<unsigned long long> { static const Arg::Type value = Arg::T_ULONGLONG; };
-template <>           struct SelectType<double            > { static const Arg::Type value = Arg::T_DOUBLE; };
-template <>           struct SelectType<float             > { static const Arg::Type value = Arg::T_DOUBLE; };
+template <>           struct SelectType<signed long long  > { static const Type value = Type::slonglong; };
+template <>           struct SelectType<unsigned char     > { static const Type value = Type::ulonglong; };
+template <>           struct SelectType<unsigned short    > { static const Type value = Type::ulonglong; };
+template <>           struct SelectType<unsigned int      > { static const Type value = Type::ulonglong; };
+template <>           struct SelectType<unsigned long     > { static const Type value = Type::ulonglong; };
+template <>           struct SelectType<unsigned long long> { static const Type value = Type::ulonglong; };
+template <>           struct SelectType<double            > { static const Type value = Type::double_; };
+template <>           struct SelectType<float             > { static const Type value = Type::double_; };
 
 template <typename T>
 struct TypeFor : SelectType<typename std::decay<T>::type>
 {
 };
 
-template <Arg::Type>
+template <Type>
 struct IsSafeRValueType : std::true_type {};
 //
 // Do not allow to push rvalue references of these types into a FormattingArgs list.
 // The Arg class stores pointers to these arguments.
 //
-template <> struct IsSafeRValueType<Arg::T_FORMATSPEC> : std::false_type {};
-template <> struct IsSafeRValueType<Arg::T_STRING    > : std::false_type {};
-template <> struct IsSafeRValueType<Arg::T_OTHER     > : std::false_type {};
+template <> struct IsSafeRValueType<Type::formatspec> : std::false_type {};
+template <> struct IsSafeRValueType<Type::string    > : std::false_type {};
+template <> struct IsSafeRValueType<Type::other     > : std::false_type {};
 
 struct Types
 {
@@ -695,7 +695,7 @@ struct Types
     static constexpr int kMaxTypes   = 1 << kBitsPerArg;
     static constexpr int kTypeMask   = kMaxTypes - 1;
 
-    static_assert(static_cast<int>(Arg::T_LAST) <= kMaxTypes, "Invalid value for kBitsPerArg");
+    static_assert(static_cast<int>(Type::last) <= kMaxTypes, "Invalid value for kBitsPerArg");
 
     value_type /*const*/ types = 0;
 
@@ -707,20 +707,20 @@ struct Types
     {
     }
 
-    Arg::Type operator[](int index) const {
-        return (index >= 0 && index < kMaxArgs) ? get_type(index) : Arg::T_NONE;
+    Type operator[](int index) const {
+        return (index >= 0 && index < kMaxArgs) ? get_type(index) : Type::none;
     }
 
-    Arg::Type get_type(int index) const
+    Type get_type(int index) const
     {
         assert(index >= 0);
         assert(index < kMaxArgs);
         auto const t = (types >> (kBitsPerArg * index)) & kTypeMask;
         assert(t < kMaxTypes);
-        return static_cast<Arg::Type>(t);
+        return static_cast<Type>(t);
     }
 
-    void set_type(int index, Arg::Type type)
+    void set_type(int index, Type type)
     {
         assert(index >= 0);
         assert(index < kMaxArgs);

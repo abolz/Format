@@ -1311,7 +1311,7 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
 //
 //------------------------------------------------------------------------------
 
-#define FAIL(MSG) (0)
+#define FAIL(MSG) (static_cast<void>(0))
 //#define FAIL(MSG) (assert(!(MSG)))
 //#define FAIL(MSG) (throw std::runtime_error(MSG))
 

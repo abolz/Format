@@ -2,7 +2,7 @@
 // integrate into the library (slightly modified, unused parts removed).
 //
 // Original license follows:
-//
+
 // Copyright 2010 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -30,7 +30,8 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#ifndef DOUBLE_CONVERSION_INLINE_H
+#define DOUBLE_CONVERSION_INLINE_H 1
 
 #include <assert.h>
 #include <limits.h>
@@ -3684,3 +3685,5 @@ inline void BignumDtoa(
 }
 
 } // namespace double_conversion
+
+#endif // DOUBLE_CONVERSION_INLINE_H

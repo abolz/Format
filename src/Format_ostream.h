@@ -21,6 +21,7 @@ namespace impl
         char* pub_pptr() const { return pptr(); }
     };
 
+    // Allocates, but at least spec.fill and spec.width are handled correctly...
     template <typename T>
     struct StreamValue<T, void>
     {
@@ -65,6 +66,7 @@ namespace impl
         }
     };
 
+    // Does not allocate, but ignores all FormatSpec fields...
     template <typename T>
     struct StreamValue<T, void>
     {
@@ -79,6 +81,16 @@ namespace impl
                 return ErrorCode::conversion_error;
             return ErrorCode::success;
         }
+
+        //ErrorCode operator()(StreamWriter& w, FormatSpec const& /*spec*/, T const& val) const
+        //{
+        //    w.os << val;
+        //    if (os.bad())
+        //        return ErrorCode::io_error;
+        //    if (os.fail())
+        //        return ErrorCode::conversion_error;
+        //    return ErrorCode::success;
+        //}
     };
 #endif
 }

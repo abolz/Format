@@ -2,7 +2,6 @@
 
 #include "Format.h"
 
-#include <cassert>
 #include <cstring>
 #include <memory> // std::allocator
 
@@ -12,16 +11,16 @@ namespace fmtxx {
 //
 //------------------------------------------------------------------------------
 
+template <size_t BufferSize>
 class MemoryWriterBase : public Writer
 {
 public:
-    enum { kBufSize = 512 };
-    static_assert(kBufSize >= 2, "initial buffer size must be >= 2"); // Required in Grow()
+    static_assert(BufferSize >= 2, "initial buffer size must be >= 2"); // Required in Grow()
 
 protected:
-    char   buf_[kBufSize];
+    char   buf_[BufferSize];
     char*  ptr_      = buf_;
-    size_t capacity_ = kBufSize;
+    size_t capacity_ = BufferSize;
     size_t size_     = 0;
 
 public:
@@ -52,7 +51,8 @@ private:
     virtual bool Resize(size_t new_capacity) = 0;
 };
 
-inline errc MemoryWriterBase::Put(char c)
+template <size_t BufferSize>
+errc MemoryWriterBase<BufferSize>::Put(char c)
 {
     assert(size_ <= capacity_);
     assert(size_ + 1 > size_ && "integer overflow");
@@ -66,7 +66,8 @@ inline errc MemoryWriterBase::Put(char c)
     return errc::success;
 }
 
-inline errc MemoryWriterBase::Write(char const* str, size_t len)
+template <size_t BufferSize>
+errc MemoryWriterBase<BufferSize>::Write(char const* str, size_t len)
 {
     // TODO:
     // Write as much as possible...
@@ -84,7 +85,8 @@ inline errc MemoryWriterBase::Write(char const* str, size_t len)
     return errc::success;
 }
 
-inline errc MemoryWriterBase::Pad(char c, size_t count)
+template <size_t BufferSize>
+errc MemoryWriterBase<BufferSize>::Pad(char c, size_t count)
 {
     // TODO:
     // Write as much as possible...
@@ -102,7 +104,8 @@ inline errc MemoryWriterBase::Pad(char c, size_t count)
     return errc::success;
 }
 
-inline bool MemoryWriterBase::Grow(size_t req)
+template <size_t BufferSize>
+bool MemoryWriterBase<BufferSize>::Grow(size_t req)
 {
     assert(size_ + req > capacity_ && "call to Grow() is not required");
 
@@ -122,8 +125,8 @@ inline bool MemoryWriterBase::Grow(size_t req)
 //
 //------------------------------------------------------------------------------
 
-template <typename Alloc = std::allocator<char>>
-class MemoryWriter : public MemoryWriterBase
+template <size_t BufferSize = 512, typename Alloc = std::allocator<char>>
+class MemoryWriter : public MemoryWriterBase<BufferSize>
 {
     static_assert(std::is_same<typename Alloc::value_type, char>::value,
         "invalid allocator");
@@ -141,24 +144,24 @@ private:
     bool Resize(size_t new_capacity) override;
 };
 
-template <typename Alloc>
-MemoryWriter<Alloc>::~MemoryWriter()
+template <size_t BufferSize, typename Alloc>
+MemoryWriter<BufferSize, Alloc>::~MemoryWriter()
 {
     Deallocate();
 }
 
-template <typename Alloc>
-void MemoryWriter<Alloc>::Deallocate()
+template <size_t BufferSize, typename Alloc>
+void MemoryWriter<BufferSize, Alloc>::Deallocate()
 {
-    if (ptr_ == buf_)
+    if (this->ptr_ == this->buf_)
         return;
 
-    assert(ptr_ != nullptr);
-    alloc_.deallocate(ptr_, capacity_);
+    assert(this->ptr_ != nullptr);
+    alloc_.deallocate(this->ptr_, this->capacity_);
 }
 
-template <typename Alloc>
-bool MemoryWriter<Alloc>::Resize(size_t new_capacity)
+template <size_t BufferSize, typename Alloc>
+bool MemoryWriter<BufferSize, Alloc>::Resize(size_t new_capacity)
 {
     if (new_capacity > alloc_.max_size())
         return false;
@@ -168,12 +171,12 @@ bool MemoryWriter<Alloc>::Resize(size_t new_capacity)
     if (new_ptr == nullptr)
         return false;
 
-    std::memcpy(new_ptr, ptr_, size_);
+    std::memcpy(new_ptr, this->ptr_, this->size_);
 
     Deallocate();
 
-    ptr_ = new_ptr;
-    capacity_ = new_capacity;
+    this->ptr_ = new_ptr;
+    this->capacity_ = new_capacity;
 
     return true;
 }

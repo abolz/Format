@@ -17,7 +17,7 @@ int main() {}
 
 #include "Format.h"
 #include "Format_memory.h"
-//#include "Format_ostream.h"
+#include "Format_ostream.h"
 
 #if HAS_FMTLIB
 #define FMT_HEADER_ONLY 1
@@ -31,14 +31,14 @@ int main() {}
 #include <iterator>
 #include <random>
 #include <sstream>
+#include <strstream>
 
 template <typename ...Args>
 static void Format(char const* format, Args const&... args)
 {
     //char buf[8 * 1024];
     //int const size = fmtxx::snformat(buf, format, args...);
-    //assert(size >= 0);
-    //std::fwrite(buf, 1, static_cast<int>(size), stderr);
+    //std::fwrite(buf, 1, static_cast<size_t>(size), stderr);
 
     fmtxx::MemoryWriter<> w;
     fmtxx::format(w, format, args...);
@@ -48,7 +48,7 @@ static void Format(char const* format, Args const&... args)
 
     //fmtxx::format(stderr, format, args...);
 
-    //auto const str = fmtxx::sformat(format, args...);
+    //auto const str = fmtxx::string_format(format, args...).str;
     //std::fwrite(str.data(), 1, str.size(), stderr);
 
     //fmt::print(stderr, format, args...);
@@ -67,7 +67,7 @@ BENCHMARK(warm_up);
 
 #endif
 
-#if 0 // -------------------------------------------------------------- TEST_INT
+#if 1 // -------------------------------------------------------------- TEST_INT
 
 #define TEST_INT(NAME, T, FORMAT) \
     static void test_##NAME(benchmark::State& state) \
@@ -331,11 +331,10 @@ TEST_CUSTOM_1(custom_str_3_3,    "{0} {0}",  MyString{STRING_3});
 
 int main(int argc, char* argv[])
 {
-    const size_t iobuf_size = 64 * 1024 * 1024;
-    char* iobuf = static_cast<char*>(malloc(iobuf_size));
-
-    std::ios_base::sync_with_stdio(false);
-    setvbuf(stderr, iobuf, _IOFBF, iobuf_size);
+    //const size_t iobuf_size = 64 * 1024 * 1024;
+    //char* iobuf = static_cast<char*>(malloc(iobuf_size));
+    //std::ios_base::sync_with_stdio(false);
+    //setvbuf(stderr, iobuf, _IOFBF, iobuf_size);
 
     benchmark::Initialize(&argc, argv);
     if (benchmark::ReportUnrecognizedArguments(argc, argv))

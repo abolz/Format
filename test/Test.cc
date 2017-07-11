@@ -163,53 +163,49 @@ static std::string PrintfArgs(fmtxx::StringView format, Args const&... args)
     return FormatArgsTemplate<PrintfFn>(format, args...);
 }
 
-//--------------------------------------------------------------------------------------------------
-// XXX:
-// ENABLE THIS AGAIN!!!
-//--------------------------------------------------------------------------------------------------
-#if 0
-TEST(Invalid, 1)
+TEST(FormatStringChecks, Format)
 {
-    CHECK_THROWS(FormatArgs("{", 0));
-    CHECK_THROWS(FormatArgs(std::string_view("{*}", 1), 0, 0));
-    CHECK_THROWS(FormatArgs(std::string_view("{*}", 2), 0, 0));
-    CHECK_THROWS(FormatArgs("{*}", 1));
-    CHECK_THROWS(FormatArgs("{*", fmtxx::FormatSpec{}, 0));
-    CHECK_THROWS(FormatArgs("{*}}", fmtxx::FormatSpec{}, 0));
-    CHECK_THROWS(FormatArgs(std::string_view("{}", 1), 0));
-    CHECK_THROWS(FormatArgs(std::string_view("{1}", 2), 0));
-    CHECK_THROWS(FormatArgs("{1", 0));
-    CHECK_THROWS(FormatArgs("{1:", 0));
-    CHECK_THROWS(FormatArgs("{1:1", 0));
-    CHECK_THROWS(FormatArgs("{1:1.", 0));
-    CHECK_THROWS(FormatArgs("{1:1.1", 0));
-    CHECK_THROWS(FormatArgs("{1:1.1f", 0));
-    CHECK_THROWS(FormatArgs("{ ", 0));
-    CHECK_THROWS(FormatArgs("{1 ", 0));
-    CHECK_THROWS(FormatArgs("{1: ", 0));
-    CHECK_THROWS(FormatArgs("{1:1 ", 0));
-    CHECK_THROWS(FormatArgs("{1:1. ", 0));
-    CHECK_THROWS(FormatArgs("{1:1.1 ", 0));
-    CHECK_THROWS(FormatArgs("{1:1.1f ", 0));
-    CHECK_THROWS(FormatArgs("{-1: >10.2f}", 0));
-    CHECK_THROWS(FormatArgs("{:*10}", 0));
-    CHECK_THROWS(FormatArgs("{-10}", 0));
-    CHECK_THROWS(FormatArgs("{{}", 1)); // stray '}'
-    CHECK_THROWS(FormatArgs("{}}", 1)); // stray '}'
-    CHECK_THROWS(FormatArgs("}", 1, 1, 1, 1, 1));
-    CHECK_THROWS(FormatArgs("{1}", 1));
-    CHECK_THROWS(FormatArgs("{1}{2}", 1, 2));
-    CHECK_THROWS(FormatArgs("{0}{2}", 1, 2));
-    CHECK_THROWS(FormatArgs("{10}", 1));
-    CHECK_THROWS(FormatArgs("{2147483647}", 1));
-    CHECK_THROWS(FormatArgs("{2147483648}", 0));
-    CHECK_NOTHROW(FormatArgs("{:2147483647}", 0));
-    CHECK_THROWS(FormatArgs("{:2147483648}", 0));
-    CHECK_NOTHROW(FormatArgs("{:.2147483647}", 0));
-    CHECK_THROWS(FormatArgs("{:.2147483648}", 0));
-    CHECK_THROWS(FormatArgs("{:.", 0));
+    fmtxx::ArrayWriter w{nullptr, 0};
+
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{*}", 1), 0, 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{*}", 2), 0, 0));
+    EXPECT_EQ(fmtxx::errc::invalid_argument,        fmtxx::format(w, "{*}", 1));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{*", fmtxx::FormatSpec{}, 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{*}}", fmtxx::FormatSpec{}, 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{}", 1), 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{1}", 2), 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1.", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1.1", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1.1f", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{ ", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1 ", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1: ", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1 ", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1. ", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1.1 ", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1.1f ", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{-1: >10.2f}", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{:*10}", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{-10}", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{{}", 1));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{}}", 1));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "}", 1, 1, 1, 1, 1));
+    EXPECT_EQ(fmtxx::errc::index_out_of_range,      fmtxx::format(w, "{1}", 1));
+    EXPECT_EQ(fmtxx::errc::index_out_of_range,      fmtxx::format(w, "{1}{2}", 1, 2));
+    EXPECT_EQ(fmtxx::errc::index_out_of_range,      fmtxx::format(w, "{0}{2}", 1, 2));
+    EXPECT_EQ(fmtxx::errc::index_out_of_range,      fmtxx::format(w, "{10}", 1));
+    EXPECT_EQ(fmtxx::errc::index_out_of_range,      fmtxx::format(w, "{2147483647}", 1));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{2147483648}", 1));
+    EXPECT_EQ(fmtxx::errc::success,                 fmtxx::format(w, "{:2147483647}", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{:2147483648}", 0));
+    EXPECT_EQ(fmtxx::errc::success,                 fmtxx::format(w, "{:.2147483647}", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{:.2147483648}", 0));
+    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{:.", 0));
 }
-#endif
 
 TEST(General, Format)
 {
@@ -232,6 +228,7 @@ TEST(General, Printf)
     EXPECT_EQ("From 0 to 10"                    , PrintfArgs("From %s to %s",                            0, 10));
     EXPECT_EQ("dec:42 hex:2a oct:52 bin:101010" , PrintfArgs("dec:%1$d hex:%1$x oct:%1$o bin:%1$b",      42));
     EXPECT_EQ("left            "                , PrintfArgs("%-16s",                                    "left"));
+    EXPECT_EQ("2 1 1 2"                         , PrintfArgs("%2$d %d %1$d %d",                          1, 2));
 }
 
 TEST(Strings, 1)

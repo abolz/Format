@@ -36,24 +36,13 @@ using namespace fmtxx::impl;
 //
 //------------------------------------------------------------------------------
 
-//#define FAIL(MSG) (0)
-#define FAIL(MSG) (assert(!(MSG)))
-//#define FAIL(MSG) (throw std::runtime_error(MSG))
-
-#define EXPECTED(EXPR)     ((EXPR) ? true : (FAIL(#EXPR), false))
-#define NOT_EXPECTED(EXPR) ((EXPR) ? (FAIL(#EXPR), true) : false)
-
-// Maximum supported minimum field width.
-// This is not an implementation limit, but just an upper bound to prevent
-// allocating huge amounts of memory...
-static constexpr int kMaxFieldWidth = 10000;
-
 // Maximum supported integer precision (= minimum number of digits).
-static constexpr int kMaxIntPrec = 256;
-
+static constexpr int kMaxIntPrec = 300;
 // Maximum supported floating point precision.
+static constexpr int kMaxFloatPrec = 1074;
+
 // Precision required for denorm_min (= [751 digits] 10^-323) when using %f
-static constexpr int kMaxFloatPrec = 751 + 323;
+static_assert(kMaxFloatPrec >= 751 + 323, "invalid configuration");
 
 static constexpr char const* kUpperDigits = "0123456789ABCDEF";
 static constexpr char const* kLowerDigits = "0123456789abcdef";
@@ -203,9 +192,6 @@ struct Padding {
 static Padding ComputePadding(size_t len, Align align, int width)
 {
     assert(width >= 0); // internal error
-
-    if NOT_EXPECTED(width > kMaxFieldWidth)
-        width = kMaxFieldWidth; // [recover]
 
     Padding pad;
 
@@ -1325,11 +1311,18 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
 //
 //------------------------------------------------------------------------------
 
+#define FAIL(MSG) (0)
+//#define FAIL(MSG) (assert(!(MSG)))
+//#define FAIL(MSG) (throw std::runtime_error(MSG))
+
+#define EXPECTED(EXPR)     ((EXPR) ? true : (FAIL(#EXPR), false))
+#define NOT_EXPECTED(EXPR) ((EXPR) ? (FAIL(#EXPR), true) : false)
+
 static void FixNegativeFieldWidth(FormatSpec& spec)
 {
     if (spec.width < 0)
     {
-        spec.width = NOT_EXPECTED(spec.width == INT_MIN) ? INT_MAX /*[recover]*/ : -spec.width;
+        spec.width = (spec.width == INT_MIN) ? INT_MAX /*[recover]*/ : -spec.width;
         spec.align = Align::Left;
     }
 }
@@ -1421,15 +1414,15 @@ static errc GetIntArg(int& value, int index, Arg const* args, Types types)
         return errc::success;
 
     case Arg::T_SLONGLONG:
-        if NOT_EXPECTED(args[index].slonglong > INT_MAX)
+        if (args[index].slonglong > INT_MAX)
             return errc::value_out_of_range;
-        if NOT_EXPECTED(args[index].slonglong < INT_MIN)
+        if (args[index].slonglong < INT_MIN)
             return errc::value_out_of_range;
         value = static_cast<int>(args[index].slonglong);
         return errc::success;
 
     case Arg::T_ULONGLONG:
-        if NOT_EXPECTED(args[index].ulonglong > INT_MAX)
+        if (args[index].ulonglong > INT_MAX)
             return errc::value_out_of_range;
         value = static_cast<int>(args[index].ulonglong);
         return errc::success;
@@ -1455,7 +1448,7 @@ static errc ParseLBrace(int& value, StringView::iterator& f, StringView::iterato
         if NOT_EXPECTED(f == end)
             return errc::invalid_format_string;
         if NOT_EXPECTED(*f != '}')
-            return errc::invalid_format_string; // [recover?!?!]
+            return errc::invalid_format_string;
         ++f;
     }
     else
@@ -1580,13 +1573,12 @@ static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringVie
         case '8':
         case '9':
             if NOT_EXPECTED(!ParseInt(spec.width, f, end))
-                spec.width = 0; // [recover]
+                return errc::invalid_format_string;
             break;
         case '{':
-            if (Failed(ParseLBrace(spec.width, f, end, nextarg, args, types)))
-                spec.width = 0; // [recover]
-            else
-                FixNegativeFieldWidth(spec);
+            if (Failed ec = ParseLBrace(spec.width, f, end, nextarg, args, types))
+                return ec;
+            FixNegativeFieldWidth(spec);
             break;
 // Precision
         case '.':
@@ -1606,11 +1598,11 @@ static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringVie
             case '8':
             case '9':
                 if NOT_EXPECTED(!ParseInt(spec.prec, f, end))
-                    spec.prec = -1; // [recover]
+                    return errc::invalid_format_string;
                 break;
             case '{':
-                if (Failed(ParseLBrace(spec.prec, f, end, nextarg, args, types)))
-                    spec.prec = -1; // [recover]
+                if (Failed ec = ParseLBrace(spec.prec, f, end, nextarg, args, types))
+                    return ec;
                 break;
             default:
                 spec.prec = 0;
@@ -1628,7 +1620,7 @@ static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringVie
         }
 
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string; // [recover?!?!]
+            return errc::invalid_format_string;
     }
 }
 
@@ -1693,33 +1685,30 @@ static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, Str
 
     if (*f == '*')
     {
-        if (Failed(ParseFormatSpecArg(spec, f, end, nextarg, args, types)))
-            spec = {}; // [recover]
-
+        if (Failed ec = ParseFormatSpecArg(spec, f, end, nextarg, args, types))
+            return ec;
         if NOT_EXPECTED(f == end)
             return errc::invalid_format_string;
     }
 
     if (*f == ':')
     {
-        if (Failed(ParseFormatSpec(spec, f, end, nextarg, args, types)))
-            spec = {}; // [recover]
-
+        if (Failed ec = ParseFormatSpec(spec, f, end, nextarg, args, types))
+            return ec;
         if NOT_EXPECTED(f == end)
             return errc::invalid_format_string;
     }
 
     if (*f == '!')
     {
-        if (Failed(ParseStyle(spec, f, end)))
-            spec.style = {}; // [recover]
-
+        if (Failed ec = ParseStyle(spec, f, end))
+            return ec;
         if NOT_EXPECTED(f == end)
             return errc::invalid_format_string;
     }
 
     if NOT_EXPECTED(*f != '}')
-        return errc::invalid_format_string; // [XXX: recover?!?!]
+        return errc::invalid_format_string;
 
     ++f;
 
@@ -1762,16 +1751,13 @@ errc fmtxx::impl::Format(Writer& w, StringView format, Arg const* args, Types ty
         }
 
         if NOT_EXPECTED(*prev == '}')
-        {
-            s = prev; // [recover]
-            continue;
-        }
+            return errc::invalid_format_string;
 
         int arg_index = -1;
         if (IsDigit(*f))
         {
             if NOT_EXPECTED(!ParseInt(arg_index, f, end))
-                arg_index = INT_MAX; // [recover: 'index out of range' (below)]
+                return errc::invalid_format_string;
 
             if NOT_EXPECTED(f == end)
                 return errc::invalid_format_string;
@@ -1795,9 +1781,9 @@ errc fmtxx::impl::Format(Writer& w, StringView format, Arg const* args, Types ty
 
         auto const arg_type = types[arg_index];
 
-        if NOT_EXPECTED(arg_type == Arg::T_NONE)
+        if (arg_type == Arg::T_NONE)
             return errc::index_out_of_range;
-        if NOT_EXPECTED(arg_type == Arg::T_FORMATSPEC)
+        if (arg_type == Arg::T_FORMATSPEC)
             return errc::invalid_argument;
 
         if (Failed ec = CallFormatFunc(w, spec, args[arg_index], arg_type))
@@ -1828,7 +1814,7 @@ static errc ParseAsterisk(int& value, StringView::iterator& f, StringView::itera
         if NOT_EXPECTED(index < 0)
             return errc::invalid_format_string;
         if NOT_EXPECTED(*f != '$')
-            return errc::invalid_format_string; // [recover?!?!]
+            return errc::invalid_format_string;
         ++f;
     }
     else
@@ -1887,7 +1873,7 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
             {
                 int n;
                 if NOT_EXPECTED(!ParseInt(n, f, end))
-                    n = 0; // [recover: ==> arg_index = -1, width = 0]
+                    return errc::invalid_format_string;
 
                 if NOT_EXPECTED(f == end)
                     return errc::invalid_format_string;
@@ -1906,10 +1892,9 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
             }
             break;
         case '*':
-            if (Failed(ParseAsterisk(spec.width, f, end, nextarg, args, types)))
-                spec.width = 0; // [recover]
-            else
-                FixNegativeFieldWidth(spec);
+            if (Failed ec = ParseAsterisk(spec.width, f, end, nextarg, args, types))
+                return ec;
+            FixNegativeFieldWidth(spec);
             break;
 // Precision
         case '.':
@@ -1929,11 +1914,11 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
             case '8':
             case '9':
                 if NOT_EXPECTED(!ParseInt(spec.prec, f, end))
-                    spec.prec = -1; // [recover]
+                    return errc::invalid_format_string;
                 break;
             case '*':
-                if (Failed(ParseAsterisk(spec.prec, f, end, nextarg, args, types)))
-                    spec.prec = -1; // [recover]
+                if (Failed ec = ParseAsterisk(spec.prec, f, end, nextarg, args, types))
+                    return ec;
                 break;
             default:
                 spec.prec = 0;
@@ -1988,12 +1973,11 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
             return errc::not_supported;
         default:
             FAIL("unknown conversion");
-            spec.conv = 's'; // [recover]
-            return errc::success;
+            return errc::invalid_format_string;
         }
 
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string; // [recover?!?!]
+            return errc::invalid_format_string;
     }
 }
 
@@ -2052,9 +2036,9 @@ errc fmtxx::impl::Printf(Writer& w, StringView format, Arg const* args, Types ty
 
         auto const arg_type = types[arg_index];
 
-        if NOT_EXPECTED(arg_type == Arg::T_NONE)
+        if (arg_type == Arg::T_NONE)
             return errc::index_out_of_range;
-        if NOT_EXPECTED(arg_type == Arg::T_FORMATSPEC)
+        if (arg_type == Arg::T_FORMATSPEC)
             return errc::invalid_argument;
 
         if (Failed ec = CallFormatFunc(w, spec, args[arg_index], arg_type))

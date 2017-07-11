@@ -1312,13 +1312,6 @@ ErrorCode fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x
 //
 //--------------------------------------------------------------------------------------------------
 
-#define FAIL(MSG) (static_cast<void>(0))
-//#define FAIL(MSG) (assert(!(MSG)))
-//#define FAIL(MSG) (throw std::runtime_error(MSG))
-
-#define EXPECTED(EXPR)     ((EXPR) ? true : (FAIL(#EXPR), false))
-#define NOT_EXPECTED(EXPR) ((EXPR) ? (FAIL(#EXPR), true) : false)
-
 static void FixNegativeFieldWidth(FormatSpec& spec)
 {
     if (spec.width < 0)
@@ -1438,17 +1431,17 @@ static ErrorCode ParseLBrace(int& value, StringView::iterator& f, StringView::it
     assert(f != end && *f == '{'); // internal error
 
     ++f;
-    if NOT_EXPECTED(f == end)
+    if (f == end)
         return ErrorCode::invalid_format_string;
 
     int index;
     if (IsDigit(*f))
     {
-        if NOT_EXPECTED(!ParseInt(index, f, end))
+        if (!ParseInt(index, f, end))
             return ErrorCode::invalid_format_string;
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
-        if NOT_EXPECTED(*f != '}')
+        if (*f != '}')
             return ErrorCode::invalid_format_string;
         ++f;
     }
@@ -1465,13 +1458,13 @@ static ErrorCode ParseFormatSpecArg(FormatSpec& spec, StringView::iterator& f, S
     assert(f != end && *f == '*');
 
     ++f;
-    if NOT_EXPECTED(f == end)
+    if (f == end)
         return ErrorCode::invalid_format_string;
 
     int index;
     if (IsDigit(*f))
     {
-        if NOT_EXPECTED(!ParseInt(index, f, end))
+        if (!ParseInt(index, f, end))
             return ErrorCode::invalid_format_string;
     }
     else
@@ -1479,9 +1472,9 @@ static ErrorCode ParseFormatSpecArg(FormatSpec& spec, StringView::iterator& f, S
         index = nextarg++;
     }
 
-    if NOT_EXPECTED(types[index] == Arg::T_NONE)
+    if (types[index] == Arg::T_NONE)
         return ErrorCode::index_out_of_range;
-    if NOT_EXPECTED(types[index] != Arg::T_FORMATSPEC)
+    if (types[index] != Arg::T_FORMATSPEC)
         return ErrorCode::invalid_argument;
 
     spec = *static_cast<FormatSpec const*>(args[index].pvoid);
@@ -1515,20 +1508,20 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, Stri
     assert(f != end && *f == ':');
 
     ++f;
-    if NOT_EXPECTED(f == end)
+    if (f == end)
         return ErrorCode::invalid_format_string;
 
     if (f + 1 != end && ParseAlign(spec, *(f + 1)))
     {
         spec.fill = *f;
         f += 2;
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
     }
     else if (ParseAlign(spec, *f))
     {
         ++f;
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
     }
 
@@ -1573,7 +1566,7 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, Stri
         case '7':
         case '8':
         case '9':
-            if NOT_EXPECTED(!ParseInt(spec.width, f, end))
+            if (!ParseInt(spec.width, f, end))
                 return ErrorCode::invalid_format_string;
             break;
         case '{':
@@ -1584,7 +1577,7 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, Stri
 // Precision
         case '.':
             ++f;
-            if NOT_EXPECTED(f == end)
+            if (f == end)
                 return ErrorCode::invalid_format_string;
             switch (*f)
             {
@@ -1598,7 +1591,7 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, Stri
             case '7':
             case '8':
             case '9':
-                if NOT_EXPECTED(!ParseInt(spec.prec, f, end))
+                if (!ParseInt(spec.prec, f, end))
                     return ErrorCode::invalid_format_string;
                 break;
             case '{':
@@ -1620,7 +1613,7 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, Stri
             return ErrorCode::success;
         }
 
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
     }
 }
@@ -1630,7 +1623,7 @@ static ErrorCode ParseStyle(FormatSpec& spec, StringView::iterator& f, StringVie
     assert(f != end && *f == '!');
 
     ++f;
-    if NOT_EXPECTED(f == end)
+    if (f == end)
         return ErrorCode::invalid_format_string;
 
     char delim;
@@ -1663,7 +1656,7 @@ static ErrorCode ParseStyle(FormatSpec& spec, StringView::iterator& f, StringVie
 
     auto const f0 = f;
 
-    if NOT_EXPECTED(f0 == end)
+    if (f0 == end)
         return ErrorCode::invalid_format_string;
 
     f = std::find(f, end, delim == '\0' ? '}' : delim);
@@ -1672,7 +1665,7 @@ static ErrorCode ParseStyle(FormatSpec& spec, StringView::iterator& f, StringVie
 
     if (delim != '\0')
     {
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
         ++f; // skip delim
     }
@@ -1688,7 +1681,7 @@ static ErrorCode ParseReplacementField(FormatSpec& spec, StringView::iterator& f
     {
         if (Failed ec = ParseFormatSpecArg(spec, f, end, nextarg, args, types))
             return ec;
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
     }
 
@@ -1696,7 +1689,7 @@ static ErrorCode ParseReplacementField(FormatSpec& spec, StringView::iterator& f
     {
         if (Failed ec = ParseFormatSpec(spec, f, end, nextarg, args, types))
             return ec;
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
     }
 
@@ -1704,11 +1697,11 @@ static ErrorCode ParseReplacementField(FormatSpec& spec, StringView::iterator& f
     {
         if (Failed ec = ParseStyle(spec, f, end))
             return ec;
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
     }
 
-    if NOT_EXPECTED(*f != '}')
+    if (*f != '}')
         return ErrorCode::invalid_format_string;
 
     ++f;
@@ -1741,7 +1734,7 @@ ErrorCode fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, T
         auto const prev = f;
         ++f; // skip '{' or '}'
 
-        if NOT_EXPECTED(f == end) // "missing '}' or stray '}'"
+        if (f == end) // "missing '}' or stray '}'"
             return ErrorCode::invalid_format_string;
 
         if (*prev == *f) // '{{' or '}}'
@@ -1751,16 +1744,16 @@ ErrorCode fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, T
             continue;
         }
 
-        if NOT_EXPECTED(*prev == '}')
+        if (*prev == '}')
             return ErrorCode::invalid_format_string;
 
         int arg_index = -1;
         if (IsDigit(*f))
         {
-            if NOT_EXPECTED(!ParseInt(arg_index, f, end))
+            if (!ParseInt(arg_index, f, end))
                 return ErrorCode::invalid_format_string;
 
-            if NOT_EXPECTED(f == end)
+            if (f == end)
                 return ErrorCode::invalid_format_string;
         }
 
@@ -1799,22 +1792,22 @@ static ErrorCode ParseAsterisk(int& value, StringView::iterator& f, StringView::
     assert(f != end && *f == '*'); // internal error
 
     ++f;
-    if NOT_EXPECTED(f == end)
+    if (f == end)
         return ErrorCode::invalid_format_string;
 
     int index;
     if (IsDigit(*f))
     {
-        if NOT_EXPECTED(!ParseInt(index, f, end))
+        if (!ParseInt(index, f, end))
             return ErrorCode::invalid_format_string;
 
         index -= 1; // Positional arguments are 1-based.
 
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
-        if NOT_EXPECTED(index < 0)
+        if (index < 0)
             return ErrorCode::invalid_format_string;
-        if NOT_EXPECTED(*f != '$')
+        if (*f != '$')
             return ErrorCode::invalid_format_string;
         ++f;
     }
@@ -1873,10 +1866,10 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::i
         case '9':
             {
                 int n;
-                if NOT_EXPECTED(!ParseInt(n, f, end))
+                if (!ParseInt(n, f, end))
                     return ErrorCode::invalid_format_string;
 
-                if NOT_EXPECTED(f == end)
+                if (f == end)
                     return ErrorCode::invalid_format_string;
 
                 // If this number ends with a '$' its actually a positional argument
@@ -1900,7 +1893,7 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::i
 // Precision
         case '.':
             ++f;
-            if NOT_EXPECTED(f == end)
+            if (f == end)
                 return ErrorCode::invalid_format_string;
             switch (*f)
             {
@@ -1914,7 +1907,7 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::i
             case '7':
             case '8':
             case '9':
-                if NOT_EXPECTED(!ParseInt(spec.prec, f, end))
+                if (!ParseInt(spec.prec, f, end))
                     return ErrorCode::invalid_format_string;
                 break;
             case '*':
@@ -1965,19 +1958,17 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::i
             // The number of characters written so far is stored into the integer
             // indicated by the int * (or variant) pointer argument.
             // No argument is converted.
-            FAIL("'n' conversion not supported");
             return ErrorCode::not_supported;
         case 'm':
             // (Glibc extension.) Print output of strerror(errno).
             // No argument is required.
-            FAIL("'m' conversion not supported");
             return ErrorCode::not_supported;
         default:
-            FAIL("unknown conversion");
+            // unknown conversion
             return ErrorCode::invalid_format_string;
         }
 
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
     }
 }
@@ -2005,7 +1996,7 @@ ErrorCode fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, T
             break;
 
         ++f; // skip '%'
-        if NOT_EXPECTED(f == end)
+        if (f == end)
             return ErrorCode::invalid_format_string;
 
         if (*f == '%') // '%%'

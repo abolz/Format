@@ -1,5 +1,4 @@
-#include "Format_pretty.h"
-#include "Format_string.h" // TreatAsString<std::string> => true
+#include "Format.h"
 #include <map>
 #include <string>
 #include <vector>

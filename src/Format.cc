@@ -13,6 +13,7 @@
 #include <cstring>
 #include <iterator> // stdext::checked_array_iterator
 #include <limits>
+#include <ostream>
 
 #ifndef __has_cpp_attribute
 #define __has_cpp_attribute(X) 0
@@ -32,9 +33,9 @@ static_assert(std::numeric_limits<double>::is_iec559,
 using namespace fmtxx;
 using namespace fmtxx::impl;
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 //
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 
 // Maximum supported integer precision (= minimum number of digits).
 static constexpr int kMaxIntPrec = 300;
@@ -59,9 +60,9 @@ static constexpr char const* kDecDigits100 =
     "80818283848586878889"
     "90919293949596979899";
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 //
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 
 // std::clamp...
 template <typename T>
@@ -84,9 +85,9 @@ static RanIt MakeArrayIterator(RanIt first, intptr_t /*n*/)
 }
 #endif
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 //
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 
 fmtxx::Writer::~Writer() noexcept
 {
@@ -101,9 +102,9 @@ errc fmtxx::FILEWriter::Put(char c) noexcept
     return errc::success;
 }
 
-errc fmtxx::FILEWriter::Write(char const* str, size_t len) noexcept
+errc fmtxx::FILEWriter::Write(char const* ptr, size_t len) noexcept
 {
-    size_t n = std::fwrite(str, 1, len, file_);
+    size_t n = std::fwrite(ptr, 1, len, file_);
 
     // Count the number of characters successfully transmitted.
     // This is unlike ArrayWriter, which counts characters that would have been written on success.
@@ -149,10 +150,10 @@ errc fmtxx::ArrayWriter::Put(char c) noexcept
     return errc::success;
 }
 
-errc fmtxx::ArrayWriter::Write(char const* str, size_t len) noexcept
+errc fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
 {
     if (size_ < bufsize_)
-        std::memcpy(buf_ + size_, str, std::min(len, bufsize_ - size_));
+        std::memcpy(buf_ + size_, ptr, std::min(len, bufsize_ - size_));
 
     size_ += len;
     return errc::success;
@@ -167,9 +168,9 @@ errc fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
     return errc::success;
 }
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 //
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 
 static char ComputeSignChar(bool neg, Sign sign, char fill)
 {
@@ -1307,9 +1308,9 @@ errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
     return PrintAndPadNumber(w, spec, sign, prefix, nprefix, buf, static_cast<size_t>(buflen));
 }
 
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 //
-//------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 
 #define FAIL(MSG) (static_cast<void>(0))
 //#define FAIL(MSG) (assert(!(MSG)))
@@ -1715,7 +1716,7 @@ static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, Str
     return errc::success;
 }
 
-errc fmtxx::impl::Format(Writer& w, StringView format, Arg const* args, Types types)
+errc fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types types)
 {
     if (format.empty())
         return errc::success;
@@ -1981,7 +1982,7 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
     }
 }
 
-errc fmtxx::impl::Printf(Writer& w, StringView format, Arg const* args, Types types)
+errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types types)
 {
     if (format.empty())
         return errc::success;
@@ -2048,23 +2049,154 @@ errc fmtxx::impl::Printf(Writer& w, StringView format, Arg const* args, Types ty
     return errc::success;
 }
 
-errc fmtxx::impl::Format(std::FILE* file, StringView format, Arg const* args, Types types)
+errc fmtxx::impl::DoFormat(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
-    return fmtxx::impl::Format(w, format, args, types);
+    return fmtxx::impl::DoFormat(w, format, args, types);
 }
 
-errc fmtxx::impl::Printf(std::FILE* file, StringView format, Arg const* args, Types types)
+errc fmtxx::impl::DoPrintf(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
-    return fmtxx::impl::Printf(w, format, args, types);
+    return fmtxx::impl::DoPrintf(w, format, args, types);
 }
 
-int fmtxx::impl::FileFormat(std::FILE* file, StringView format, Arg const* args, Types types)
+namespace
+{
+    class StringWriter : public Writer
+    {
+    public:
+        std::string& str;
+
+        explicit StringWriter(std::string& s) : str(s) {}
+
+        errc Put(char c) override
+        {
+            str.push_back(c);
+            return errc::success;
+        }
+
+        errc Write(char const* ptr, size_t len) override
+        {
+            str.append(ptr, len);
+            return errc::success;
+        }
+
+        errc Pad(char c, size_t count) override
+        {
+            str.append(count, c);
+            return errc::success;
+        }
+    };
+}
+
+errc fmtxx::impl::DoFormat(std::string& str, StringView format, Arg const* args, Types types)
+{
+    StringWriter w{str};
+    return fmtxx::impl::DoFormat(w, format, args, types);
+}
+
+errc fmtxx::impl::DoPrintf(std::string& str, StringView format, Arg const* args, Types types)
+{
+    StringWriter w{str};
+    return fmtxx::impl::DoPrintf(w, format, args, types);
+}
+
+namespace
+{
+    class StreamWriter : public Writer
+    {
+    public:
+        std::ostream& os;
+
+        explicit StreamWriter(std::ostream& v) : os(v) {}
+
+        errc Put(char c) override
+        {
+            using traits_type = std::ostream::traits_type;
+
+            if (traits_type::eq_int_type(os.rdbuf()->sputc(c), traits_type::eof()))
+            {
+                os.setstate(std::ios_base::badbit);
+                return errc::io_error;
+            }
+
+            return errc::success;
+        }
+
+        errc Write(char const* str, size_t len) override
+        {
+            auto const kMaxLen = static_cast<size_t>(std::numeric_limits<std::streamsize>::max());
+
+            while (len > 0)
+            {
+                auto const n = len < kMaxLen ? len : kMaxLen;
+                auto const k = static_cast<std::streamsize>(n);
+                if (k != os.rdbuf()->sputn(str, k))
+                {
+                    os.setstate(std::ios_base::badbit);
+                    return errc::io_error;
+                }
+                str += n;
+                len -= n;
+            }
+
+            return errc::success;
+        }
+
+        errc Pad(char c, size_t count) override
+        {
+            size_t const kBlockSize = 32;
+
+            char block[kBlockSize];
+            std::memset(block, static_cast<unsigned char>(c), kBlockSize);
+
+            while (count > 0)
+            {
+                auto const n = count < kBlockSize ? count : kBlockSize;
+                auto const k = static_cast<std::streamsize>(n);
+                if (k != os.rdbuf()->sputn(block, k))
+                {
+                    os.setstate(std::ios_base::badbit);
+                    return errc::io_error;
+                }
+                count -= n;
+            }
+
+            return errc::success;
+        }
+    };
+}
+
+errc fmtxx::impl::DoFormat(std::ostream& os, StringView format, Arg const* args, Types types)
+{
+    std::ostream::sentry const ok(os);
+    if (ok)
+    {
+        StreamWriter w{os};
+        return fmtxx::impl::DoFormat(w, format, args, types);
+    }
+
+    return errc::io_error;
+}
+
+errc fmtxx::impl::DoPrintf(std::ostream& os, StringView format, Arg const* args, Types types)
+{
+    std::ostream::sentry const ok(os);
+    if (ok)
+    {
+        StreamWriter w{os};
+        return fmtxx::impl::DoPrintf(w, format, args, types);
+    }
+
+    return errc::io_error;
+}
+
+int fmtxx::impl::DoFileFormat(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
 
-    if (Failed(fmtxx::impl::Format(w, format, args, types)))
+    if (Failed(fmtxx::impl::DoFormat(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;
@@ -2072,11 +2204,11 @@ int fmtxx::impl::FileFormat(std::FILE* file, StringView format, Arg const* args,
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::FilePrintf(std::FILE* file, StringView format, Arg const* args, Types types)
+int fmtxx::impl::DoFilePrintf(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
 
-    if (Failed(fmtxx::impl::Printf(w, format, args, types)))
+    if (Failed(fmtxx::impl::DoPrintf(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;
@@ -2084,11 +2216,11 @@ int fmtxx::impl::FilePrintf(std::FILE* file, StringView format, Arg const* args,
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::ArrayFormat(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
+int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
 {
     ArrayWriter w{buf, bufsize};
 
-    if (Failed(fmtxx::impl::Format(w, format, args, types)))
+    if (Failed(fmtxx::impl::DoFormat(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;
@@ -2097,11 +2229,11 @@ int fmtxx::impl::ArrayFormat(char* buf, size_t bufsize, StringView format, Arg c
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::ArrayPrintf(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
+int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
 {
     ArrayWriter w{buf, bufsize};
 
-    if (Failed(fmtxx::impl::Printf(w, format, args, types)))
+    if (Failed(fmtxx::impl::DoPrintf(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;

@@ -611,7 +611,7 @@ struct Arg
     }
 
     // XXX:
-    // Keep in sync with GetTypeImpl<> below!!!
+    // Keep in sync with SelectType<> below!!!
     template <typename T>
     Arg(T                  const& v) : Arg(v, TreatAsString<typename std::decay<T>::type>{}) {}
     Arg(FormatSpec         const& v) : pvoid(&v) {}
@@ -645,34 +645,34 @@ using ArgArray = typename std::conditional< N != 0, Arg[], Arg* >::type;
 
 // XXX:
 // Keep in sync with Arg::Arg() above!!!
-template <typename T> struct GetTypeImpl                     { static const Arg::Type value = TreatAsString<T>::value ? Arg::T_STRING : Arg::T_OTHER; };
-template <>           struct GetTypeImpl<FormatSpec        > { static const Arg::Type value = Arg::T_FORMATSPEC; };
-template <>           struct GetTypeImpl<char const*       > { static const Arg::Type value = Arg::T_PCHAR; };
-template <>           struct GetTypeImpl<char*             > { static const Arg::Type value = Arg::T_PCHAR; };
-template <>           struct GetTypeImpl<std::nullptr_t    > { static const Arg::Type value = Arg::T_PVOID; };
-template <>           struct GetTypeImpl<void const*       > { static const Arg::Type value = Arg::T_PVOID; };
-template <>           struct GetTypeImpl<void*             > { static const Arg::Type value = Arg::T_PVOID; };
-template <>           struct GetTypeImpl<bool              > { static const Arg::Type value = Arg::T_BOOL; };
-template <>           struct GetTypeImpl<char              > { static const Arg::Type value = Arg::T_CHAR; };
-template <>           struct GetTypeImpl<signed char       > { static const Arg::Type value = Arg::T_SCHAR; };
-template <>           struct GetTypeImpl<signed short      > { static const Arg::Type value = Arg::T_SSHORT; };
-template <>           struct GetTypeImpl<signed int        > { static const Arg::Type value = Arg::T_SINT; };
+template <typename T> struct SelectType                     { static const Arg::Type value = TreatAsString<T>::value ? Arg::T_STRING : Arg::T_OTHER; };
+template <>           struct SelectType<FormatSpec        > { static const Arg::Type value = Arg::T_FORMATSPEC; };
+template <>           struct SelectType<char const*       > { static const Arg::Type value = Arg::T_PCHAR; };
+template <>           struct SelectType<char*             > { static const Arg::Type value = Arg::T_PCHAR; };
+template <>           struct SelectType<std::nullptr_t    > { static const Arg::Type value = Arg::T_PVOID; };
+template <>           struct SelectType<void const*       > { static const Arg::Type value = Arg::T_PVOID; };
+template <>           struct SelectType<void*             > { static const Arg::Type value = Arg::T_PVOID; };
+template <>           struct SelectType<bool              > { static const Arg::Type value = Arg::T_BOOL; };
+template <>           struct SelectType<char              > { static const Arg::Type value = Arg::T_CHAR; };
+template <>           struct SelectType<signed char       > { static const Arg::Type value = Arg::T_SCHAR; };
+template <>           struct SelectType<signed short      > { static const Arg::Type value = Arg::T_SSHORT; };
+template <>           struct SelectType<signed int        > { static const Arg::Type value = Arg::T_SINT; };
 #if LONG_MAX == INT_MAX
-template <>           struct GetTypeImpl<signed long       > { static const Arg::Type value = Arg::T_SINT; };
+template <>           struct SelectType<signed long       > { static const Arg::Type value = Arg::T_SINT; };
 #else
-template <>           struct GetTypeImpl<signed long       > { static const Arg::Type value = Arg::T_SLONGLONG; };
+template <>           struct SelectType<signed long       > { static const Arg::Type value = Arg::T_SLONGLONG; };
 #endif
-template <>           struct GetTypeImpl<signed long long  > { static const Arg::Type value = Arg::T_SLONGLONG; };
-template <>           struct GetTypeImpl<unsigned char     > { static const Arg::Type value = Arg::T_ULONGLONG; };
-template <>           struct GetTypeImpl<unsigned short    > { static const Arg::Type value = Arg::T_ULONGLONG; };
-template <>           struct GetTypeImpl<unsigned int      > { static const Arg::Type value = Arg::T_ULONGLONG; };
-template <>           struct GetTypeImpl<unsigned long     > { static const Arg::Type value = Arg::T_ULONGLONG; };
-template <>           struct GetTypeImpl<unsigned long long> { static const Arg::Type value = Arg::T_ULONGLONG; };
-template <>           struct GetTypeImpl<double            > { static const Arg::Type value = Arg::T_DOUBLE; };
-template <>           struct GetTypeImpl<float             > { static const Arg::Type value = Arg::T_DOUBLE; };
+template <>           struct SelectType<signed long long  > { static const Arg::Type value = Arg::T_SLONGLONG; };
+template <>           struct SelectType<unsigned char     > { static const Arg::Type value = Arg::T_ULONGLONG; };
+template <>           struct SelectType<unsigned short    > { static const Arg::Type value = Arg::T_ULONGLONG; };
+template <>           struct SelectType<unsigned int      > { static const Arg::Type value = Arg::T_ULONGLONG; };
+template <>           struct SelectType<unsigned long     > { static const Arg::Type value = Arg::T_ULONGLONG; };
+template <>           struct SelectType<unsigned long long> { static const Arg::Type value = Arg::T_ULONGLONG; };
+template <>           struct SelectType<double            > { static const Arg::Type value = Arg::T_DOUBLE; };
+template <>           struct SelectType<float             > { static const Arg::Type value = Arg::T_DOUBLE; };
 
 template <typename T>
-struct GetType : GetTypeImpl<typename std::decay<T>::type>
+struct TypeFor : SelectType<typename std::decay<T>::type>
 {
 };
 
@@ -733,7 +733,7 @@ struct Types
     static value_type make_types(A1 const& /*a1*/, An const&... an)
     {
         static_assert(1 + sizeof...(An) <= kMaxArgs, "Too many arguments");
-        return (make_types(an...) << kBitsPerArg) | static_cast<value_type>(GetType<A1>::value);
+        return (make_types(an...) << kBitsPerArg) | static_cast<value_type>(TypeFor<A1>::value);
     }
 };
 
@@ -793,11 +793,11 @@ private:
     void push_back_(T&& val)
     {
         static_assert(
-            std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<impl::GetType<T>::value>::value,
+            std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<impl::TypeFor<T>::value>::value,
             "Adding rvalues of non-built-in types to FormatArgs is not allowed. ");
 
         args_[size_] = std::forward<T>(val);
-        types_.set_type(size_, impl::GetType<T>::value);
+        types_.set_type(size_, impl::TypeFor<T>::value);
         ++size_;
     }
 };

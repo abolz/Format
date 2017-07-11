@@ -44,6 +44,10 @@ on the TODO-list.*
 ```c++
 namespace fmtxx {
 
+// A minimal replacement for std::string_view.
+// For compatibility.
+class StringView;
+
 enum struct errc {
     success = 0,
     conversion_error,
@@ -72,7 +76,7 @@ enum struct Sign : unsigned char {
 
 // Contains the fields of the format-specification (see below).
 struct FormatSpec {
-    std::string_view style;
+    StringView style;
     int   width = 0;
     int   prec  = -1;
     char  fill  = ' ';
@@ -96,13 +100,26 @@ public:
 
 // Implements the Writer interface to format into std::FILE's.
 class FILEWriter;
-
 // Implements the Writer interface to format into user-provided arrays.
 class ArrayWriter;
 
 // Determine whether objects of type T should be handled as strings.
 template <typename T>
 struct TreatAsString : std::false_type {};
+
+// Dynamically created argument list.
+// May be passed (as the only argument) to the formatting functions instead of
+// the variadic arguments.
+class FormatArgs {
+public:
+    int size() const;
+    int max_size() const;
+
+    // Add arguments to this list.
+    // PRE: max_size() - size() >= sizeof...(Ts)
+    template <typename ...Ts>
+    void push_back(Ts&&... values);
+};
 
 // Specialize this to enable formatting of user-defined types.
 // Or include "Format_ostream.h" if objects of type T can be formatted using
@@ -112,38 +129,38 @@ struct FormatValue {
     errc operator()(Writer& w, FormatSpec const& spec, T const& value) const;
 };
 
-// The Format-methods use a python-style format string (see below).
-// The Printf-methods use a printf-style format string.
+// The format-methods use a python-style format string (see below).
+// The printf-methods use a printf-style format string.
 
 template <typename ...Args>
-errc format(Writer& w, std::string_view format, Args const&... args);
+errc format(Writer& w, StringView format, Args const&... args);
 
 template <typename ...Args>
-errc format(std::FILE* file, std::string_view format, Args const&... args);
+errc printf(Writer& w, StringView format, Args const&... args);
 
 template <typename ...Args>
-int fformat(std::FILE* file, std::string_view format, Args const&... args);
+errc format(std::FILE* file, StringView format, Args const&... args);
 
 template <typename ...Args>
-int snformat(char* buf, size_t bufsize, std::string_view format, Args const&... args);
+errc printf(std::FILE* file, StringView format, Args const&... args);
+
+template <typename ...Args>
+int fformat(std::FILE* file, StringView format, Args const&... args);
+
+template <typename ...Args>
+int fprintf(std::FILE* file, StringView format, Args const&... args);
+
+template <typename ...Args>
+int snformat(char* buf, size_t bufsize, StringView format, Args const&... args);
+
+template <typename ...Args>
+int snprintf(char* buf, size_t bufsize, StringView format, Args const&... args);
 
 template <size_t N, typename ...Args>
-int snformat(char (&buf)[N], std::string_view format, Args const&... args);
-
-template <typename ...Args>
-errc printf(Writer& w, std::string_view format, Args const&... args);
-
-template <typename ...Args>
-errc printf(std::FILE* file, std::string_view format, Args const&... args);
-
-template <typename ...Args>
-int fprintf(std::FILE* file, std::string_view format, Args const&... args);
-
-template <typename ...Args>
-int snprintf(char* buf, size_t bufsize, std::string_view format, Args const&... args);
+int snformat(char (&buf)[N], StringView format, Args const&... args);
 
 template <size_t N, typename ...Args>
-int snprintf(char (&buf)[N], std::string_view format, Args const&... args);
+int snprintf(char (&buf)[N], StringView format, Args const&... args);
 
 } // namespace fmtxx
 ```
@@ -166,16 +183,16 @@ struct StringFormatResult {
 };
 
 template <typename ...Args>
-errc format(std::string& str, std::string_view format, Args const&... args);
+errc format(std::string& str, StringView format, Args const&... args);
 
 template <typename ...Args>
-errc printf(std::string& str, std::string_view format, Args const&... args);
+errc printf(std::string& str, StringView format, Args const&... args);
 
 template <typename ...Args>
-StringFormatResult string_format(std::string_view format, Args const&... args);
+StringFormatResult string_format(StringView format, Args const&... args);
 
 template <typename ...Args>
-StringFormatResult string_printf(std::string_view format, Args const&... args);
+StringFormatResult string_printf(StringView format, Args const&... args);
 
 } // namespace fmtxx
 ```
@@ -191,10 +208,10 @@ namespace fmtxx {
 class StreamWriter;
 
 template <typename ...Args>
-errc format(std::ostream& os, std::string_view format, Args const&... args);
+errc format(std::ostream& os, StringView format, Args const&... args);
 
 template <typename ...Args>
-errc printf(std::ostream& os, std::string_view format, Args const&... args);
+errc printf(std::ostream& os, StringView format, Args const&... args);
 
 } // namespace fmtxx
 ```
@@ -265,6 +282,19 @@ template <typename T>
     An arbitrary sequence of characters (except '`}`'). Can be used for
     formatting user-defined types.
 
+    Sequences containing '`}`' may be escaped using any of the following
+    delimiters: '`'`', '`"`', '`{`' and '`}`', '`(`' and '`)`', or
+    '`[`' and '`]`'. E.g.
+
+    ```c++
+    format(stdout, "{!one}", 1);
+        // => style = "one"
+    format(stdout, "{!'{one}'}", 1);
+        // => style = "{one}"
+    format(stdout, "{!('one')", 1);
+        // => style = "'one'"
+    ```
+
 ### Format specification syntax
 
     [[fill] align] [flags] [width] ['.' [precision]] [conv]
@@ -304,26 +334,20 @@ template <typename T>
 
     Note: Separators are inserted before padding is applied.
 
-* `width`
+* `width ::= integer | '{' [arg-index] '}'`
 
+    Minimum field width. Same meaning as in printf. The default is 0.
 
-    Minimum field width; an integer. Same meaning as in printf.
-    The default is 0.
+* `precision ::= integer | '{' [arg-index] '}'`
 
-    **NOTE**: The maximum supported minimum field width currently is 4096.
-
-* `precision`
-
-    An integer.
     For string, integral and floating-point values has the same meaning as in
-    printf.
-    Ignored otherwise.
+    printf. Ignored otherwise.
 
     Note: Precision is applied before padding.
 
     **NOTE**: The maximum supported precision is `INT_MAX`.
 
-    **NOTE**: For integral types the maximum supported precision is 256.
+    **NOTE**: For integral types the maximum supported precision is 300.
 
     **NOTE**: For floating-point types the maximum supported precision is 1074.
 
@@ -398,3 +422,114 @@ template <typename T>
     - `X`: Same as `A`, except the result is normalized (i.e. the leading
            digit will be '`1`') and a prefix is only printed if `#` is
            specified.
+
+## Examples
+
+```c++
+int main()
+{
+    fmtxx::format(stdout, "{1} {} {0} {}\n", 1, 2);
+        // "2 1 1 2"
+    fmtxx::format(stdout, "{0:d} {0:x} {0:o} {0:b}\n", 42);
+        // "42 2a 52 101010"
+    fmtxx::format(stdout, "{:-<16}\n", "left");
+        // "left------------"
+    fmtxx::format(stdout, "{:.^16}\n", "center");
+        // ".....center....."
+    fmtxx::format(stdout, "{:~>16}\n", "right");
+        // "~~~~~~~~~~~right"
+    fmtxx::format(stdout, "{:s}\n", 3.1415927);
+        // "3.1415927"
+}
+```
+
+```c++
+struct Vector2D {
+    float x;
+    float y;
+};
+
+namespace fmtxx {
+    template <>
+    struct FormatValue<Vector2D> {
+        errc operator()(Writer& w, FormatSpec const& spec, Vector2D const& value) const {
+            if (spec.conv == 'p') {
+                auto r   = std::hypot(value.x, value.y);
+                auto arg = std::atan2(value.y, value.x);
+                return fmtxx::format(w, "(r={:.3g}, arg={:.3g})", r, arg);
+            }
+            return fmtxx::format(w, "({}, {})", value.x, value.y);
+        }
+    };
+}
+
+int main()
+{
+    Vector2D vec { 3.0, 4.0 };
+    fmtxx::format(std::cout, "{}\n", vec);
+        // "(3, 4)"
+    fmtxx::format(std::cout, "{:p}\n", vec);
+        // "(r=5, phi=0.927)"
+}
+```
+
+```c++
+struct VectorBuffer : public fmtxx::Writer
+{
+    std::vector<char> vec;
+
+private:
+    fmtxx::errc Put(char c) override {
+        vec.push_back(c);
+        return fmtxx::errc::success;
+    }
+    fmtxx::errc Write(char const* str, size_t len) override {
+        vec.insert(vec.end(), str, str + len);
+        return fmtxx::errc::success;
+    }
+    fmtxx::errc Pad(char c, size_t count) override {
+        vec.resize(vec.size() + count, c);
+        return fmtxx::errc::success;
+    }
+};
+
+int main()
+{
+    VectorBuffer buf;
+    fmtxx::format(buf, "{:5}", -123);
+        // buf.vec = {' ', '-', '1', '2', '3'}
+}
+```
+
+```c++
+int main()
+{
+    std::vector<int> vec = {1, 2, 3, 4, 5};
+    fmtxx::format(stdout, "{}\n", fmtxx::pretty(vec));
+        // [1, 2, 3, 4, 5]
+
+    std::map<std::string, int> map = {
+        {"eins", 1},
+        {"zwei", 2},
+        {"drei", 3},
+    };
+    fmtxx::format(stdout, "{}\n", fmtxx::pretty(map));
+        // [{"drei", 3}, {"eins", 1}, {"zwei", 2}]
+}
+```
+
+```c++
+int main()
+{
+    std::string str_world = "world";
+
+    fmtxx::FormatArgs args;
+    args.push_back(42);
+    args.push_back("hello");
+    args.push_back(str_world);
+        // NOTE:
+        // This does not compile: args.push_back(std::string("world"));
+    std::cout << fmtxx::string_format("{} {} {}\n", args).str;
+        // "42 hello world"
+}
+```

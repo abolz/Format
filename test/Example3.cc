@@ -6,17 +6,17 @@ struct VectorBuffer : public fmtxx::Writer
     std::vector<char> vec;
 
 private:
-    fmtxx::errc Put(char c) override {
+    fmtxx::ErrorCode Put(char c) override {
         vec.push_back(c);
-        return fmtxx::errc::success;
+        return fmtxx::ErrorCode::success;
     }
-    fmtxx::errc Write(char const* str, size_t len) override {
+    fmtxx::ErrorCode Write(char const* str, size_t len) override {
         vec.insert(vec.end(), str, str + len);
-        return fmtxx::errc::success;
+        return fmtxx::ErrorCode::success;
     }
-    fmtxx::errc Pad(char c, size_t count) override {
+    fmtxx::ErrorCode Pad(char c, size_t count) override {
         vec.resize(vec.size() + count, c);
-        return fmtxx::errc::success;
+        return fmtxx::ErrorCode::success;
     }
 };
 

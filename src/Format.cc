@@ -93,16 +93,16 @@ fmtxx::Writer::~Writer() noexcept
 {
 }
 
-errc fmtxx::FILEWriter::Put(char c) noexcept
+ErrorCode fmtxx::FILEWriter::Put(char c) noexcept
 {
     if (EOF == std::fputc(c, file_))
-        return errc::io_error;
+        return ErrorCode::io_error;
 
     size_ += 1;
-    return errc::success;
+    return ErrorCode::success;
 }
 
-errc fmtxx::FILEWriter::Write(char const* ptr, size_t len) noexcept
+ErrorCode fmtxx::FILEWriter::Write(char const* ptr, size_t len) noexcept
 {
     size_t n = std::fwrite(ptr, 1, len, file_);
 
@@ -110,10 +110,10 @@ errc fmtxx::FILEWriter::Write(char const* ptr, size_t len) noexcept
     // This is unlike ArrayWriter, which counts characters that would have been written on success.
     // (FILEWriter and ArrayWriter are for compatibility with fprintf and snprintf, resp.)
     size_ += n;
-    return n == len ? errc::success : errc::io_error;
+    return n == len ? ErrorCode::success : ErrorCode::io_error;
 }
 
-errc fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
+ErrorCode fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
 {
     size_t const kBlockSize = 32;
 
@@ -128,7 +128,7 @@ errc fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
         count -= n;
     }
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
 size_t fmtxx::ArrayWriter::finish() noexcept
@@ -141,31 +141,31 @@ size_t fmtxx::ArrayWriter::finish() noexcept
     return size_;
 }
 
-errc fmtxx::ArrayWriter::Put(char c) noexcept
+ErrorCode fmtxx::ArrayWriter::Put(char c) noexcept
 {
     if (size_ < bufsize_)
         buf_[size_] = c;
 
     size_ += 1;
-    return errc::success;
+    return ErrorCode::success;
 }
 
-errc fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
+ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
 {
     if (size_ < bufsize_)
         std::memcpy(buf_ + size_, ptr, std::min(len, bufsize_ - size_));
 
     size_ += len;
-    return errc::success;
+    return ErrorCode::success;
 }
 
-errc fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
+ErrorCode fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
 {
     if (size_ < bufsize_)
         std::memset(buf_ + size_, static_cast<unsigned char>(c), std::min(count, bufsize_ - size_));
 
     size_ += count;
-    return errc::success;
+    return ErrorCode::success;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -176,9 +176,9 @@ static char ComputeSignChar(bool neg, Sign sign, char fill)
 {
     if (neg)
         return '-';
-    if (sign == Sign::Plus)
+    if (sign == Sign::plus)
         return '+';
-    if (sign == Sign::Space)
+    if (sign == Sign::space)
         return fill;
 
     return '\0';
@@ -202,18 +202,18 @@ static Padding ComputePadding(size_t len, Align align, int width)
         size_t const d = w - len;
         switch (align)
         {
-        case Align::Default:
-        case Align::Right:
+        case Align::use_default:
+        case Align::right:
             pad.left = d;
             break;
-        case Align::Left:
+        case Align::left:
             pad.right = d;
             break;
-        case Align::Center:
+        case Align::center:
             pad.left = d/2;
             pad.right = d - d/2;
             break;
-        case Align::PadAfterSign:
+        case Align::pad_after_sign:
             pad.after_sign = d;
             break;
         }
@@ -224,7 +224,7 @@ static Padding ComputePadding(size_t len, Align align, int width)
 
 // Prints out exactly LEN characters (including '\0's) starting at STR,
 // possibly padding on the left and/or right.
-static errc PrintAndPadString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
+static ErrorCode PrintAndPadString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     auto const pad = ComputePadding(len, spec.align, spec.width);
 
@@ -235,16 +235,16 @@ static errc PrintAndPadString(Writer& w, FormatSpec const& spec, char const* str
     if (Failed ec = w.pad(spec.fill, pad.right))
         return ec;
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
-static errc PrintAndPadString(Writer& w, FormatSpec const& spec, StringView str)
+static ErrorCode PrintAndPadString(Writer& w, FormatSpec const& spec, StringView str)
 {
     return PrintAndPadString(w, spec, str.data(), str.size());
 }
 
 template <typename F>
-static errc ForEachEscaped(char const* str, size_t len, F func)
+static ErrorCode ForEachEscaped(char const* str, size_t len, F func)
 {
     for (size_t i = 0; i < len; ++i)
     {
@@ -292,23 +292,23 @@ static errc ForEachEscaped(char const* str, size_t len, F func)
         }
     }
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
-static errc WriteQuoted(Writer& w, char const* str, size_t len, size_t quoted_len)
+static ErrorCode WriteQuoted(Writer& w, char const* str, size_t len, size_t quoted_len)
 {
     if (len == 0)
-        return errc::success;
+        return ErrorCode::success;
     if (len == quoted_len)
         return w.write(str, len);
 
     return ForEachEscaped(str, len, [&](char c) { return w.put(c); });
 }
 
-static errc PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
+static ErrorCode PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t quoted_len = 0;
-    ForEachEscaped(str, len, [&](char) { ++quoted_len; return errc::success; });
+    ForEachEscaped(str, len, [&](char) { ++quoted_len; return ErrorCode::success; });
 
     auto const pad = ComputePadding(2 + quoted_len, spec.align, spec.width);
 
@@ -323,10 +323,10 @@ static errc PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char cons
     if (Failed ec = w.pad(spec.fill, pad.right))
         return ec;
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
-errc fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* str, size_t len)
+ErrorCode fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t const n = (spec.prec >= 0)
         ? std::min(len, static_cast<size_t>(spec.prec))
@@ -340,7 +340,7 @@ errc fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* s
     }
 }
 
-errc fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* str)
+ErrorCode fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* str)
 {
     if (str == nullptr)
         return PrintAndPadString(w, spec, "(null)");
@@ -359,15 +359,15 @@ errc fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* s
     }
 }
 
-static errc PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
+static ErrorCode PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign, char const* prefix, size_t nprefix, char const* digits, size_t ndigits)
 {
     size_t const len = (sign ? 1u : 0u) + nprefix + ndigits;
 
-    auto const pad = ComputePadding(len, spec.zero ? Align::PadAfterSign : spec.align, spec.width);
+    auto const pad = ComputePadding(len, spec.zero ? Align::pad_after_sign : spec.align, spec.width);
 
     if (Failed ec = w.pad(spec.fill, pad.left))
         return ec;
-    if (Failed ec = (sign == '\0') ? errc::success : w.put(sign))
+    if (Failed ec = (sign == '\0') ? ErrorCode::success : w.put(sign))
         return ec;
     if (Failed ec = w.write(prefix, nprefix))
         return ec;
@@ -378,7 +378,7 @@ static errc PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign, char
     if (Failed ec = w.pad(spec.fill, pad.right))
         return ec;
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
 static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
@@ -464,7 +464,7 @@ static int InsertThousandsSep(char* first, char* last, int off1, int off2, char 
     return nsep;
 }
 
-errc fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext)
+ErrorCode fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
     uint64_t number = zext;
     char     conv = spec.conv;
@@ -533,7 +533,7 @@ errc fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sext, ui
     return PrintAndPadNumber(w, spec, sign, prefix, nprefix, f, static_cast<size_t>(l - f));
 }
 
-errc fmtxx::Util::format_bool(Writer& w, FormatSpec const& spec, bool val)
+ErrorCode fmtxx::Util::format_bool(Writer& w, FormatSpec const& spec, bool val)
 {
     switch (spec.conv)
     {
@@ -546,7 +546,7 @@ errc fmtxx::Util::format_bool(Writer& w, FormatSpec const& spec, bool val)
     }
 }
 
-errc fmtxx::Util::format_char(Writer& w, FormatSpec const& spec, char ch)
+ErrorCode fmtxx::Util::format_char(Writer& w, FormatSpec const& spec, char ch)
 {
     switch (spec.conv)
     {
@@ -564,7 +564,7 @@ errc fmtxx::Util::format_char(Writer& w, FormatSpec const& spec, char ch)
     }
 }
 
-errc fmtxx::Util::format_pointer(Writer& w, FormatSpec const& spec, void const* pointer)
+ErrorCode fmtxx::Util::format_pointer(Writer& w, FormatSpec const& spec, void const* pointer)
 {
     if (pointer == nullptr)
         return PrintAndPadString(w, spec, "(nil)");
@@ -1161,7 +1161,7 @@ static int ToECMAScript(char* buf, int bufsize, double d, char decimal_point, ch
 
 } // namespace dtoa
 
-static errc HandleSpecialFloat(Double d, Writer& w, FormatSpec const& spec, char sign, bool upper)
+static ErrorCode HandleSpecialFloat(Double d, Writer& w, FormatSpec const& spec, char sign, bool upper)
 {
     assert(d.IsSpecial());
 
@@ -1180,7 +1180,7 @@ static errc HandleSpecialFloat(Double d, Writer& w, FormatSpec const& spec, char
     return PrintAndPadString(w, spec, str);
 }
 
-errc fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
+ErrorCode fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x)
 {
     dtoa::Options options;
 
@@ -1324,11 +1324,11 @@ static void FixNegativeFieldWidth(FormatSpec& spec)
     if (spec.width < 0)
     {
         spec.width = (spec.width == INT_MIN) ? INT_MAX /*[recover]*/ : -spec.width;
-        spec.align = Align::Left;
+        spec.align = Align::left;
     }
 }
 
-static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& arg, Arg::Type type)
+static ErrorCode CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& arg, Arg::Type type)
 {
     switch (type)
     {
@@ -1365,7 +1365,7 @@ static errc CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& arg, Ar
         break;
     }
 
-    return errc::success; // unreachable
+    return ErrorCode::success; // unreachable
 }
 
 static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
@@ -1395,61 +1395,61 @@ static bool ParseInt(int& value, StringView::iterator& f, StringView::iterator e
     return true;
 }
 
-static errc GetIntArg(int& value, int index, Arg const* args, Types types)
+static ErrorCode GetIntArg(int& value, int index, Arg const* args, Types types)
 {
     switch (types[index])
     {
     case Arg::T_NONE:
-        return errc::index_out_of_range;
+        return ErrorCode::index_out_of_range;
 
     case Arg::T_SCHAR:
         value = args[index].schar;
-        return errc::success;
+        return ErrorCode::success;
 
     case Arg::T_SSHORT:
         value = args[index].sshort;
-        return errc::success;
+        return ErrorCode::success;
 
     case Arg::T_SINT:
         value = args[index].sint;
-        return errc::success;
+        return ErrorCode::success;
 
     case Arg::T_SLONGLONG:
         if (args[index].slonglong > INT_MAX)
-            return errc::value_out_of_range;
+            return ErrorCode::value_out_of_range;
         if (args[index].slonglong < INT_MIN)
-            return errc::value_out_of_range;
+            return ErrorCode::value_out_of_range;
         value = static_cast<int>(args[index].slonglong);
-        return errc::success;
+        return ErrorCode::success;
 
     case Arg::T_ULONGLONG:
         if (args[index].ulonglong > INT_MAX)
-            return errc::value_out_of_range;
+            return ErrorCode::value_out_of_range;
         value = static_cast<int>(args[index].ulonglong);
-        return errc::success;
+        return ErrorCode::success;
 
     default:
-        return errc::invalid_argument;
+        return ErrorCode::invalid_argument;
     }
 }
 
-static errc ParseLBrace(int& value, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParseLBrace(int& value, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end && *f == '{'); // internal error
 
     ++f;
     if NOT_EXPECTED(f == end)
-        return errc::invalid_format_string;
+        return ErrorCode::invalid_format_string;
 
     int index;
     if (IsDigit(*f))
     {
         if NOT_EXPECTED(!ParseInt(index, f, end))
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
         if NOT_EXPECTED(*f != '}')
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
         ++f;
     }
     else
@@ -1460,19 +1460,19 @@ static errc ParseLBrace(int& value, StringView::iterator& f, StringView::iterato
     return GetIntArg(value, index, args, types);
 }
 
-static errc ParseFormatSpecArg(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParseFormatSpecArg(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end && *f == '*');
 
     ++f;
     if NOT_EXPECTED(f == end)
-        return errc::invalid_format_string;
+        return ErrorCode::invalid_format_string;
 
     int index;
     if (IsDigit(*f))
     {
         if NOT_EXPECTED(!ParseInt(index, f, end))
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
     }
     else
     {
@@ -1480,56 +1480,56 @@ static errc ParseFormatSpecArg(FormatSpec& spec, StringView::iterator& f, String
     }
 
     if NOT_EXPECTED(types[index] == Arg::T_NONE)
-        return errc::index_out_of_range;
+        return ErrorCode::index_out_of_range;
     if NOT_EXPECTED(types[index] != Arg::T_FORMATSPEC)
-        return errc::invalid_argument;
+        return ErrorCode::invalid_argument;
 
     spec = *static_cast<FormatSpec const*>(args[index].pvoid);
     FixNegativeFieldWidth(spec);
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
 static bool ParseAlign(FormatSpec& spec, char c)
 {
     switch (c) {
     case '<':
-        spec.align = Align::Left;
+        spec.align = Align::left;
         return true;
     case '>':
-        spec.align = Align::Right;
+        spec.align = Align::right;
         return true;
     case '^':
-        spec.align = Align::Center;
+        spec.align = Align::center;
         return true;
     case '=':
-        spec.align = Align::PadAfterSign;
+        spec.align = Align::pad_after_sign;
         return true;
     }
 
     return false;
 }
 
-static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end && *f == ':');
 
     ++f;
     if NOT_EXPECTED(f == end)
-        return errc::invalid_format_string;
+        return ErrorCode::invalid_format_string;
 
     if (f + 1 != end && ParseAlign(spec, *(f + 1)))
     {
         spec.fill = *f;
         f += 2;
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
     }
     else if (ParseAlign(spec, *f))
     {
         ++f;
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
     }
 
     for (;;)
@@ -1538,15 +1538,15 @@ static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringVie
         {
 // Flags
         case '-':
-            spec.sign = Sign::Minus;
+            spec.sign = Sign::minus;
             ++f;
             break;
         case '+':
-            spec.sign = Sign::Plus;
+            spec.sign = Sign::plus;
             ++f;
             break;
         case ' ':
-            spec.sign = Sign::Space;
+            spec.sign = Sign::space;
             ++f;
             break;
         case '#':
@@ -1574,7 +1574,7 @@ static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringVie
         case '8':
         case '9':
             if NOT_EXPECTED(!ParseInt(spec.width, f, end))
-                return errc::invalid_format_string;
+                return ErrorCode::invalid_format_string;
             break;
         case '{':
             if (Failed ec = ParseLBrace(spec.width, f, end, nextarg, args, types))
@@ -1585,7 +1585,7 @@ static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringVie
         case '.':
             ++f;
             if NOT_EXPECTED(f == end)
-                return errc::invalid_format_string;
+                return ErrorCode::invalid_format_string;
             switch (*f)
             {
             case '0':
@@ -1599,7 +1599,7 @@ static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringVie
             case '8':
             case '9':
                 if NOT_EXPECTED(!ParseInt(spec.prec, f, end))
-                    return errc::invalid_format_string;
+                    return ErrorCode::invalid_format_string;
                 break;
             case '{':
                 if (Failed ec = ParseLBrace(spec.prec, f, end, nextarg, args, types))
@@ -1613,25 +1613,25 @@ static errc ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringVie
 // Conversion
         case '!':
         case '}':
-            return errc::success;
+            return ErrorCode::success;
         default:
             spec.conv = *f;
             ++f;
-            return errc::success;
+            return ErrorCode::success;
         }
 
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
     }
 }
 
-static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::iterator end)
+static ErrorCode ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::iterator end)
 {
     assert(f != end && *f == '!');
 
     ++f;
     if NOT_EXPECTED(f == end)
-        return errc::invalid_format_string;
+        return ErrorCode::invalid_format_string;
 
     char delim;
     switch (*f)
@@ -1664,7 +1664,7 @@ static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::it
     auto const f0 = f;
 
     if NOT_EXPECTED(f0 == end)
-        return errc::invalid_format_string;
+        return ErrorCode::invalid_format_string;
 
     f = std::find(f, end, delim == '\0' ? '}' : delim);
 
@@ -1673,14 +1673,14 @@ static errc ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::it
     if (delim != '\0')
     {
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
         ++f; // skip delim
     }
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
-static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParseReplacementField(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end);
 
@@ -1689,7 +1689,7 @@ static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, Str
         if (Failed ec = ParseFormatSpecArg(spec, f, end, nextarg, args, types))
             return ec;
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
     }
 
     if (*f == ':')
@@ -1697,7 +1697,7 @@ static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, Str
         if (Failed ec = ParseFormatSpec(spec, f, end, nextarg, args, types))
             return ec;
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
     }
 
     if (*f == '!')
@@ -1705,21 +1705,21 @@ static errc ParseReplacementField(FormatSpec& spec, StringView::iterator& f, Str
         if (Failed ec = ParseStyle(spec, f, end))
             return ec;
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
     }
 
     if NOT_EXPECTED(*f != '}')
-        return errc::invalid_format_string;
+        return ErrorCode::invalid_format_string;
 
     ++f;
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
-errc fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types types)
 {
     if (format.empty())
-        return errc::success;
+        return ErrorCode::success;
 
     int nextarg = 0;
 
@@ -1742,7 +1742,7 @@ errc fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types 
         ++f; // skip '{' or '}'
 
         if NOT_EXPECTED(f == end) // "missing '}' or stray '}'"
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
 
         if (*prev == *f) // '{{' or '}}'
         {
@@ -1752,16 +1752,16 @@ errc fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types 
         }
 
         if NOT_EXPECTED(*prev == '}')
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
 
         int arg_index = -1;
         if (IsDigit(*f))
         {
             if NOT_EXPECTED(!ParseInt(arg_index, f, end))
-                return errc::invalid_format_string;
+                return ErrorCode::invalid_format_string;
 
             if NOT_EXPECTED(f == end)
-                return errc::invalid_format_string;
+                return ErrorCode::invalid_format_string;
         }
 
         FormatSpec spec;
@@ -1783,39 +1783,39 @@ errc fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types 
         auto const arg_type = types[arg_index];
 
         if (arg_type == Arg::T_NONE)
-            return errc::index_out_of_range;
+            return ErrorCode::index_out_of_range;
         if (arg_type == Arg::T_FORMATSPEC)
-            return errc::invalid_argument;
+            return ErrorCode::invalid_argument;
 
         if (Failed ec = CallFormatFunc(w, spec, args[arg_index], arg_type))
             return ec;
     }
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
-static errc ParseAsterisk(int& value, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParseAsterisk(int& value, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end && *f == '*'); // internal error
 
     ++f;
     if NOT_EXPECTED(f == end)
-        return errc::invalid_format_string;
+        return ErrorCode::invalid_format_string;
 
     int index;
     if (IsDigit(*f))
     {
         if NOT_EXPECTED(!ParseInt(index, f, end))
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
 
         index -= 1; // Positional arguments are 1-based.
 
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
         if NOT_EXPECTED(index < 0)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
         if NOT_EXPECTED(*f != '$')
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
         ++f;
     }
     else
@@ -1826,7 +1826,7 @@ static errc ParseAsterisk(int& value, StringView::iterator& f, StringView::itera
     return GetIntArg(value, index, args, types);
 }
 
-static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end && *(f - 1) == '%');
 
@@ -1836,15 +1836,15 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
         {
 // Flags
         case '-':
-            spec.align = Align::Left;
+            spec.align = Align::left;
             ++f;
             break;
         case '+':
-            spec.sign = Sign::Plus;
+            spec.sign = Sign::plus;
             ++f;
             break;
         case ' ':
-            spec.sign = Sign::Space;
+            spec.sign = Sign::space;
             ++f;
             break;
         case '#':
@@ -1874,10 +1874,10 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
             {
                 int n;
                 if NOT_EXPECTED(!ParseInt(n, f, end))
-                    return errc::invalid_format_string;
+                    return ErrorCode::invalid_format_string;
 
                 if NOT_EXPECTED(f == end)
-                    return errc::invalid_format_string;
+                    return ErrorCode::invalid_format_string;
 
                 // If this number ends with a '$' its actually a positional argument
                 // index and not the field width.
@@ -1901,7 +1901,7 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
         case '.':
             ++f;
             if NOT_EXPECTED(f == end)
-                return errc::invalid_format_string;
+                return ErrorCode::invalid_format_string;
             switch (*f)
             {
             case '0':
@@ -1915,7 +1915,7 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
             case '8':
             case '9':
                 if NOT_EXPECTED(!ParseInt(spec.prec, f, end))
-                    return errc::invalid_format_string;
+                    return ErrorCode::invalid_format_string;
                 break;
             case '*':
                 if (Failed ec = ParseAsterisk(spec.prec, f, end, nextarg, args, types))
@@ -1960,32 +1960,32 @@ static errc ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterat
         case 'y': // EXTENSION: bool "yes"/"no"
             spec.conv = *f;
             ++f;
-            return errc::success;
+            return ErrorCode::success;
         case 'n':
             // The number of characters written so far is stored into the integer
             // indicated by the int * (or variant) pointer argument.
             // No argument is converted.
             FAIL("'n' conversion not supported");
-            return errc::not_supported;
+            return ErrorCode::not_supported;
         case 'm':
             // (Glibc extension.) Print output of strerror(errno).
             // No argument is required.
             FAIL("'m' conversion not supported");
-            return errc::not_supported;
+            return ErrorCode::not_supported;
         default:
             FAIL("unknown conversion");
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
         }
 
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
     }
 }
 
-errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types types)
 {
     if (format.empty())
-        return errc::success;
+        return ErrorCode::success;
 
     int nextarg = 0;
 
@@ -2006,7 +2006,7 @@ errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types 
 
         ++f; // skip '%'
         if NOT_EXPECTED(f == end)
-            return errc::invalid_format_string;
+            return ErrorCode::invalid_format_string;
 
         if (*f == '%') // '%%'
         {
@@ -2038,24 +2038,24 @@ errc fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types 
         auto const arg_type = types[arg_index];
 
         if (arg_type == Arg::T_NONE)
-            return errc::index_out_of_range;
+            return ErrorCode::index_out_of_range;
         if (arg_type == Arg::T_FORMATSPEC)
-            return errc::invalid_argument;
+            return ErrorCode::invalid_argument;
 
         if (Failed ec = CallFormatFunc(w, spec, args[arg_index], arg_type))
             return ec;
     }
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
-errc fmtxx::impl::DoFormat(std::FILE* file, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoFormat(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
     return fmtxx::impl::DoFormat(w, format, args, types);
 }
 
-errc fmtxx::impl::DoPrintf(std::FILE* file, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoPrintf(std::FILE* file, StringView format, Arg const* args, Types types)
 {
     FILEWriter w{file};
     return fmtxx::impl::DoPrintf(w, format, args, types);
@@ -2070,33 +2070,33 @@ namespace
 
         explicit StringWriter(std::string& s) : str(s) {}
 
-        errc Put(char c) override
+        ErrorCode Put(char c) override
         {
             str.push_back(c);
-            return errc::success;
+            return ErrorCode::success;
         }
 
-        errc Write(char const* ptr, size_t len) override
+        ErrorCode Write(char const* ptr, size_t len) override
         {
             str.append(ptr, len);
-            return errc::success;
+            return ErrorCode::success;
         }
 
-        errc Pad(char c, size_t count) override
+        ErrorCode Pad(char c, size_t count) override
         {
             str.append(count, c);
-            return errc::success;
+            return ErrorCode::success;
         }
     };
 }
 
-errc fmtxx::impl::DoFormat(std::string& str, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoFormat(std::string& str, StringView format, Arg const* args, Types types)
 {
     StringWriter w{str};
     return fmtxx::impl::DoFormat(w, format, args, types);
 }
 
-errc fmtxx::impl::DoPrintf(std::string& str, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoPrintf(std::string& str, StringView format, Arg const* args, Types types)
 {
     StringWriter w{str};
     return fmtxx::impl::DoPrintf(w, format, args, types);
@@ -2111,20 +2111,20 @@ namespace
 
         explicit StreamWriter(std::ostream& v) : os(v) {}
 
-        errc Put(char c) override
+        ErrorCode Put(char c) override
         {
             using traits_type = std::ostream::traits_type;
 
             if (traits_type::eq_int_type(os.rdbuf()->sputc(c), traits_type::eof()))
             {
                 os.setstate(std::ios_base::badbit);
-                return errc::io_error;
+                return ErrorCode::io_error;
             }
 
-            return errc::success;
+            return ErrorCode::success;
         }
 
-        errc Write(char const* str, size_t len) override
+        ErrorCode Write(char const* str, size_t len) override
         {
             auto const kMaxLen = static_cast<size_t>(std::numeric_limits<std::streamsize>::max());
 
@@ -2135,16 +2135,16 @@ namespace
                 if (k != os.rdbuf()->sputn(str, k))
                 {
                     os.setstate(std::ios_base::badbit);
-                    return errc::io_error;
+                    return ErrorCode::io_error;
                 }
                 str += n;
                 len -= n;
             }
 
-            return errc::success;
+            return ErrorCode::success;
         }
 
-        errc Pad(char c, size_t count) override
+        ErrorCode Pad(char c, size_t count) override
         {
             size_t const kBlockSize = 32;
 
@@ -2158,17 +2158,17 @@ namespace
                 if (k != os.rdbuf()->sputn(block, k))
                 {
                     os.setstate(std::ios_base::badbit);
-                    return errc::io_error;
+                    return ErrorCode::io_error;
                 }
                 count -= n;
             }
 
-            return errc::success;
+            return ErrorCode::success;
         }
     };
 }
 
-errc fmtxx::impl::DoFormat(std::ostream& os, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoFormat(std::ostream& os, StringView format, Arg const* args, Types types)
 {
     std::ostream::sentry const ok(os);
     if (ok)
@@ -2177,10 +2177,10 @@ errc fmtxx::impl::DoFormat(std::ostream& os, StringView format, Arg const* args,
         return fmtxx::impl::DoFormat(w, format, args, types);
     }
 
-    return errc::io_error;
+    return ErrorCode::io_error;
 }
 
-errc fmtxx::impl::DoPrintf(std::ostream& os, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoPrintf(std::ostream& os, StringView format, Arg const* args, Types types)
 {
     std::ostream::sentry const ok(os);
     if (ok)
@@ -2189,7 +2189,7 @@ errc fmtxx::impl::DoPrintf(std::ostream& os, StringView format, Arg const* args,
         return fmtxx::impl::DoPrintf(w, format, args, types);
     }
 
-    return errc::io_error;
+    return ErrorCode::io_error;
 }
 
 int fmtxx::impl::DoFileFormat(std::FILE* file, StringView format, Arg const* args, Types types)

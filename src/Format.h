@@ -123,7 +123,7 @@ public:
 //
 //--------------------------------------------------------------------------------------------------
 
-enum struct errc {
+enum struct ErrorCode {
     success = 0,
     conversion_error,       // Value could not be converted to string. (E.g.: trying to format a non-existant date.)
     index_out_of_range,     // Argument index out of range
@@ -138,12 +138,12 @@ enum struct errc {
 // Replaces err::operator bool() in most cases (and is more explicit).
 struct Failed
 {
-    errc const ec = errc::success;
+    ErrorCode const ec = ErrorCode::success;
 
     Failed() = default;
-    Failed(errc ec) : ec(ec) {}
-    operator errc() const { return ec; }
-    explicit operator bool() const { return ec != errc::success; }
+    Failed(ErrorCode ec) : ec(ec) {}
+    operator ErrorCode() const { return ec; }
+    explicit operator bool() const { return ec != ErrorCode::success; }
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -151,18 +151,18 @@ struct Failed
 //--------------------------------------------------------------------------------------------------
 
 enum struct Align : unsigned char {
-    Default,
-    Left,
-    Right,
-    Center,
-    PadAfterSign,
+    use_default,
+    left,
+    right,
+    center,
+    pad_after_sign,
 };
 
 enum struct Sign : unsigned char {
-    Default, // = Minus
-    Minus,   // => '-' if negative, nothing otherwise
-    Plus,    // => '-' if negative, '+' otherwise
-    Space,   // => '-' if negative, fill-char otherwise
+    use_default, // => minus
+    minus,       // => '-' if negative, nothing otherwise
+    plus,        // => '-' if negative, '+' otherwise
+    space,       // => '-' if negative, fill-char otherwise
 };
 
 struct FMTXX_VISIBILITY_DEFAULT FormatSpec
@@ -171,8 +171,8 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
     int   width = 0;
     int   prec  = -1;
     char  fill  = ' ';
-    Align align = Align::Default;
-    Sign  sign  = Sign::Default;
+    Align align = Align::use_default;
+    Sign  sign  = Sign::use_default;
     bool  hash  = false;
     bool  zero  = false;
     char  tsep  = '\0';
@@ -190,18 +190,18 @@ public:
     FMTXX_API virtual ~Writer() noexcept;
 
     // Write a character to the output stream.
-    errc put(char c) { return Put(c); }
+    ErrorCode put(char c) { return Put(c); }
 
     // Insert a range of characters into the output stream.
-    errc write(char const* str, size_t len) { return len == 0 ? errc::success : Write(str, len); }
+    ErrorCode write(char const* str, size_t len) { return len == 0 ? ErrorCode::success : Write(str, len); }
 
     // Insert a character multiple times into the output stream.
-    errc pad(char c, size_t count) { return count == 0 ? errc::success : Pad(c, count); }
+    ErrorCode pad(char c, size_t count) { return count == 0 ? ErrorCode::success : Pad(c, count); }
 
 private:
-    virtual errc Put(char c) = 0;
-    virtual errc Write(char const* str, size_t len) = 0;
-    virtual errc Pad(char c, size_t count) = 0;
+    virtual ErrorCode Put(char c) = 0;
+    virtual ErrorCode Write(char const* str, size_t len) = 0;
+    virtual ErrorCode Pad(char c, size_t count) = 0;
 };
 
 // Write to std::FILE's, keeping track of the number of characters (successfully) transmitted.
@@ -223,9 +223,9 @@ public:
     size_t size() const { return size_; }
 
 private:
-    FMTXX_API errc Put(char c) noexcept override;
-    FMTXX_API errc Write(char const* ptr, size_t len) noexcept override;
-    FMTXX_API errc Pad(char c, size_t count) noexcept override;
+    FMTXX_API ErrorCode Put(char c) noexcept override;
+    FMTXX_API ErrorCode Write(char const* ptr, size_t len) noexcept override;
+    FMTXX_API ErrorCode Pad(char c, size_t count) noexcept override;
 };
 
 // Write to a user allocated buffer.
@@ -268,9 +268,9 @@ public:
     FMTXX_API size_t finish() noexcept;
 
 private:
-    FMTXX_API errc Put(char c) noexcept override;
-    FMTXX_API errc Write(char const* ptr, size_t len) noexcept override;
-    FMTXX_API errc Pad(char c, size_t count) noexcept override;
+    FMTXX_API ErrorCode Put(char c) noexcept override;
+    FMTXX_API ErrorCode Write(char const* ptr, size_t len) noexcept override;
+    FMTXX_API ErrorCode Pad(char c, size_t count) noexcept override;
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -281,19 +281,19 @@ struct Util
 {
     // Note:
     // The string must not be null. This function prints len characters, including '\0's.
-    static FMTXX_API errc format_string (Writer& w, FormatSpec const& spec, char const* str, size_t len);
+    static FMTXX_API ErrorCode format_string (Writer& w, FormatSpec const& spec, char const* str, size_t len);
     // Note:
     // This is different from just calling format_string(str, strlen(str)):
     // This function handles nullptr's and if a precision is specified uses strnlen instead of strlen.
-    static FMTXX_API errc format_string (Writer& w, FormatSpec const& spec, char const* str);
-    static FMTXX_API errc format_int    (Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext);
-    static FMTXX_API errc format_bool   (Writer& w, FormatSpec const& spec, bool val);
-    static FMTXX_API errc format_char   (Writer& w, FormatSpec const& spec, char ch);
-    static FMTXX_API errc format_pointer(Writer& w, FormatSpec const& spec, void const* pointer);
-    static FMTXX_API errc format_double (Writer& w, FormatSpec const& spec, double x);
+    static FMTXX_API ErrorCode format_string (Writer& w, FormatSpec const& spec, char const* str);
+    static FMTXX_API ErrorCode format_int    (Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext);
+    static FMTXX_API ErrorCode format_bool   (Writer& w, FormatSpec const& spec, bool val);
+    static FMTXX_API ErrorCode format_char   (Writer& w, FormatSpec const& spec, char ch);
+    static FMTXX_API ErrorCode format_pointer(Writer& w, FormatSpec const& spec, void const* pointer);
+    static FMTXX_API ErrorCode format_double (Writer& w, FormatSpec const& spec, double x);
 
     template <typename T>
-    static inline errc format_int(Writer& w, FormatSpec const& spec, T value)
+    static inline ErrorCode format_int(Writer& w, FormatSpec const& spec, T value)
     {
         static_assert(std::is_integral<T>::value, "T must be an integral type");
         return format_int(w, spec, value, std::is_signed<T>{});
@@ -301,12 +301,12 @@ struct Util
 
 private:
     template <typename T>
-    static inline errc format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::true_type) {
+    static inline ErrorCode format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::true_type) {
         return format_int(w, spec, value, static_cast<typename std::make_unsigned<T>::type>(value));
     }
 
     template <typename T>
-    static inline errc format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::false_type) {
+    static inline ErrorCode format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::false_type) {
         return format_int(w, spec, 0, value);
     }
 };
@@ -383,140 +383,140 @@ struct FormatValue : impl::StreamValue<T>
 template <typename T>
 struct FormatValue<T, typename std::enable_if< TreatAsString<T>::value >::type>
 {
-    errc operator()(Writer& w, FormatSpec const& spec, T const& val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const {
         return Util::format_string(w, spec, val.data(), val.size());
     }
 };
 
 template <>
 struct FormatValue<char const*> {
-    errc operator()(Writer& w, FormatSpec const& spec, char const* val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, char const* val) const {
         return Util::format_string(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<char*> {
-    errc operator()(Writer& w, FormatSpec const& spec, char* val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, char* val) const {
         return Util::format_string(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<void const*> {
-    errc operator()(Writer& w, FormatSpec const& spec, void const* val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, void const* val) const {
         return Util::format_pointer(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<void*> {
-    errc operator()(Writer& w, FormatSpec const& spec, void* val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, void* val) const {
         return Util::format_pointer(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<std::nullptr_t> {
-    errc operator()(Writer& w, FormatSpec const& spec, std::nullptr_t) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, std::nullptr_t) const {
         return Util::format_pointer(w, spec, nullptr);
     }
 };
 
 template <>
 struct FormatValue<bool> {
-    errc operator()(Writer& w, FormatSpec const& spec, bool val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, bool val) const {
         return Util::format_bool(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<char> {
-    errc operator()(Writer& w, FormatSpec const& spec, char val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, char val) const {
         return Util::format_char(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<signed char> {
-    errc operator()(Writer& w, FormatSpec const& spec, signed char val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed char val) const {
         return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<signed short> {
-    errc operator()(Writer& w, FormatSpec const& spec, signed short val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed short val) const {
         return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<signed int> {
-    errc operator()(Writer& w, FormatSpec const& spec, signed int val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed int val) const {
         return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<signed long> {
-    errc operator()(Writer& w, FormatSpec const& spec, signed long val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed long val) const {
         return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<signed long long> {
-    errc operator()(Writer& w, FormatSpec const& spec, signed long long val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed long long val) const {
         return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<unsigned char> {
-    errc operator()(Writer& w, FormatSpec const& spec, unsigned char val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, unsigned char val) const {
         return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<unsigned short> {
-    errc operator()(Writer& w, FormatSpec const& spec, unsigned short val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, unsigned short val) const {
         return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<unsigned int> {
-    errc operator()(Writer& w, FormatSpec const& spec, unsigned int val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, unsigned int val) const {
         return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<unsigned long> {
-    errc operator()(Writer& w, FormatSpec const& spec, unsigned long val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, unsigned long val) const {
         return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<unsigned long long> {
-    errc operator()(Writer& w, FormatSpec const& spec, unsigned long long val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, unsigned long long val) const {
         return Util::format_int(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<double> {
-    errc operator()(Writer& w, FormatSpec const& spec, double val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, double val) const {
         return Util::format_double(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<float> {
-    errc operator()(Writer& w, FormatSpec const& spec, float val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, float val) const {
         return Util::format_double(w, spec, static_cast<double>(val));
     }
 };
@@ -525,7 +525,7 @@ template <>
 struct FormatValue<void>
 {
     template <typename T>
-    errc operator()(Writer& w, FormatSpec const& spec, T const& val) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const {
         return FormatValue<typename std::decay<T>::type>{}(w, spec, val);
     }
 };
@@ -535,7 +535,7 @@ template <
     typename T,
     typename = typename std::enable_if< std::is_base_of<Writer, typename std::remove_reference<WriterT>::type>::value >::type
 >
-errc format_value(WriterT&& w, FormatSpec const& spec, T const& value) {
+ErrorCode format_value(WriterT&& w, FormatSpec const& spec, T const& value) {
     return FormatValue<>{}(w, spec, value);
 }
 
@@ -565,10 +565,10 @@ struct Arg
         T_LAST,         // Unused -- must be last.
     };
 
-    using Func = errc (*)(Writer& w, FormatSpec const& spec, void const* value);
+    using Func = ErrorCode (*)(Writer& w, FormatSpec const& spec, void const* value);
 
     template <typename T>
-    static errc FormatValue_fn(Writer& w, FormatSpec const& spec, void const* value)
+    static ErrorCode FormatValue_fn(Writer& w, FormatSpec const& spec, void const* value)
     {
         return fmtxx::format_value(w, spec, *static_cast<T const*>(value));
     }
@@ -737,14 +737,14 @@ struct Types
     }
 };
 
-FMTXX_API errc DoFormat(Writer& w,        StringView format, Arg const* args, Types types);
-FMTXX_API errc DoPrintf(Writer& w,        StringView format, Arg const* args, Types types);
-FMTXX_API errc DoFormat(std::FILE* file,  StringView format, Arg const* args, Types types);
-FMTXX_API errc DoPrintf(std::FILE* file,  StringView format, Arg const* args, Types types);
-FMTXX_API errc DoFormat(std::string& str, StringView format, Arg const* args, Types types);
-FMTXX_API errc DoPrintf(std::string& str, StringView format, Arg const* args, Types types);
-FMTXX_API errc DoFormat(std::ostream& os, StringView format, Arg const* args, Types types);
-FMTXX_API errc DoPrintf(std::ostream& os, StringView format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(Writer& w,        StringView format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(Writer& w,        StringView format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(std::FILE* file,  StringView format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(std::FILE* file,  StringView format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(std::string& str, StringView format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(std::string& str, StringView format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(std::ostream& os, StringView format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(std::ostream& os, StringView format, Arg const* args, Types types);
 
 // fprintf compatible formatting functions.
 FMTXX_API int DoFileFormat(std::FILE* file, StringView format, Arg const* args, Types types);
@@ -807,97 +807,97 @@ private:
 //--------------------------------------------------------------------------------------------------
 
 template <typename ...Args>
-inline errc format(Writer& w, StringView format, Args const&... args)
+inline ErrorCode format(Writer& w, StringView format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoFormat(w, format, arr, impl::Types{args...});
 }
 
 template <typename ...Args>
-inline errc printf(Writer& w, StringView format, Args const&... args)
+inline ErrorCode printf(Writer& w, StringView format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoPrintf(w, format, arr, impl::Types{args...});
 }
 
-inline errc format(Writer& w, StringView format, FormatArgs const& args)
+inline ErrorCode format(Writer& w, StringView format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoFormat(w, format, args.args_, args.types_);
 }
 
-inline errc printf(Writer& w, StringView format, FormatArgs const& args)
+inline ErrorCode printf(Writer& w, StringView format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoPrintf(w, format, args.args_, args.types_);
 }
 
 template <typename ...Args>
-inline errc format(std::FILE* file, StringView format, Args const&... args)
+inline ErrorCode format(std::FILE* file, StringView format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoFormat(file, format, arr, impl::Types{args...});
 }
 
 template <typename ...Args>
-inline errc printf(std::FILE* file, StringView format, Args const&... args)
+inline ErrorCode printf(std::FILE* file, StringView format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoPrintf(file, format, arr, impl::Types{args...});
 }
 
-inline errc format(std::FILE* file, StringView format, FormatArgs const& args)
+inline ErrorCode format(std::FILE* file, StringView format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoFormat(file, format, args.args_, args.types_);
 }
 
-inline errc printf(std::FILE* file, StringView format, FormatArgs const& args)
+inline ErrorCode printf(std::FILE* file, StringView format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoPrintf(file, format, args.args_, args.types_);
 }
 
 template <typename ...Args>
-inline errc format(std::string& str, StringView format, Args const&... args)
+inline ErrorCode format(std::string& str, StringView format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoFormat(str, format, arr, impl::Types{args...});
 }
 
 template <typename ...Args>
-inline errc printf(std::string& str, StringView format, Args const&... args)
+inline ErrorCode printf(std::string& str, StringView format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoPrintf(str, format, arr, impl::Types{args...});
 }
 
-inline errc format(std::string& str, StringView format, FormatArgs const& args)
+inline ErrorCode format(std::string& str, StringView format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoFormat(str, format, args.args_, args.types_);
 }
 
-inline errc printf(std::string& str, StringView format, FormatArgs const& args)
+inline ErrorCode printf(std::string& str, StringView format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoPrintf(str, format, args.args_, args.types_);
 }
 
 template <typename ...Args>
-inline errc format(std::ostream& os, StringView format, Args const&... args)
+inline ErrorCode format(std::ostream& os, StringView format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoFormat(os, format, arr, impl::Types{args...});
 }
 
 template <typename ...Args>
-inline errc printf(std::ostream& os, StringView format, Args const&... args)
+inline ErrorCode printf(std::ostream& os, StringView format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoPrintf(os, format, arr, impl::Types{args...});
 }
 
-inline errc format(std::ostream& os, StringView format, FormatArgs const& args)
+inline ErrorCode format(std::ostream& os, StringView format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoFormat(os, format, args.args_, args.types_);
 }
 
-inline errc printf(std::ostream& os, StringView format, FormatArgs const& args)
+inline ErrorCode printf(std::ostream& os, StringView format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoPrintf(os, format, args.args_, args.types_);
 }
@@ -981,7 +981,7 @@ inline int snprintf(char (&buf)[N], StringView format, FormatArgs const& args)
 struct StringFormatResult
 {
     std::string str;
-    errc ec = errc::success;
+    ErrorCode ec = ErrorCode::success;
 };
 
 template <typename ...Args>
@@ -1067,9 +1067,9 @@ struct IsTuple : decltype( IsTupleImpl::test(std::declval<T>()) )
 };
 
 template <typename T>
-errc PrettyPrint(Writer& w, T const& value);
+ErrorCode PrettyPrint(Writer& w, T const& value);
 
-inline errc PrintString(Writer& w, StringView val)
+inline ErrorCode PrintString(Writer& w, StringView val)
 {
     if (Failed ec = w.put('"'))
         return ec;
@@ -1078,33 +1078,33 @@ inline errc PrintString(Writer& w, StringView val)
     if (Failed ec = w.put('"'))
         return ec;
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
-inline errc PrettyPrint(Writer& w, char const* val)
+inline ErrorCode PrettyPrint(Writer& w, char const* val)
 {
     return ::fmtxx::impl::pp::PrintString(w, val != nullptr ? val : "(null)");
 }
 
-inline errc PrettyPrint(Writer& w, char* val)
+inline ErrorCode PrettyPrint(Writer& w, char* val)
 {
     return ::fmtxx::impl::pp::PrintString(w, val != nullptr ? val : "(null)");
 }
 
 template <typename T>
-errc PrintTuple(Writer& /*w*/, T const& /*object*/, std::integral_constant<size_t, 0>)
+ErrorCode PrintTuple(Writer& /*w*/, T const& /*object*/, std::integral_constant<size_t, 0>)
 {
-    return errc::success;
+    return ErrorCode::success;
 }
 
 template <typename T>
-errc PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, 1>)
+ErrorCode PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, 1>)
 {
     return ::fmtxx::impl::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - 1>(object));
 }
 
 template <typename T, size_t N>
-errc PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, N>)
+ErrorCode PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, N>)
 {
     if (Failed ec = ::fmtxx::impl::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - N>(object)))
         return ec;
@@ -1115,11 +1115,11 @@ errc PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, N>)
     if (Failed ec = ::fmtxx::impl::pp::PrintTuple(w, object, std::integral_constant<size_t, N - 1>()))
         return ec;
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
 template <typename T>
-errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
+ErrorCode DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
 {
     if (Failed ec = w.put('{'))
         return ec;
@@ -1128,17 +1128,17 @@ errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
     if (Failed ec = w.put('}'))
         return ec;
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
 template <typename T>
-errc DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::false_type)
+ErrorCode DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::false_type)
 {
     return ::fmtxx::format_value(w, {}, object);
 }
 
 template <typename T>
-errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_type)
+ErrorCode DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_type)
 {
     if (Failed ec = w.put('['))
         return ec;
@@ -1163,29 +1163,29 @@ errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_typ
     if (Failed ec = w.put(']'))
         return ec;
 
-    return errc::success;
+    return ErrorCode::success;
 }
 
 template <typename T>
-errc DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::false_type)
+ErrorCode DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::false_type)
 {
     return ::fmtxx::impl::pp::DispatchTuple(w, object, IsTuple<T>{});
 }
 
 template <typename T>
-errc DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::true_type)
+ErrorCode DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::true_type)
 {
     return ::fmtxx::impl::pp::PrintString(w, StringView{object.data(), object.size()});
 }
 
 template <typename T>
-errc DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::false_type)
+ErrorCode DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::false_type)
 {
     return ::fmtxx::impl::pp::DispatchContainer(w, object, IsContainer<T>{});
 }
 
 template <typename T>
-errc PrettyPrint(Writer& w, T const& object)
+ErrorCode PrettyPrint(Writer& w, T const& object)
 {
     return ::fmtxx::impl::pp::DispatchString(w, object, TreatAsString<T>{});
 }
@@ -1195,7 +1195,7 @@ errc PrettyPrint(Writer& w, T const& object)
 
 template <typename T>
 struct FormatValue<PrettyPrinter<T>> {
-    errc operator()(Writer& w, FormatSpec const& /*spec*/, PrettyPrinter<T> const& value) const {
+    ErrorCode operator()(Writer& w, FormatSpec const& /*spec*/, PrettyPrinter<T> const& value) const {
         return ::fmtxx::impl::pp::PrettyPrint(w, value.object);
     }
 };

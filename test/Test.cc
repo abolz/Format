@@ -16,7 +16,7 @@
 struct FormatterResult
 {
     std::string str;
-    fmtxx::errc ec;
+    fmtxx::ErrorCode ec;
 };
 
 template <typename Fn>
@@ -101,20 +101,20 @@ template <typename Formatter, typename ...Args>
 static std::string FormatArgs1(fmtxx::StringView format, Args const&... args)
 {
     FormatterResult res = Formatter{}(format, args...);
-    //assert(res.ec == fmtxx::errc::success);
+    //assert(res.ec == fmtxx::ErrorCode::success);
     return res.str;
 }
 
 struct FormatFn {
     template <typename Buffer, typename ...Args>
-    fmtxx::errc operator()(Buffer& fb, fmtxx::StringView format, Args const&... args) const {
+    fmtxx::ErrorCode operator()(Buffer& fb, fmtxx::StringView format, Args const&... args) const {
         return fmtxx::format(fb, format, args...);
     }
 };
 
 struct PrintfFn {
     template <typename Buffer, typename ...Args>
-    fmtxx::errc operator()(Buffer& fb, fmtxx::StringView format, Args const&... args) const {
+    fmtxx::ErrorCode operator()(Buffer& fb, fmtxx::StringView format, Args const&... args) const {
         return fmtxx::printf(fb, format, args...);
     }
 };
@@ -165,44 +165,44 @@ TEST(FormatStringChecks, Format)
 {
     fmtxx::ArrayWriter w{nullptr, 0};
 
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{*}", 1), 0, 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{*}", 2), 0, 0));
-    EXPECT_EQ(fmtxx::errc::invalid_argument,        fmtxx::format(w, "{*}", 1));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{*", fmtxx::FormatSpec{}, 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{*}}", fmtxx::FormatSpec{}, 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{}", 1), 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{1}", 2), 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1.", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1.1", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1.1f", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{ ", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1 ", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1: ", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1 ", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1. ", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1.1 ", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{1:1.1f ", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{-1: >10.2f}", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{:*10}", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{-10}", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{{}", 1));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{}}", 1));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "}", 1, 1, 1, 1, 1));
-    EXPECT_EQ(fmtxx::errc::index_out_of_range,      fmtxx::format(w, "{1}", 1));
-    EXPECT_EQ(fmtxx::errc::index_out_of_range,      fmtxx::format(w, "{1}{2}", 1, 2));
-    EXPECT_EQ(fmtxx::errc::index_out_of_range,      fmtxx::format(w, "{0}{2}", 1, 2));
-    EXPECT_EQ(fmtxx::errc::index_out_of_range,      fmtxx::format(w, "{10}", 1));
-    EXPECT_EQ(fmtxx::errc::index_out_of_range,      fmtxx::format(w, "{2147483647}", 1));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{2147483648}", 1));
-    EXPECT_EQ(fmtxx::errc::success,                 fmtxx::format(w, "{:2147483647}", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{:2147483648}", 0));
-    EXPECT_EQ(fmtxx::errc::success,                 fmtxx::format(w, "{:.2147483647}", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{:.2147483648}", 0));
-    EXPECT_EQ(fmtxx::errc::invalid_format_string,   fmtxx::format(w, "{:.", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{*}", 1), 0, 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{*}", 2), 0, 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_argument,        fmtxx::format(w, "{*}", 1));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{*", fmtxx::FormatSpec{}, 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{*}}", fmtxx::FormatSpec{}, 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{}", 1), 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, fmtxx::StringView("{1}", 2), 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1:", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1:1", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1:1.", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1:1.1", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1:1.1f", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{ ", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1 ", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1: ", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1:1 ", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1:1. ", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1:1.1 ", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{1:1.1f ", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{-1: >10.2f}", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{:*10}", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{-10}", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{{}", 1));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{}}", 1));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "}", 1, 1, 1, 1, 1));
+    EXPECT_EQ(fmtxx::ErrorCode::index_out_of_range,      fmtxx::format(w, "{1}", 1));
+    EXPECT_EQ(fmtxx::ErrorCode::index_out_of_range,      fmtxx::format(w, "{1}{2}", 1, 2));
+    EXPECT_EQ(fmtxx::ErrorCode::index_out_of_range,      fmtxx::format(w, "{0}{2}", 1, 2));
+    EXPECT_EQ(fmtxx::ErrorCode::index_out_of_range,      fmtxx::format(w, "{10}", 1));
+    EXPECT_EQ(fmtxx::ErrorCode::index_out_of_range,      fmtxx::format(w, "{2147483647}", 1));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{2147483648}", 1));
+    EXPECT_EQ(fmtxx::ErrorCode::success,                 fmtxx::format(w, "{:2147483647}", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{:2147483648}", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::success,                 fmtxx::format(w, "{:.2147483647}", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{:.2147483648}", 0));
+    EXPECT_EQ(fmtxx::ErrorCode::invalid_format_string,   fmtxx::format(w, "{:.", 0));
 }
 
 TEST(General, Format)
@@ -829,15 +829,15 @@ TEST(Floats, 1)
         char buf[kBufSize + 1/*null*/] = {0};
         {
             fmtxx::ArrayWriter w { buf, kBufSize };
-            fmtxx::errc ec = fmtxx::format(w, "{:'.1074f}", std::numeric_limits<double>::max());
-            EXPECT_EQ(fmtxx::errc::success, ec);
+            fmtxx::ErrorCode ec = fmtxx::format(w, "{:'.1074f}", std::numeric_limits<double>::max());
+            EXPECT_EQ(fmtxx::ErrorCode::success, ec);
             EXPECT_EQ(kBufSize, w.size());
         }
         {
             // Precision is clipped.
             fmtxx::ArrayWriter w { buf, kBufSize };
-            fmtxx::errc ec = fmtxx::format(w, "{:'.1075f}", std::numeric_limits<double>::max());
-            EXPECT_EQ(fmtxx::errc::success, ec);
+            fmtxx::ErrorCode ec = fmtxx::format(w, "{:'.1075f}", std::numeric_limits<double>::max());
+            EXPECT_EQ(fmtxx::ErrorCode::success, ec);
             EXPECT_EQ(kBufSize, w.size());
         }
     }
@@ -871,8 +871,8 @@ TEST(Dynamic, 1)
     spec.width  = 10;
     spec.prec   = -1;
     spec.fill   = '.';
-    spec.align  = fmtxx::Align::Right;
-    spec.sign   = fmtxx::Sign::Space;
+    spec.align  = fmtxx::Align::right;
+    spec.sign   = fmtxx::Sign::space;
     spec.zero   = false;
     spec.conv   = 'd';
 
@@ -903,7 +903,7 @@ namespace fmtxx
 {
     template <>
     struct FormatValue<Foo> {
-        fmtxx::errc operator()(Writer& w, FormatSpec const& spec, Foo const& value) const {
+        fmtxx::ErrorCode operator()(Writer& w, FormatSpec const& spec, Foo const& value) const {
             return fmtxx::format_value(w, spec, value.value);
         }
     };
@@ -916,7 +916,7 @@ namespace fmtxx
     template <typename K, typename V, typename Pr, typename Alloc>
     struct FormatValue<std::map<K, V, Pr, Alloc>>
     {
-        fmtxx::errc operator()(Writer& w, FormatSpec const& spec, std::map<K, V, Pr, Alloc> const& value) const
+        fmtxx::ErrorCode operator()(Writer& w, FormatSpec const& spec, std::map<K, V, Pr, Alloc> const& value) const
         {
             //auto const key = spec.key;
             auto const key = spec.style;
@@ -984,19 +984,19 @@ public:
     explicit VectorBuffer(std::vector<char>& v) : os(v) {}
 
 private:
-    fmtxx::errc Put(char c) override {
+    fmtxx::ErrorCode Put(char c) override {
         os.push_back(c);
-        return fmtxx::errc::success;
+        return fmtxx::ErrorCode::success;
     }
 
-    fmtxx::errc Write(char const* str, size_t len) override {
+    fmtxx::ErrorCode Write(char const* str, size_t len) override {
         os.insert(os.end(), str, str + len);
-        return fmtxx::errc::success;
+        return fmtxx::ErrorCode::success;
     }
 
-    fmtxx::errc Pad(char c, size_t count) override {
+    fmtxx::ErrorCode Pad(char c, size_t count) override {
         os.resize(os.size() + count, c);
-        return fmtxx::errc::success;
+        return fmtxx::ErrorCode::success;
     }
 };
 
@@ -1004,7 +1004,7 @@ namespace fmtxx
 {
     template <>
     struct FormatValue<std::vector<char>> {
-        fmtxx::errc operator()(Writer& w, FormatSpec const& spec, std::vector<char> const& vec) const {
+        fmtxx::ErrorCode operator()(Writer& w, FormatSpec const& spec, std::vector<char> const& vec) const {
             return fmtxx::Util::format_string(w, spec, vec.data(), vec.size());
         }
     };

@@ -42,9 +42,9 @@ public:
     StringView view() const { return StringView(data(), size()); }
 
 private:
-    errc Put(char c) override;
-    errc Write(char const* str, size_t len) override;
-    errc Pad(char c, size_t count) override;
+    ErrorCode Put(char c) override;
+    ErrorCode Write(char const* str, size_t len) override;
+    ErrorCode Pad(char c, size_t count) override;
 
     bool Grow(size_t req);
 
@@ -52,22 +52,22 @@ private:
 };
 
 template <size_t BufferSize>
-errc MemoryWriterBase<BufferSize>::Put(char c)
+ErrorCode MemoryWriterBase<BufferSize>::Put(char c)
 {
     assert(size_ <= capacity_);
     assert(size_ + 1 > size_ && "integer overflow");
 
     if (size_ + 1 > capacity_ && !Grow(1))
-        return errc::io_error;
+        return ErrorCode::io_error;
 
     assert(size_ + 1 <= capacity_);
 
     ptr_[size_++] = c;
-    return errc::success;
+    return ErrorCode::success;
 }
 
 template <size_t BufferSize>
-errc MemoryWriterBase<BufferSize>::Write(char const* str, size_t len)
+ErrorCode MemoryWriterBase<BufferSize>::Write(char const* str, size_t len)
 {
     // TODO:
     // Write as much as possible...
@@ -76,17 +76,17 @@ errc MemoryWriterBase<BufferSize>::Write(char const* str, size_t len)
     assert(size_ + len >= size_ && "integer overflow");
 
     if (size_ + len > capacity_ && !Grow(len))
-        return errc::io_error;
+        return ErrorCode::io_error;
 
     assert(size_ + len <= capacity_);
 
     std::memcpy(ptr_ + size_, str, len);
     size_ += len;
-    return errc::success;
+    return ErrorCode::success;
 }
 
 template <size_t BufferSize>
-errc MemoryWriterBase<BufferSize>::Pad(char c, size_t count)
+ErrorCode MemoryWriterBase<BufferSize>::Pad(char c, size_t count)
 {
     // TODO:
     // Write as much as possible...
@@ -95,13 +95,13 @@ errc MemoryWriterBase<BufferSize>::Pad(char c, size_t count)
     assert(size_ + count >= size_ && "integer overflow");
 
     if (size_ + count > capacity_ && !Grow(count))
-        return errc::io_error;
+        return ErrorCode::io_error;
 
     assert(size_ + count <= capacity_);
 
     std::memset(ptr_ + size_, static_cast<unsigned char>(c), count);
     size_ += count;
-    return errc::success;
+    return ErrorCode::success;
 }
 
 template <size_t BufferSize>

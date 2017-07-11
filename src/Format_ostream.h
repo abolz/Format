@@ -24,15 +24,15 @@ namespace impl
     template <typename T>
     struct StreamValue<T, void>
     {
-        errc operator()(Writer& w, FormatSpec const& spec, T const& val) const
+        ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const
         {
             StreamBuf buf;
             std::ostream os{&buf};
             os << val;
             if (os.bad()) // shouldn't happen here...
-                return errc::io_error;
+                return ErrorCode::io_error;
             if (os.fail())
-                return errc::conversion_error;
+                return ErrorCode::conversion_error;
             return Util::format_string(w, spec, buf.pub_pbase(), static_cast<size_t>(buf.pub_pptr() - buf.pub_pbase()));
         }
     };
@@ -68,16 +68,16 @@ namespace impl
     template <typename T>
     struct StreamValue<T, void>
     {
-        errc operator()(Writer& w, FormatSpec const& /*spec*/, T const& val) const
+        ErrorCode operator()(Writer& w, FormatSpec const& /*spec*/, T const& val) const
         {
             StreamBuf buf{w};
             std::ostream os{&buf};
             os << val;
             if (os.bad())
-                return errc::io_error;
+                return ErrorCode::io_error;
             if (os.fail())
-                return errc::conversion_error;
-            return errc::success;
+                return ErrorCode::conversion_error;
+            return ErrorCode::success;
         }
     };
 #endif

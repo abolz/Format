@@ -103,11 +103,7 @@ project "gtest"
     language "C++"
     kind "StaticLib"
     files {
-        "test/ext/googletest/googletest/src/*.cc",
-        "test/ext/googletest/googletest/src/*.h",
-    }
-    excludes {
-        "test/ext/googletest/googletest/src/gtest_main.cc",
+        "test/ext/googletest/googletest/src/gtest-all.cc",
     }
     includedirs {
         "test/ext/googletest/googletest/",
@@ -127,20 +123,20 @@ project "gtest_main"
         "gtest",
     }
 
-project "fmt"
-   language "C++"
-   kind "SharedLib"
-   files {
-       "ext/fmt/**.h",
-       "ext/fmt/**.cc",
-   }
-   defines {
-       "FMT_SHARED=1",
-       "FMT_EXPORT=1",
-   }
-   includedirs {
-       "ext/",
-   }
+-- project "fmt"
+--    language "C++"
+--    kind "SharedLib"
+--    files {
+--        "ext/fmt/**.h",
+--        "ext/fmt/**.cc",
+--    }
+--    defines {
+--        "FMT_SHARED=1",
+--        "FMT_EXPORT=1",
+--    }
+--    includedirs {
+--        "ext/",
+--    }
 
 --------------------------------------------------------------------------------
 group "Tests"

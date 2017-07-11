@@ -18,8 +18,6 @@ int main() {}
 #include "Format.h"
 #include "Format_memory.h"
 //#include "Format_ostream.h"
-//#include "Format_pretty.h"
-#include "Format_string.h"
 
 #if HAS_FMTLIB
 #define FMT_HEADER_ONLY 1

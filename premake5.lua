@@ -102,6 +102,9 @@ project "fmtxx"
 project "gtest"
     language "C++"
     kind "StaticLib"
+    defines {
+        "GTEST_LANG_CXX11=1",
+    }
     files {
         "test/ext/googletest/googletest/src/gtest-all.cc",
     }
@@ -113,6 +116,9 @@ project "gtest"
 project "gtest_main"
     language "C++"
     kind "StaticLib"
+    defines {
+        "GTEST_LANG_CXX11=1",
+    }
     files {
         "test/ext/googletest/googletest/src/gtest_main.cc",
     }
@@ -149,6 +155,7 @@ project "Test"
     }
     defines {
         "FMTXX_SHARED=1",
+        "GTEST_LANG_CXX11=1",
     }
     includedirs {
         "src/",

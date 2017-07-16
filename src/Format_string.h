@@ -25,7 +25,8 @@
 #include <string>
 #if FMTXX_HAS_STD_STRING_VIEW
 #include <string_view>
-#elif FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
+#endif
+#if FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
 #include <experimental/string_view>
 #endif
 
@@ -52,6 +53,16 @@ struct TreatAsString< std::basic_string<char, std::char_traits<char>, Alloc> >
 };
 
 namespace impl {
+
+#if FMTXX_HAS_STD_STRING_VIEW
+template <>
+struct IsSafeRValueType<std::string_view> : std::true_type {};
+#endif
+
+#if FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
+template <>
+struct IsSafeRValueType<std::experimental::string_view> : std::true_type {};
+#endif
 
 FMTXX_API ErrorCode DoFormat(std::string& str, std__string_view format, Arg const* args, Types types);
 FMTXX_API ErrorCode DoPrintf(std::string& str, std__string_view format, Arg const* args, Types types);

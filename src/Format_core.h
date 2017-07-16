@@ -547,15 +547,22 @@ struct TypeFor : SelectType<typename std::decay<T>::type>
 {
 };
 
-template <Type>
-struct IsSafeRValueType : std::true_type {};
-//
-// Do not allow to push rvalue references of these types into a FormattingArgs list.
-// The Arg class stores pointers to these arguments.
-//
-template <> struct IsSafeRValueType<Type::formatspec> : std::false_type {};
-template <> struct IsSafeRValueType<Type::string    > : std::false_type {};
-template <> struct IsSafeRValueType<Type::other     > : std::false_type {};
+template <typename T>
+struct IsSafeRValueType : std::integral_constant<
+    bool,
+    //
+    // Do not allow to push rvalue references of these types into a FormatArg list.
+    // The Arg class stores pointers to these arguments.
+    //
+    TypeFor<T>::value != Type::formatspec &&
+    TypeFor<T>::value != Type::string &&
+    TypeFor<T>::value != Type::other
+    >
+{
+};
+
+template <>
+struct IsSafeRValueType<std__string_view> : std::true_type {};
 
 struct Types
 {
@@ -656,7 +663,7 @@ private:
     void push_back_(T&& val)
     {
         static_assert(
-            std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<impl::TypeFor<T>::value>::value,
+            std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<typename std::decay<T>::type>::value,
             "Adding rvalues of non-built-in types to FormatArgs is not allowed. ");
 
         args_[size_] = std::forward<T>(val);

@@ -1088,23 +1088,24 @@ TEST_CASE("ArrayWriter_1")
 
 //------------------------------------------------------------------------------
 
-//TEST_CASE("FormatArgs_1")
-//{
-//    fmtxx::FormatArgs args;
-//
-//    const std::string str_world = "world";
-//    int i = 42;
-//    args.push_back(i);
-//    args.push_back(42);
-//    //args.push_back("hello", std::string("world"));     // should not compile
-//    args.push_back("hello", str_world);
-//
-//    auto const s = fmtxx::string_format("{} {} {} {}", args).str;
-//    CHECK("42 42 hello world" == s);
-//
-//    //fmtxx::format(stdout, "", 1, args);           // should not compile
-//    //fmtxx::format(stdout, "", args, 1);           // should not compile
-//}
+TEST_CASE("FormatArgs_1")
+{
+    fmtxx::FormatArgs args;
+
+    const std::string str_world = "world";
+    int i = 42;
+    args.push_back(i);
+    args.push_back(42);
+    //args.push_back("hello", std::string("world"));     // should not compile
+    args.push_back("hello", str_world);
+    args.push_back(std__string_view("hello"));
+
+    auto const s = fmtxx::string_format("{} {} {} {} {}", args).str;
+    CHECK("42 42 hello world hello" == s);
+
+    //fmtxx::format(stdout, "", 1, args);           // should not compile
+    //fmtxx::format(stdout, "", args, 1);           // should not compile
+}
 
 ////static void alpha_delta_227529() {}
 ////struct S { int i; void func() {} };

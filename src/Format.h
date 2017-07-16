@@ -135,15 +135,16 @@ enum struct ErrorCode {
 };
 
 // Wraps an error code, may be checked for failure.
-// Replaces err::operator bool() in most cases (and is more explicit).
+// Replaces ErrorCode::operator bool() in most cases (and is more explicit).
 struct Failed
 {
     ErrorCode const ec = ErrorCode::success;
 
     Failed() = default;
     Failed(ErrorCode ec) : ec(ec) {}
-    operator ErrorCode() const { return ec; }
     explicit operator bool() const { return ec != ErrorCode::success; }
+
+    operator ErrorCode() const { return ec; }
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -211,8 +212,7 @@ class FMTXX_VISIBILITY_DEFAULT FILEWriter : public Writer
     size_t           size_ = 0;
 
 public:
-    explicit FILEWriter(std::FILE* v) : file_(v)
-    {
+    explicit FILEWriter(std::FILE* v) : file_(v) {
         assert(file_ != nullptr);
     }
 
@@ -239,8 +239,7 @@ class FMTXX_VISIBILITY_DEFAULT ArrayWriter : public Writer
     size_t       size_    = 0;
 
 public:
-    ArrayWriter(char* buffer, size_t buffer_size) : buf_(buffer), bufsize_(buffer_size)
-    {
+    ArrayWriter(char* buffer, size_t buffer_size) : buf_(buffer), bufsize_(buffer_size) {
         assert(bufsize_ == 0 || buf_ != nullptr);
     }
 
@@ -359,12 +358,14 @@ class FormatArgs;
 
 namespace impl
 {
+    template <typename> struct AlwaysFalse : std::false_type {};
+
     // The second template parameter is used in Format_ostream.h to "specialize"
     // this class template for all T's.
     template <typename T, typename = void>
     struct StreamValue
     {
-        static_assert(sizeof(T) == 0,
+        static_assert(AlwaysFalse<T>::value,
             "Formatting objects of type T is not supported. "
             "Specialize FormatValue or TreatAsString, or, if objects of type T "
             "can be formatted using 'operator<<(std::ostream, T const&)', "

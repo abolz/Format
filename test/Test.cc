@@ -401,10 +401,10 @@ TEST_CASE("Ints_1")
     CHECK("fffedcbb" == FormatArgs("{:08x}",   -V));
 
 #if LONG_MAX != INT_MAX
-    CHECK("12345"            ,  FormatArgs("{:x}",      (signed long)V));
-    CHECK("fffffffffffedcbb" ,  FormatArgs("{:x}",     -(signed long)V));
-    CHECK("00012345"         ,  FormatArgs("{:08x}",    (signed long)V));
-    CHECK("fffffffffffedcbb" ,  FormatArgs("{:08x}",   -(signed long)V));
+    CHECK("12345"            ==  FormatArgs("{:x}",      (signed long)V));
+    CHECK("fffffffffffedcbb" ==  FormatArgs("{:x}",     -(signed long)V));
+    CHECK("00012345"         ==  FormatArgs("{:08x}",    (signed long)V));
+    CHECK("fffffffffffedcbb" ==  FormatArgs("{:08x}",   -(signed long)V));
 #endif
 
     CHECK("12345"            == FormatArgs("{:x}",   (signed long long) V));

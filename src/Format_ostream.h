@@ -96,31 +96,31 @@ struct StreamValue<T, void>
 
 #endif
 
-FMTXX_API ErrorCode DoFormat(std::ostream& os, StringView format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(std::ostream& os, StringView format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(std::ostream& os, std__string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(std::ostream& os, std__string_view format, Arg const* args, Types types);
 
 } // namespace impl
 
 template <typename ...Args>
-inline ErrorCode format(std::ostream& os, StringView format, Args const&... args)
+inline ErrorCode format(std::ostream& os, std__string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoFormat(os, format, arr, impl::Types{args...});
 }
 
 template <typename ...Args>
-inline ErrorCode printf(std::ostream& os, StringView format, Args const&... args)
+inline ErrorCode printf(std::ostream& os, std__string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoPrintf(os, format, arr, impl::Types{args...});
 }
 
-inline ErrorCode format(std::ostream& os, StringView format, FormatArgs const& args)
+inline ErrorCode format(std::ostream& os, std__string_view format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoFormat(os, format, args.args_, args.types_);
 }
 
-inline ErrorCode printf(std::ostream& os, StringView format, FormatArgs const& args)
+inline ErrorCode printf(std::ostream& os, std__string_view format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoPrintf(os, format, args.args_, args.types_);
 }

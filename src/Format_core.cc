@@ -238,7 +238,7 @@ static ErrorCode PrintAndPadString(Writer& w, FormatSpec const& spec, char const
     return ErrorCode::success;
 }
 
-static ErrorCode PrintAndPadString(Writer& w, FormatSpec const& spec, StringView str)
+static ErrorCode PrintAndPadString(Writer& w, FormatSpec const& spec, std__string_view str)
 {
     return PrintAndPadString(w, spec, str.data(), str.size());
 }
@@ -1363,7 +1363,7 @@ static ErrorCode CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& ar
 
 static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
 
-static bool ParseInt(int& value, StringView::iterator& f, StringView::iterator end)
+static bool ParseInt(int& value, std__string_view::const_iterator& f, std__string_view::const_iterator end)
 {
     assert(f != end && IsDigit(*f)); // internal error
     auto const f0 = f;
@@ -1426,7 +1426,7 @@ static ErrorCode GetIntArg(int& value, int index, Arg const* args, Types types)
     }
 }
 
-static ErrorCode ParseLBrace(int& value, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParseLBrace(int& value, std__string_view::const_iterator& f, std__string_view::const_iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end && *f == '{'); // internal error
 
@@ -1453,7 +1453,7 @@ static ErrorCode ParseLBrace(int& value, StringView::iterator& f, StringView::it
     return GetIntArg(value, index, args, types);
 }
 
-static ErrorCode ParseFormatSpecArg(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParseFormatSpecArg(FormatSpec& spec, std__string_view::const_iterator& f, std__string_view::const_iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end && *f == '*');
 
@@ -1503,7 +1503,7 @@ static bool ParseAlign(FormatSpec& spec, char c)
     return false;
 }
 
-static ErrorCode ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParseFormatSpec(FormatSpec& spec, std__string_view::const_iterator& f, std__string_view::const_iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end && *f == ':');
 
@@ -1618,7 +1618,7 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, StringView::iterator& f, Stri
     }
 }
 
-static ErrorCode ParseStyle(FormatSpec& spec, StringView::iterator& f, StringView::iterator end)
+static ErrorCode ParseStyle(FormatSpec& spec, std__string_view::const_iterator& f, std__string_view::const_iterator end)
 {
     assert(f != end && *f == '!');
 
@@ -1673,7 +1673,7 @@ static ErrorCode ParseStyle(FormatSpec& spec, StringView::iterator& f, StringVie
     return ErrorCode::success;
 }
 
-static ErrorCode ParseReplacementField(FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParseReplacementField(FormatSpec& spec, std__string_view::const_iterator& f, std__string_view::const_iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end);
 
@@ -1709,7 +1709,7 @@ static ErrorCode ParseReplacementField(FormatSpec& spec, StringView::iterator& f
     return ErrorCode::success;
 }
 
-ErrorCode fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoFormat(Writer& w, std__string_view format, Arg const* args, Types types)
 {
     if (format.empty())
         return ErrorCode::success;
@@ -1787,7 +1787,7 @@ ErrorCode fmtxx::impl::DoFormat(Writer& w, StringView format, Arg const* args, T
     return ErrorCode::success;
 }
 
-static ErrorCode ParseAsterisk(int& value, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParseAsterisk(int& value, std__string_view::const_iterator& f, std__string_view::const_iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end && *f == '*'); // internal error
 
@@ -1819,7 +1819,7 @@ static ErrorCode ParseAsterisk(int& value, StringView::iterator& f, StringView::
     return GetIntArg(value, index, args, types);
 }
 
-static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::iterator& f, StringView::iterator end, int& nextarg, Arg const* args, Types types)
+static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, std__string_view::const_iterator& f, std__string_view::const_iterator end, int& nextarg, Arg const* args, Types types)
 {
     assert(f != end && *(f - 1) == '%');
 
@@ -1973,7 +1973,7 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, StringView::i
     }
 }
 
-ErrorCode fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoPrintf(Writer& w, std__string_view format, Arg const* args, Types types)
 {
     if (format.empty())
         return ErrorCode::success;
@@ -2040,60 +2040,19 @@ ErrorCode fmtxx::impl::DoPrintf(Writer& w, StringView format, Arg const* args, T
     return ErrorCode::success;
 }
 
-ErrorCode fmtxx::impl::DoFormat(std::FILE* file, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoFormat(std::FILE* file, std__string_view format, Arg const* args, Types types)
 {
     FILEWriter w{file};
     return fmtxx::impl::DoFormat(w, format, args, types);
 }
 
-ErrorCode fmtxx::impl::DoPrintf(std::FILE* file, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoPrintf(std::FILE* file, std__string_view format, Arg const* args, Types types)
 {
     FILEWriter w{file};
     return fmtxx::impl::DoPrintf(w, format, args, types);
 }
 
-namespace
-{
-    class StringWriter : public Writer
-    {
-    public:
-        std::string& str;
-
-        explicit StringWriter(std::string& s) : str(s) {}
-
-        ErrorCode Put(char c) override
-        {
-            str.push_back(c);
-            return ErrorCode::success;
-        }
-
-        ErrorCode Write(char const* ptr, size_t len) override
-        {
-            str.append(ptr, len);
-            return ErrorCode::success;
-        }
-
-        ErrorCode Pad(char c, size_t count) override
-        {
-            str.append(count, c);
-            return ErrorCode::success;
-        }
-    };
-}
-
-ErrorCode fmtxx::impl::DoFormat(std::string& str, StringView format, Arg const* args, Types types)
-{
-    StringWriter w{str};
-    return fmtxx::impl::DoFormat(w, format, args, types);
-}
-
-ErrorCode fmtxx::impl::DoPrintf(std::string& str, StringView format, Arg const* args, Types types)
-{
-    StringWriter w{str};
-    return fmtxx::impl::DoPrintf(w, format, args, types);
-}
-
-int fmtxx::impl::DoFileFormat(std::FILE* file, StringView format, Arg const* args, Types types)
+int fmtxx::impl::DoFileFormat(std::FILE* file, std__string_view format, Arg const* args, Types types)
 {
     FILEWriter w{file};
 
@@ -2105,7 +2064,7 @@ int fmtxx::impl::DoFileFormat(std::FILE* file, StringView format, Arg const* arg
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::DoFilePrintf(std::FILE* file, StringView format, Arg const* args, Types types)
+int fmtxx::impl::DoFilePrintf(std::FILE* file, std__string_view format, Arg const* args, Types types)
 {
     FILEWriter w{file};
 
@@ -2117,7 +2076,7 @@ int fmtxx::impl::DoFilePrintf(std::FILE* file, StringView format, Arg const* arg
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
+int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, std__string_view format, Arg const* args, Types types)
 {
     ArrayWriter w{buf, bufsize};
 
@@ -2130,7 +2089,7 @@ int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, StringView format, Arg
     return static_cast<int>(w.size());
 }
 
-int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, StringView format, Arg const* args, Types types)
+int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, std__string_view format, Arg const* args, Types types)
 {
     ArrayWriter w{buf, bufsize};
 

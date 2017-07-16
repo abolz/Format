@@ -81,7 +81,7 @@ inline ErrorCode StreamWriter::Pad(char c, size_t count)
 //
 //------------------------------------------------------------------------------
 
-ErrorCode fmtxx::impl::DoFormat(std::ostream& os, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoFormat(std::ostream& os, std__string_view format, Arg const* args, Types types)
 {
     std::ostream::sentry const ok(os);
     if (ok)
@@ -93,7 +93,7 @@ ErrorCode fmtxx::impl::DoFormat(std::ostream& os, StringView format, Arg const* 
     return ErrorCode::io_error;
 }
 
-ErrorCode fmtxx::impl::DoPrintf(std::ostream& os, StringView format, Arg const* args, Types types)
+ErrorCode fmtxx::impl::DoPrintf(std::ostream& os, std__string_view format, Arg const* args, Types types)
 {
     std::ostream::sentry const ok(os);
     if (ok)

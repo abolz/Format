@@ -39,7 +39,7 @@ public:
     size_t size() const { return size_; }
 
     // Returns a reference to the formatted string.
-    StringView view() const { return StringView(data(), size()); }
+    std__string_view view() const { return std__string_view(data(), size()); }
 
 private:
     ErrorCode Put(char c) override;

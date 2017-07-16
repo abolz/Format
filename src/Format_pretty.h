@@ -63,7 +63,7 @@ struct IsTuple : decltype( IsTupleImpl::test(std::declval<T>()) )
 template <typename T>
 ErrorCode PrettyPrint(Writer& w, T const& value);
 
-inline ErrorCode PrintString(Writer& w, StringView val)
+inline ErrorCode PrintString(Writer& w, std__string_view val)
 {
     if (Failed ec = w.put('"'))
         return ec;
@@ -169,7 +169,7 @@ ErrorCode DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::fal
 template <typename T>
 ErrorCode DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::true_type)
 {
-    return ::fmtxx::impl::pp::PrintString(w, StringView{object.data(), object.size()});
+    return ::fmtxx::impl::pp::PrintString(w, std__string_view{object.data(), object.size()});
 }
 
 template <typename T>

@@ -67,7 +67,7 @@ solution "Format"
         defines {
             -- "_CRT_SECURE_NO_WARNINGS=1",
             -- "_SCL_SECURE_NO_WARNINGS=1",
-            "_HAS_EXCEPTIONS=0",
+            -- "_HAS_EXCEPTIONS=0",
         }
 
     configuration { "windows" }
@@ -99,36 +99,6 @@ project "fmtxx"
             "-fvisibility=hidden",
         }
 
-project "gtest"
-    language "C++"
-    kind "StaticLib"
-    defines {
-        "GTEST_LANG_CXX11=1",
-    }
-    files {
-        "test/ext/googletest/googletest/src/gtest-all.cc",
-    }
-    includedirs {
-        "test/ext/googletest/googletest/",
-        "test/ext/googletest/googletest/include/",
-    }
-
-project "gtest_main"
-    language "C++"
-    kind "StaticLib"
-    defines {
-        "GTEST_LANG_CXX11=1",
-    }
-    files {
-        "test/ext/googletest/googletest/src/gtest_main.cc",
-    }
-    includedirs {
-        "test/ext/googletest/googletest/include/",
-    }
-    links {
-        "gtest",
-    }
-
 -- project "fmt"
 --    language "C++"
 --    kind "SharedLib"
@@ -159,12 +129,9 @@ project "Test"
     }
     includedirs {
         "src/",
-        "test/ext/googletest/googletest/include/",
     }
     links {
         "fmtxx",
-        "gtest",
-        "gtest_main",
     }
 
 function AddExampleProject(name)

@@ -1,7 +1,11 @@
 #pragma once
 
 #ifndef STD_STRING_VIEW_CHECKED_ITERATOR
+#ifndef NDEBUG
 #define STD_STRING_VIEW_CHECKED_ITERATOR 1
+#else
+#define STD_STRING_VIEW_CHECKED_ITERATOR 0
+#endif
 #endif
 
 #include <cassert>

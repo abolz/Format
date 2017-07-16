@@ -13,7 +13,6 @@
 #include <cstring>
 #include <iterator> // stdext::checked_array_iterator
 #include <limits>
-#include <ostream>
 
 #ifndef __has_cpp_attribute
 #define __has_cpp_attribute(X) 0

@@ -10,8 +10,8 @@ solution "Format"
 
     warnings "Extra"
 
-    exceptionhandling "Off"
-    rtti "Off"
+    -- exceptionhandling "Off"
+    -- rtti "Off"
 
     configuration { "debug" }
         targetdir (build_dir .. "/bin/debug")

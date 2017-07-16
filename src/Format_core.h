@@ -14,7 +14,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <iosfwd>
 #include <string>
 #if (__cplusplus >= 201703 && FMTXX_HAS_INCLUDE(<string_view>)) || (_MSC_VER >= 1910 && _HAS_CXX17)
 #  define FMTXX_HAS_STD_STRING_VIEW 1
@@ -744,8 +743,6 @@ FMTXX_API ErrorCode DoFormat(std::FILE* file,  StringView format, Arg const* arg
 FMTXX_API ErrorCode DoPrintf(std::FILE* file,  StringView format, Arg const* args, Types types);
 FMTXX_API ErrorCode DoFormat(std::string& str, StringView format, Arg const* args, Types types);
 FMTXX_API ErrorCode DoPrintf(std::string& str, StringView format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoFormat(std::ostream& os, StringView format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(std::ostream& os, StringView format, Arg const* args, Types types);
 
 // fprintf compatible formatting functions.
 FMTXX_API int DoFileFormat(std::FILE* file, StringView format, Arg const* args, Types types);
@@ -877,30 +874,6 @@ inline ErrorCode format(std::string& str, StringView format, FormatArgs const& a
 inline ErrorCode printf(std::string& str, StringView format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoPrintf(str, format, args.args_, args.types_);
-}
-
-template <typename ...Args>
-inline ErrorCode format(std::ostream& os, StringView format, Args const&... args)
-{
-    impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoFormat(os, format, arr, impl::Types{args...});
-}
-
-template <typename ...Args>
-inline ErrorCode printf(std::ostream& os, StringView format, Args const&... args)
-{
-    impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoPrintf(os, format, arr, impl::Types{args...});
-}
-
-inline ErrorCode format(std::ostream& os, StringView format, FormatArgs const& args)
-{
-    return ::fmtxx::impl::DoFormat(os, format, args.args_, args.types_);
-}
-
-inline ErrorCode printf(std::ostream& os, StringView format, FormatArgs const& args)
-{
-    return ::fmtxx::impl::DoPrintf(os, format, args.args_, args.types_);
 }
 
 template <typename ...Args>

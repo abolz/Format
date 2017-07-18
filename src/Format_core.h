@@ -2,6 +2,7 @@
 #define FMTXX_FORMAT_CORE_H 1
 
 #include "__string_view.h"
+using std__string_view = cxx::string_view;
 
 #include <cassert>
 #include <climits>

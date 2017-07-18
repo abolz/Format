@@ -38,7 +38,9 @@ struct TreatAsString< std::string_view >
     : std::true_type
 {
 };
-#elif FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
+#endif
+
+#if FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
 template <>
 struct TreatAsString< std::experimental::string_view >
     : std::true_type

@@ -39,7 +39,7 @@ on the TODO-list.*
 
 ## API
 
-### `Format.h`
+### Format_core.h
 
 ```c++
 namespace fmtxx {
@@ -48,7 +48,7 @@ namespace fmtxx {
 // For compatibility.
 class StringView;
 
-enum struct errc {
+enum struct ErrorCode {
     success = 0,
     conversion_error,
     index_out_of_range,
@@ -91,7 +91,7 @@ struct FormatSpec {
 // Base class for formatting buffers. Can be implemented to provide formatting
 // into arbitrary buffers or streams.
 class Writer {
-public:
+protected:
     virtual ~Writer();
     virtual bool Put(char c) = 0;
     virtual bool Write(char const* str, size_t len) = 0;
@@ -100,6 +100,7 @@ public:
 
 // Implements the Writer interface to format into std::FILE's.
 class FILEWriter;
+
 // Implements the Writer interface to format into user-provided arrays.
 class ArrayWriter;
 
@@ -126,23 +127,23 @@ public:
 // operator<<(std::ostream, T const&).
 template <typename T>
 struct FormatValue {
-    errc operator()(Writer& w, FormatSpec const& spec, T const& value) const;
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& value) const;
 };
 
 // The format-methods use a python-style format string (see below).
 // The printf-methods use a printf-style format string.
 
 template <typename ...Args>
-errc format(Writer& w, StringView format, Args const&... args);
+ErrorCode format(Writer& w, StringView format, Args const&... args);
 
 template <typename ...Args>
-errc printf(Writer& w, StringView format, Args const&... args);
+ErrorCode printf(Writer& w, StringView format, Args const&... args);
 
 template <typename ...Args>
-errc format(std::FILE* file, StringView format, Args const&... args);
+ErrorCode format(std::FILE* file, StringView format, Args const&... args);
 
 template <typename ...Args>
-errc printf(std::FILE* file, StringView format, Args const&... args);
+ErrorCode printf(std::FILE* file, StringView format, Args const&... args);
 
 template <typename ...Args>
 int fformat(std::FILE* file, StringView format, Args const&... args);
@@ -167,7 +168,7 @@ int snprintf(char (&buf)[N], StringView format, Args const&... args);
 
 **NOTE**: The formatting functions currently only accept at most 16 arguments.
 
-### `Format_string.h`
+### Format_string.h
 
 ```c++
 namespace fmtxx {
@@ -179,14 +180,14 @@ class TreatAsString<std::string_view> : std::true_type {}; // if available
 
 struct StringFormatResult {
     std::string str;
-    errc ec = errc::success;
+    ErrorCode ec = ErrorCode::success;
 };
 
 template <typename ...Args>
-errc format(std::string& str, StringView format, Args const&... args);
+ErrorCode format(std::string& str, StringView format, Args const&... args);
 
 template <typename ...Args>
-errc printf(std::string& str, StringView format, Args const&... args);
+ErrorCode printf(std::string& str, StringView format, Args const&... args);
 
 template <typename ...Args>
 StringFormatResult string_format(StringView format, Args const&... args);
@@ -197,7 +198,7 @@ StringFormatResult string_printf(StringView format, Args const&... args);
 } // namespace fmtxx
 ```
 
-### `Format_ostream.h`
+### Format_ostream.h
 
 Including this header provides support for formatting user-defined types for
 which `operator<<(std::ostream&, T)` is defined.
@@ -208,18 +209,17 @@ namespace fmtxx {
 class StreamWriter;
 
 template <typename ...Args>
-errc format(std::ostream& os, StringView format, Args const&... args);
+ErrorCode format(std::ostream& os, StringView format, Args const&... args);
 
 template <typename ...Args>
-errc printf(std::ostream& os, StringView format, Args const&... args);
+ErrorCode printf(std::ostream& os, StringView format, Args const&... args);
 
 } // namespace fmtxx
 ```
 
-### `Format_pretty.h`
+### Format_pretty.h
 
 Provides support for pretty-printing arbitrary containers and tuples.
-[(Example)](https://github.com/effzeh/Format/blob/master/test/Example4.cc)
 
 ```c++
 namespace fmtxx {
@@ -422,114 +422,3 @@ template <typename T>
     - `X`: Same as `A`, except the result is normalized (i.e. the leading
            digit will be '`1`') and a prefix is only printed if `#` is
            specified.
-
-## Examples
-
-```c++
-int main()
-{
-    fmtxx::format(stdout, "{1} {} {0} {}\n", 1, 2);
-        // "2 1 1 2"
-    fmtxx::format(stdout, "{0:d} {0:x} {0:o} {0:b}\n", 42);
-        // "42 2a 52 101010"
-    fmtxx::format(stdout, "{:-<16}\n", "left");
-        // "left------------"
-    fmtxx::format(stdout, "{:.^16}\n", "center");
-        // ".....center....."
-    fmtxx::format(stdout, "{:~>16}\n", "right");
-        // "~~~~~~~~~~~right"
-    fmtxx::format(stdout, "{:s}\n", 3.1415927);
-        // "3.1415927"
-}
-```
-
-```c++
-struct Vector2D {
-    float x;
-    float y;
-};
-
-namespace fmtxx {
-    template <>
-    struct FormatValue<Vector2D> {
-        errc operator()(Writer& w, FormatSpec const& spec, Vector2D const& value) const {
-            if (spec.conv == 'p') {
-                auto r   = std::hypot(value.x, value.y);
-                auto arg = std::atan2(value.y, value.x);
-                return fmtxx::format(w, "(r={:.3g}, arg={:.3g})", r, arg);
-            }
-            return fmtxx::format(w, "({}, {})", value.x, value.y);
-        }
-    };
-}
-
-int main()
-{
-    Vector2D vec { 3.0, 4.0 };
-    fmtxx::format(std::cout, "{}\n", vec);
-        // "(3, 4)"
-    fmtxx::format(std::cout, "{:p}\n", vec);
-        // "(r=5, phi=0.927)"
-}
-```
-
-```c++
-struct VectorBuffer : public fmtxx::Writer
-{
-    std::vector<char> vec;
-
-private:
-    fmtxx::errc Put(char c) override {
-        vec.push_back(c);
-        return fmtxx::errc::success;
-    }
-    fmtxx::errc Write(char const* str, size_t len) override {
-        vec.insert(vec.end(), str, str + len);
-        return fmtxx::errc::success;
-    }
-    fmtxx::errc Pad(char c, size_t count) override {
-        vec.resize(vec.size() + count, c);
-        return fmtxx::errc::success;
-    }
-};
-
-int main()
-{
-    VectorBuffer buf;
-    fmtxx::format(buf, "{:5}", -123);
-        // buf.vec = {' ', '-', '1', '2', '3'}
-}
-```
-
-```c++
-int main()
-{
-    std::vector<int> vec = {1, 2, 3, 4, 5};
-    fmtxx::format(stdout, "{}\n", fmtxx::pretty(vec));
-        // [1, 2, 3, 4, 5]
-
-    std::map<std::string, int> map = {
-        {"eins", 1},
-        {"zwei", 2},
-        {"drei", 3},
-    };
-    fmtxx::format(stdout, "{}\n", fmtxx::pretty(map));
-        // [{"drei", 3}, {"eins", 1}, {"zwei", 2}]
-}
-```
-
-```c++
-int main()
-{
-    std::string str_world = "world";
-
-    fmtxx::FormatArgs args;
-    args.push_back(42);
-    args.push_back("hello");
-    args.push_back(str_world);
-        // NOTE:
-        // This does not compile: args.push_back(std::string("world"));
-    std::cout << fmtxx::string_format("{} {} {}\n", args).str;
-        // "42 hello world"
-}
-```

@@ -121,11 +121,10 @@ project "Test"
     language "C++"
     kind "ConsoleApp"
     files {
-        "test/Test.cc",
+        "test/Format_test.cc",
     }
     defines {
         "FMTXX_SHARED=1",
-        "GTEST_LANG_CXX11=1",
     }
     includedirs {
         "src/",

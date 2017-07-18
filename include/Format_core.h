@@ -97,6 +97,9 @@ public:
     // Write a character to the output stream.
     ErrorCode put(char c) { return Put(c); }
 
+    // Write a character to the output stream iff it is not the null-character.
+    ErrorCode put_nonnull(char c) { return c == '\0' ? ErrorCode::success : Put(c); }
+
     // Insert a range of characters into the output stream.
     ErrorCode write(char const* str, size_t len) { return len == 0 ? ErrorCode::success : Write(str, len); }
 

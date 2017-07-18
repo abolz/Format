@@ -371,7 +371,7 @@ static ErrorCode PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign,
 
     if (Failed ec = w.pad(spec.fill, pad.left))
         return ec;
-    if (Failed ec = (sign == '\0') ? ErrorCode::success : w.put(sign))
+    if (Failed ec = w.put_nonnull(sign))
         return ec;
     if (Failed ec = w.write(prefix, nprefix))
         return ec;

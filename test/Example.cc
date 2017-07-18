@@ -1,4 +1,4 @@
-#include "Format.h"
+#include "../src/Format.h"
 
 #include <cmath>
 #include <iostream>
@@ -149,4 +149,9 @@ static void Example5()
 
 int main()
 {
+    Example1();
+    Example2();
+    Example3();
+    Example4();
+    Example5();
 }

@@ -80,16 +80,12 @@ project "fmtxx"
     language "C++"
     kind "SharedLib"
     files {
-        "include/**.h",
         "src/**.h",
         "src/**.cc",
     }
     defines {
         "FMTXX_SHARED=1",
         "FMTXX_EXPORT=1",
-    }
-    includedirs {
-        "include/",
     }
     configuration { "gmake" }
         buildoptions {
@@ -107,13 +103,10 @@ project "Test"
     language "C++"
     kind "ConsoleApp"
     files {
-        "test/Format_test.cc",
+        "test/Test.cc",
     }
     defines {
         "FMTXX_SHARED=1",
-    }
-    includedirs {
-        "include/",
     }
     links {
         "fmtxx",

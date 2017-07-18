@@ -111,3 +111,16 @@ project "Test"
     links {
         "fmtxx",
     }
+
+project "Example"
+    language "C++"
+    kind "ConsoleApp"
+    files {
+        "test/Example.cc",
+    }
+    defines {
+        "FMTXX_SHARED=1",
+    }
+    links {
+        "fmtxx",
+    }

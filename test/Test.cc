@@ -23,7 +23,7 @@ template <typename Fn>
 struct ArrayFormatter
 {
     template <typename ...Args>
-    FormatterResult operator ()(std__string_view format, Args const&... args) const
+    FormatterResult operator ()(cxx::string_view format, Args const&... args) const
     {
         char buf[1024 * 8];
         fmtxx::ArrayWriter w { buf };
@@ -36,7 +36,7 @@ template <typename Fn>
 struct StringFormatter
 {
    template <typename ...Args>
-   FormatterResult operator ()(std__string_view format, Args const&... args) const
+   FormatterResult operator ()(cxx::string_view format, Args const&... args) const
    {
        std::string os;
        const auto ec = Fn{}(os, format, args...);
@@ -48,7 +48,7 @@ template <typename Fn>
 struct StreamFormatter
 {
    template <typename ...Args>
-   FormatterResult operator ()(std__string_view format, Args const&... args) const
+   FormatterResult operator ()(cxx::string_view format, Args const&... args) const
    {
        std::ostringstream os;
        const auto ec = Fn{}(os, format, args...);
@@ -61,7 +61,7 @@ template <typename Fn>
 struct FILEFormatter
 {
     template <typename ...Args>
-    FormatterResult operator ()(std__string_view format, Args const&... args) const
+    FormatterResult operator ()(cxx::string_view format, Args const&... args) const
     {
         char buf[1024 * 8] = {0};
         FILE* f = fmemopen(buf, sizeof(buf), "w");
@@ -76,7 +76,7 @@ template <typename Fn>
 struct MemoryFormatter
 {
    template <typename ...Args>
-   FormatterResult operator()(std__string_view format, Args const&... args) const
+   FormatterResult operator()(cxx::string_view format, Args const&... args) const
    {
        fmtxx::MemoryWriter<> w;
        const auto ec = Fn{}(w, format, args...);
@@ -85,7 +85,7 @@ struct MemoryFormatter
 };
 
 template <typename Formatter, typename ...Args>
-static std::string FormatArgs1(std__string_view format, Args const&... args)
+static std::string FormatArgs1(cxx::string_view format, Args const&... args)
 {
     FormatterResult res = Formatter{}(format, args...);
     //assert(res.ec == fmtxx::ErrorCode::success);
@@ -94,20 +94,20 @@ static std::string FormatArgs1(std__string_view format, Args const&... args)
 
 struct FormatFn {
     template <typename Buffer, typename ...Args>
-    fmtxx::ErrorCode operator()(Buffer& fb, std__string_view format, Args const&... args) const {
+    fmtxx::ErrorCode operator()(Buffer& fb, cxx::string_view format, Args const&... args) const {
         return fmtxx::format(fb, format, args...);
     }
 };
 
 struct PrintfFn {
     template <typename Buffer, typename ...Args>
-    fmtxx::ErrorCode operator()(Buffer& fb, std__string_view format, Args const&... args) const {
+    fmtxx::ErrorCode operator()(Buffer& fb, cxx::string_view format, Args const&... args) const {
         return fmtxx::printf(fb, format, args...);
     }
 };
 
 template <typename Fn, typename ...Args>
-static std::string FormatArgsTemplate(std__string_view format, Args const&... args)
+static std::string FormatArgsTemplate(cxx::string_view format, Args const&... args)
 {
     std::string const s1 = FormatArgs1<ArrayFormatter<Fn>>(format, args...);
 
@@ -133,13 +133,13 @@ static std::string FormatArgsTemplate(std__string_view format, Args const&... ar
 }
 
 template <typename ...Args>
-static std::string FormatArgs(std__string_view format, Args const&... args)
+static std::string FormatArgs(cxx::string_view format, Args const&... args)
 {
     return FormatArgsTemplate<FormatFn>(format, args...);
 }
 
 template <typename ...Args>
-static std::string PrintfArgs(std__string_view format, Args const&... args)
+static std::string PrintfArgs(cxx::string_view format, Args const&... args)
 {
     return FormatArgsTemplate<PrintfFn>(format, args...);
 }
@@ -149,13 +149,13 @@ TEST_CASE("FormatStringChecks_Format")
     fmtxx::ArrayWriter w{nullptr, 0};
 
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{", 0));
-    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, std__string_view("{*}", 1), 0, 0));
-    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, std__string_view("{*}", 2), 0, 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, cxx::string_view("{*}", 1), 0, 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, cxx::string_view("{*}", 2), 0, 0));
     CHECK(fmtxx::ErrorCode::invalid_argument          == fmtxx::format(w, "{*}", 1));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{*", fmtxx::FormatSpec{}, 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{*}}", fmtxx::FormatSpec{}, 0));
-    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, std__string_view("{}", 1), 0));
-    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, std__string_view("{1}", 2), 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, cxx::string_view("{}", 1), 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, cxx::string_view("{1}", 2), 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{1", 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{1:", 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{1:1", 0));
@@ -1081,7 +1081,7 @@ TEST_CASE("FormatArgs_1")
     args.push_back(42);
     //args.push_back("hello", std::string("world"));     // should not compile
     args.push_back("hello", str_world);
-    args.push_back(std__string_view("hello"));
+    args.push_back(cxx::string_view("hello"));
 
     auto const s = fmtxx::string_format("{} {} {} {} {}", args).str;
     CHECK("42 42 hello world hello" == s);

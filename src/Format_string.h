@@ -67,8 +67,8 @@ template <>
 struct IsSafeRValueType<std::experimental::string_view> : std::true_type {};
 #endif
 
-FMTXX_API ErrorCode DoFormat(std::string& str, std__string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(std::string& str, std__string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(std::string& str, cxx::string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(std::string& str, cxx::string_view format, Arg const* args, Types types);
 
 } // namespace impl
 
@@ -86,25 +86,25 @@ private:
 };
 
 template <typename ...Args>
-inline ErrorCode format(std::string& str, std__string_view format, Args const&... args)
+inline ErrorCode format(std::string& str, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoFormat(str, format, arr, impl::Types{args...});
 }
 
 template <typename ...Args>
-inline ErrorCode printf(std::string& str, std__string_view format, Args const&... args)
+inline ErrorCode printf(std::string& str, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
     return ::fmtxx::impl::DoPrintf(str, format, arr, impl::Types{args...});
 }
 
-inline ErrorCode format(std::string& str, std__string_view format, FormatArgs const& args)
+inline ErrorCode format(std::string& str, cxx::string_view format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoFormat(str, format, args.args_, args.types_);
 }
 
-inline ErrorCode printf(std::string& str, std__string_view format, FormatArgs const& args)
+inline ErrorCode printf(std::string& str, cxx::string_view format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoPrintf(str, format, args.args_, args.types_);
 }
@@ -116,7 +116,7 @@ struct StringFormatResult
 };
 
 template <typename ...Args>
-inline StringFormatResult string_format(std__string_view format, Args const&... args)
+inline StringFormatResult string_format(cxx::string_view format, Args const&... args)
 {
     StringFormatResult r;
     r.ec = ::fmtxx::format(r.str, format, args...);
@@ -124,21 +124,21 @@ inline StringFormatResult string_format(std__string_view format, Args const&... 
 }
 
 template <typename ...Args>
-inline StringFormatResult string_printf(std__string_view format, Args const&... args)
+inline StringFormatResult string_printf(cxx::string_view format, Args const&... args)
 {
     StringFormatResult r;
     r.ec = ::fmtxx::printf(r.str, format, args...);
     return r;
 }
 
-inline StringFormatResult string_format(std__string_view format, FormatArgs const& args)
+inline StringFormatResult string_format(cxx::string_view format, FormatArgs const& args)
 {
     StringFormatResult r;
     r.ec = ::fmtxx::format(r.str, format, args);
     return r;
 }
 
-inline StringFormatResult string_printf(std__string_view format, FormatArgs const& args)
+inline StringFormatResult string_printf(cxx::string_view format, FormatArgs const& args)
 {
     StringFormatResult r;
     r.ec = ::fmtxx::printf(r.str, format, args);

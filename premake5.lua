@@ -88,7 +88,7 @@ project "fmtxx"
         "FMTXX_EXPORT=1",
     }
     includedirs {
-        "src/",
+        "include/",
     }
     configuration { "gmake" }
         buildoptions {
@@ -112,7 +112,7 @@ project "Test"
         "FMTXX_SHARED=1",
     }
     includedirs {
-        "src/",
+        "include/",
     }
     links {
         "fmtxx",

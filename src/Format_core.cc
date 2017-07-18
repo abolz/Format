@@ -1,7 +1,7 @@
 #include "Format_core.h"
 
 #ifndef FMTXX_DOUBLE_CONVERSION_EXTERNAL
-#include "impl/double_conversion.h"
+#include "__double_conversion.h"
 #else
 #include <double-conversion/bignum-dtoa.h>
 #include <double-conversion/fast-dtoa.h>

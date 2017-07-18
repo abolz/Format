@@ -80,6 +80,7 @@ project "fmtxx"
     language "C++"
     kind "SharedLib"
     files {
+        "include/**.h",
         "src/**.h",
         "src/**.cc",
     }

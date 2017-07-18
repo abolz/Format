@@ -84,19 +84,6 @@ struct MemoryFormatter
    }
 };
 
-//template <typename Fn>
-//struct OutputIteratorFormatter
-//{
-//    template <typename ...Args>
-//    FormatterResult operator()(std__string_view format, Args const&... args) const
-//    {
-//        std::string s;
-//        auto w = fmtxx::make_output_iterator_writer(std::back_inserter(s));
-//        auto const ec = Fn{}(w, format, args...);
-//        return { s, ec };
-//    }
-//};
-
 template <typename Formatter, typename ...Args>
 static std::string FormatArgs1(std__string_view format, Args const&... args)
 {
@@ -141,10 +128,6 @@ static std::string FormatArgsTemplate(std__string_view format, Args const&... ar
     std::string const s5 = FormatArgs1<MemoryFormatter<Fn>>(format, args...);
     if (s5 != s1)
        return "[[[[ formatter mismatch 4 ]]]]";
-
-    //std::string const s6 = FormatArgs1<OutputIteratorFormatter<Fn>>(format, args...);
-    //if (s6 != s1)
-    //    return "[[[[ formatter mismatch 5 ]]]]";
 
     return s1;
 }

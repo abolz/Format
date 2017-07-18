@@ -9,6 +9,8 @@ using namespace fmtxx;
 //
 //------------------------------------------------------------------------------
 
+namespace {
+
 class StreamWriter : public Writer
 {
 public:
@@ -76,6 +78,8 @@ inline ErrorCode StreamWriter::Pad(char c, size_t count)
 
     return ErrorCode::success;
 }
+
+} // namespace
 
 //------------------------------------------------------------------------------
 //

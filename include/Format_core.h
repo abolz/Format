@@ -613,10 +613,10 @@ struct Types
     }
 };
 
-FMTXX_API ErrorCode DoFormat(Writer& w,        std__string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(Writer& w,        std__string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoFormat(std::FILE* file,  std__string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(std::FILE* file,  std__string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(Writer& w,       std__string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(Writer& w,       std__string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(std::FILE* file, std__string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(std::FILE* file, std__string_view format, Arg const* args, Types types);
 
 // fprintf compatible formatting functions.
 FMTXX_API int DoFileFormat(std::FILE* file, std__string_view format, Arg const* args, Types types);

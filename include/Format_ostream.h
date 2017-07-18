@@ -82,16 +82,6 @@ struct StreamValue<T, void>
             return ErrorCode::conversion_error;
         return ErrorCode::success;
     }
-
-    //ErrorCode operator()(StreamWriter& w, FormatSpec const& /*spec*/, T const& val) const
-    //{
-    //    w.os << val;
-    //    if (os.bad())
-    //        return ErrorCode::io_error;
-    //    if (os.fail())
-    //        return ErrorCode::conversion_error;
-    //    return ErrorCode::success;
-    //}
 };
 
 #endif

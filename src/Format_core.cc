@@ -26,8 +26,8 @@
 #  define FALLTHROUGH
 #endif
 
-static_assert(std::numeric_limits<double>::is_iec559,
-    "IEEE-754 implementation required for formatting floating-point numbers");
+static_assert(std::numeric_limits<double>::is_iec559 && std::numeric_limits<double>::digits == 53,
+    "IEEE-754 double-precision implementation required for formatting floating-point numbers");
 
 using namespace fmtxx;
 using namespace fmtxx::impl;
@@ -183,11 +183,16 @@ static char ComputeSignChar(bool neg, Sign sign, char fill)
     return '\0';
 }
 
-struct Padding {
+namespace {
+
+struct Padding
+{
     size_t left       = 0;
     size_t after_sign = 0;
     size_t right      = 0;
 };
+
+} // namespace
 
 static Padding ComputePadding(size_t len, Align align, int width)
 {

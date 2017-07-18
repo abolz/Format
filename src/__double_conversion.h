@@ -1,6 +1,8 @@
 // This is the double-conversion library, put into a single header to easily
 // integrate into the library (slightly modified, unused parts removed).
 //
+// https://github.com/google/double-conversion
+//
 // Original license follows:
 
 // Copyright 2010 the V8 project authors. All rights reserved.

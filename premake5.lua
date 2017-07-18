@@ -99,21 +99,6 @@ project "fmtxx"
             "-fvisibility=hidden",
         }
 
--- project "fmt"
---    language "C++"
---    kind "SharedLib"
---    files {
---        "ext/fmt/**.h",
---        "ext/fmt/**.cc",
---    }
---    defines {
---        "FMT_SHARED=1",
---        "FMT_EXPORT=1",
---    }
---    includedirs {
---        "ext/",
---    }
-
 --------------------------------------------------------------------------------
 group "Tests"
 
@@ -132,57 +117,3 @@ project "Test"
     links {
         "fmtxx",
     }
-
-function AddExampleProject(name)
-    project (name)
-        language "C++"
-        kind "ConsoleApp"
-        files {
-            "test/" .. name .. ".cc",
-        }
-        defines {
-            "FMTXX_SHARED=1",
-        }
-        includedirs {
-            "src/",
-        }
-        links {
-            "fmtxx",
-        }
-end
-
-AddExampleProject("Example1")
-AddExampleProject("Example2")
-AddExampleProject("Example3")
-AddExampleProject("Example4")
-AddExampleProject("Example5")
-
--- Doesn't work with MinGW (std::condition_variable not implemented...)
--- project "Benchmark"
---     language "C++"
---     kind "ConsoleApp"
---     files {
---         "test/Bench.cc",
---         "test/ext/benchmark/include/benchmark/*.h",
---         "test/ext/benchmark/src/*.cc",
---     }
---     defines {
---         "HAVE_STD_REGEX=1",
---         "FMTXX_SHARED=1",
---     }
---     includedirs {
---         "src/",
---         "test/ext/",
---         "test/ext/benchmark/include/",
---     }
---     links {
---         "fmtxx",
---     }
---     configuration { "vs*" }
---         links {
---             "shlwapi",
---         }
---     configuration { "not vs*" }
---         links {
---             "pthread",
---         }

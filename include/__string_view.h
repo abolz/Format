@@ -23,24 +23,20 @@
 //
 // For more information, please refer to <http://unlicense.org/>
 
-#pragma once
+#ifndef STRING_VIEW_H
+#define STRING_VIEW_H 1
 
-#ifndef STD_STRING_VIEW_CHECKED_ITERATOR
-#ifndef NDEBUG
-#define STD_STRING_VIEW_CHECKED_ITERATOR 1
-#else
-#define STD_STRING_VIEW_CHECKED_ITERATOR 0
-#endif
-#endif
+#define STRING_VIEW_CHECKED_ITERATOR 0
 
 #include <cassert>
 #include <cstring>
-#if STD_STRING_VIEW_CHECKED_ITERATOR
+#include <type_traits>
+#if STRING_VIEW_CHECKED_ITERATOR
+#include <climits>
 #include <iterator> // random_access_iterator_tag...
 #endif
-#include <type_traits>
 
-#if STD_STRING_VIEW_CHECKED_ITERATOR
+#if STRING_VIEW_CHECKED_ITERATOR
 class std__string_view_iterator
 {
 public:
@@ -69,10 +65,6 @@ public:
         assert(size_ == 0 || ptr_ != nullptr);
         assert(pos_ >= 0);
         assert(pos_ <= size_);
-    }
-
-    /*constexpr*/ pointer ptr() const noexcept {
-        return ptr_ + pos_;
     }
 
     /*constexpr*/ reference operator*() const noexcept {
@@ -203,7 +195,7 @@ public:
     using const_pointer     = char const*;
     using reference         = char const&;
     using const_reference   = char const&;
-#if STD_STRING_VIEW_CHECKED_ITERATOR
+#if STRING_VIEW_CHECKED_ITERATOR
     using iterator          = std__string_view_iterator;
     using const_iterator    = std__string_view_iterator;
 #else
@@ -303,7 +295,8 @@ public:
     // Returns an iterator pointing to the start of the string.
     /*constexpr*/ const_iterator begin() const noexcept
     {
-#if STD_STRING_VIEW_CHECKED_ITERATOR
+#if STRING_VIEW_CHECKED_ITERATOR
+        assert(size_ <= PTRDIFF_MAX);
         return const_iterator{data_, static_cast<std::ptrdiff_t>(size_), 0};
 #else
         return data_;
@@ -313,7 +306,8 @@ public:
     // Returns an iterator pointing past the end of the string.
     /*constexpr*/ const_iterator end() const noexcept
     {
-#if STD_STRING_VIEW_CHECKED_ITERATOR
+#if STRING_VIEW_CHECKED_ITERATOR
+        assert(size_ <= PTRDIFF_MAX);
         return const_iterator{data_, static_cast<std::ptrdiff_t>(size_), static_cast<std::ptrdiff_t>(size_)};
 #else
         return data_ + size_;
@@ -328,14 +322,14 @@ public:
     }
 
     // Returns whether this string is equal to another string STR.
-    bool equal(std__string_view str) const noexcept
+    bool Equal(std__string_view str) const noexcept
     {
         return size() == str.size()
             && 0 == Compare(data(), str.data(), size());
     }
 
     // Lexicographically compare this string with another string STR.
-    bool less(std__string_view str) const noexcept
+    bool Less(std__string_view str) const noexcept
     {
         int c = Compare(data(), str.data(), Min(size(), str.size()));
         return c < 0 || (c == 0 && size() < str.size());
@@ -486,7 +480,7 @@ inline size_t std__string_view::rfind(char ch, size_t from) const noexcept
 
     for (auto I = from; I != 0; --I)
     {
-        if (ch == data()[I - 1])
+        if (static_cast<unsigned char>(ch) == static_cast<unsigned char>(data()[I - 1]))
             return I - 1;
     }
 
@@ -538,7 +532,7 @@ inline size_t std__string_view::find_last_not_of(std__string_view chars, size_t 
 
 inline bool operator==(std__string_view s1, std__string_view s2) noexcept
 {
-    return s1.equal(s2);
+    return s1.Equal(s2);
 }
 
 inline bool operator!=(std__string_view s1, std__string_view s2) noexcept
@@ -548,7 +542,7 @@ inline bool operator!=(std__string_view s1, std__string_view s2) noexcept
 
 inline bool operator<(std__string_view s1, std__string_view s2) noexcept
 {
-    return s1.less(s2);
+    return s1.Less(s2);
 }
 
 inline bool operator<=(std__string_view s1, std__string_view s2) noexcept
@@ -565,3 +559,5 @@ inline bool operator>=(std__string_view s1, std__string_view s2) noexcept
 {
     return !(s1 < s2);
 }
+
+#endif // STRING_VIEW_H

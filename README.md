@@ -1,7 +1,7 @@
 # Format
 
-[![Build Status](https://travis-ci.org/effzeh/Format.svg?branch=master)](https://travis-ci.org/effzeh/Format)
-[![Build status](https://ci.appveyor.com/api/projects/status/fcfasjqpo6s2n34n?svg=true)](https://ci.appveyor.com/project/effzeh/format)
+[![Build Status](https://travis-ci.org/abolz/Format.svg?branch=master)](https://travis-ci.org/abolz/Format)
+[![Build status](https://ci.appveyor.com/api/projects/status/un21yf9tlrfn7ebh/branch/master?svg=true)](https://ci.appveyor.com/project/abolz/format/branch/master)
 
 String formatting library.
 

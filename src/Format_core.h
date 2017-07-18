@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FMTXX_FORMAT_CORE_H
+#define FMTXX_FORMAT_CORE_H 1
 
 #include "__string_view.h"
 
@@ -794,3 +795,5 @@ inline int snprintf(char (&buf)[N], std__string_view format, FormatArgs const& a
 }
 
 } // namespace fmtxx
+
+#endif // FMTXX_FORMAT_CORE_H

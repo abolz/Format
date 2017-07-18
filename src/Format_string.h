@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FMTXX_FORMAT_STRING_H
+#define FMTXX_FORMAT_STRING_H 1
 
 #include "Format_core.h"
 
@@ -145,3 +146,5 @@ inline StringFormatResult string_printf(std__string_view format, FormatArgs cons
 }
 
 } // namespace fmtxx
+
+#endif

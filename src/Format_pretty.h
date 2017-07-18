@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FMTXX_FORMAT_PRETTY_H
+#define FMTXX_FORMAT_PRETTY_H 1
 
 #include "Format_core.h"
 
@@ -195,3 +196,5 @@ struct FormatValue<PrettyPrinter<T>> {
 };
 
 } // namespace fmtxx
+
+#endif // FMTXX_FORMAT_PRETTY_H

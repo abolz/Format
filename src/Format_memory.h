@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FMTXX_FORMAT_MEMORY_H
+#define FMTXX_FORMAT_MEMORY_H 1
 
 #include "Format_core.h"
 
@@ -182,3 +183,5 @@ bool MemoryWriter<BufferSize, Alloc>::Resize(size_t new_capacity)
 }
 
 } // namespace fmtxx
+
+#endif

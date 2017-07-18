@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FMTXX_FORMAT_OSTREAM_H
+#define FMTXX_FORMAT_OSTREAM_H 1
 
 #include "Format_core.h"
 
@@ -116,3 +117,5 @@ inline ErrorCode printf(std::ostream& os, std__string_view format, FormatArgs co
 }
 
 } // namespace fmtxx
+
+#endif // FMTXX_FORMAT_OSTREAM_H

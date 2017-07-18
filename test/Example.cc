@@ -97,7 +97,7 @@ static void Example3()
 {
     VectorBuffer buf;
 
-    fmtxx::format(buf, "{:5}", -123);
+    fmtxx::format(buf, "{:5}\n", -123);
         // buf.vec = {' ', '-', '1', '2', '3'}
 }
 

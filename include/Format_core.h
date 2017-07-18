@@ -7,9 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <type_traits>
-#include <utility>
 
 #ifdef _MSC_VER
 #  define FMTXX_VISIBILITY_DEFAULT
@@ -649,12 +647,12 @@ public:
     template <typename ...Ts>
     void push_back(Ts&&... vals)
     {
-        static_assert(sizeof...(Ts) > 0, "Too few arguments");
+        static_assert(sizeof...(Ts) >= 1, "Too few arguments");
         static_assert(sizeof...(Ts) <= kMaxArgs, "Too many arguments");
 
         assert(size_ + sizeof...(Ts) <= kMaxArgs);
 
-        int const unused[] = { (push_back_(std::forward<Ts>(vals)), 0)... };
+        int const unused[] = { (push_back_(static_cast<Ts&&>(vals)), 0)... };
         static_cast<void>(unused);
     }
 
@@ -664,9 +662,9 @@ private:
     {
         static_assert(
             std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<typename std::decay<T>::type>::value,
-            "Adding rvalues of non-built-in types to FormatArgs is not allowed. ");
+            "Adding temporaries of non-built-in types to FormatArgs is not allowed. ");
 
-        args_[size_] = std::forward<T>(val);
+        args_[size_] = static_cast<T&&>(val);
         types_.set_type(size_, impl::TypeFor<T>::value);
         ++size_;
     }

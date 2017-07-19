@@ -240,7 +240,7 @@ private:
 // Objects of type T must have member functions data() and size() and their
 // return values must be convertible to 'char const*' and 'size_t' resp.
 //
-template <typename T>
+template <typename T, typename /*Enable*/ = void>
 struct TreatAsString : std::false_type {};
 
 template <>
@@ -272,7 +272,7 @@ namespace impl
 //
 // Specialize this to format user-defined types.
 //
-template <typename T = void, typename /*XXX Internal. Do not use. XXX*/ = void>
+template <typename T = void, typename /*Enable*/ = void>
 struct FormatValue : impl::StreamValue<T>
 {
 };

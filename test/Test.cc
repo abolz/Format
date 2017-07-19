@@ -10,6 +10,7 @@
 #include <limits>
 #include <map>
 #include <sstream>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -1012,38 +1013,46 @@ TEST_CASE("Vector_1")
 
 //------------------------------------------------------------------------------
 
-//TEST_CASE("FormatPretty_1")
-//{
-//    std::map<int, std::string> map = {
-//        {0, "null"},
-//        {1, "eins"},
-//        {2, "zwei"},
-//    };
-//
-//    char buf[1000];
-//    auto const len = fmtxx::snformat(buf, "  {}  ", fmtxx::pretty(map));
-//    CHECK(R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )" == std::string(buf, len));
-//
-//    char arr1[] = "hello";
-//    CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
-//    CHECK("(nil)" == FormatArgs("{}", fmtxx::pretty(nullptr)));
-//}
-//
-//TEST_CASE("FormatPretty_2")
-//{
-//    std::map<int, std::string> map = {
-//        {0, "null"},
-//        {1, "eins"},
-//        {2, "zwei"},
-//    };
-//
-//    std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(map)).str;
-//    CHECK(R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )" == s);
-//
-//    char arr1[] = "hello";
-//    CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
-//    CHECK("(nil)" == FormatArgs("{}", fmtxx::pretty(nullptr)));
-//}
+TEST_CASE("FormatPretty_1")
+{
+    std::map<int, std::string> map = {
+        {0, "null"},
+        {1, "eins"},
+        {2, "zwei"},
+    };
+
+    char buf[1000];
+    auto const len = fmtxx::snformat(buf, "  {}  ", fmtxx::pretty(map));
+    CHECK(R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )" == std::string(buf, len));
+
+    char arr1[] = "hello";
+    CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
+    CHECK("(nil)" == FormatArgs("{}", fmtxx::pretty(nullptr)));
+}
+
+TEST_CASE("FormatPretty_2")
+{
+    std::map<int, std::string> map = {
+        {0, "null"},
+        {1, "eins"},
+        {2, "zwei"},
+    };
+
+    std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(map)).str;
+    CHECK(R"(  [{0, "null"}, {1, "eins"}, {2, "zwei"}]  )" == s);
+
+    char arr1[] = "hello";
+    CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
+    CHECK("(nil)" == FormatArgs("{}", fmtxx::pretty(nullptr)));
+}
+
+TEST_CASE("FormatPretty_3")
+{
+    std::tuple<int, double, std::string> tup = {123, 1.23, "123"};
+
+    std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(tup)).str;
+    CHECK(R"(  {123, 1.23, "123"}  )" == s);
+}
 
 //------------------------------------------------------------------------------
 

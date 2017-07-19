@@ -23,6 +23,9 @@
 
 #include "Format_core.h"
 
+#include <iterator>     // begin, end
+#include <utility>      // declval, forward, get<pair>, tuple_size<pair>
+
 namespace fmtxx {
 
 //------------------------------------------------------------------------------
@@ -48,173 +51,205 @@ inline PrettyPrinter<T> pretty(T const& object)
 //------------------------------------------------------------------------------
 
 namespace impl {
-namespace pp {
 
-using std::begin;
-using std::end;
+#if 1 // pre C++14
 
-struct Any {
-    template <typename T> Any(T&&) {}
-};
+template <typename ...>
+struct AlwaysVoid { using type = void; };
 
-struct IsContainerImpl
+template <typename ...Ts>
+using Void_t = typename AlwaysVoid<Ts...>::type;
+
+#else
+
+template <typename ...Ts>
+using Void_t = void;
+
+#endif
+
+namespace adl
 {
+    using std::begin;
+    using std::end;
+
     template <typename T>
-    static auto test(T const& u) -> typename std::is_convertible< decltype(begin(u) == end(u)), bool >::type;
-    static auto test(Any) -> std::false_type;
-};
-
-template <typename T>
-struct IsContainer : decltype( IsContainerImpl::test(std::declval<T>()) )
-{
-};
-
-struct IsTupleImpl
-{
-    template <typename T>
-    static auto test(T const& u) -> decltype( std::get<0>(u), std::true_type{} );
-    static auto test(Any) -> std::false_type;
-};
-
-template <typename T>
-struct IsTuple : decltype( IsTupleImpl::test(std::declval<T>()) )
-{
-};
-
-template <typename T>
-ErrorCode PrettyPrint(Writer& w, T const& value);
-
-inline ErrorCode PrintString(Writer& w, cxx::string_view val)
-{
-    if (Failed ec = w.put('"'))
-        return ec;
-    if (Failed ec = w.write(val.data(), val.size()))
-        return ec;
-    if (Failed ec = w.put('"'))
-        return ec;
-
-    return ErrorCode::success;
-}
-
-inline ErrorCode PrettyPrint(Writer& w, char const* val)
-{
-    return ::fmtxx::impl::pp::PrintString(w, val != nullptr ? val : "(null)");
-}
-
-inline ErrorCode PrettyPrint(Writer& w, char* val)
-{
-    return ::fmtxx::impl::pp::PrintString(w, val != nullptr ? val : "(null)");
-}
-
-template <typename T>
-ErrorCode PrintTuple(Writer& /*w*/, T const& /*object*/, std::integral_constant<size_t, 0>)
-{
-    return ErrorCode::success;
-}
-
-template <typename T>
-ErrorCode PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, 1>)
-{
-    return ::fmtxx::impl::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - 1>(object));
-}
-
-template <typename T, size_t N>
-ErrorCode PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, N>)
-{
-    if (Failed ec = ::fmtxx::impl::pp::PrettyPrint(w, std::get<std::tuple_size<T>::value - N>(object)))
-        return ec;
-    if (Failed ec = w.put(','))
-        return ec;
-    if (Failed ec = w.put(' '))
-        return ec;
-    if (Failed ec = ::fmtxx::impl::pp::PrintTuple(w, object, std::integral_constant<size_t, N - 1>()))
-        return ec;
-
-    return ErrorCode::success;
-}
-
-template <typename T>
-ErrorCode DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
-{
-    if (Failed ec = w.put('{'))
-        return ec;
-    if (Failed ec = ::fmtxx::impl::pp::PrintTuple(w, object, typename std::tuple_size<T>::type()))
-        return ec;
-    if (Failed ec = w.put('}'))
-        return ec;
-
-    return ErrorCode::success;
-}
-
-template <typename T>
-ErrorCode DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::false_type)
-{
-    return ::fmtxx::format_value(w, {}, object);
-}
-
-template <typename T>
-ErrorCode DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_type)
-{
-    if (Failed ec = w.put('['))
-        return ec;
-
-    auto I = begin(object); // using ADL
-    auto E = end(object); // using ADL
-    if (I != E)
+    auto adl_begin(T&& t) -> decltype(( begin(std::forward<T>(t)) )) // <- SFINAE
     {
-        for (;;)
-        {
-            if (Failed ec = ::fmtxx::impl::pp::PrettyPrint(w, *I))
-                return ec;
-            if (++I == E)
-                break;
-            if (Failed ec = w.put(','))
-                return ec;
-            if (Failed ec = w.put(' '))
-                return ec;
-        }
+        return begin(std::forward<T>(t));
     }
 
-    if (Failed ec = w.put(']'))
-        return ec;
-
-    return ErrorCode::success;
+    template <typename T>
+    auto adl_end(T&& t) -> decltype(( end(std::forward<T>(t)) )) // <- SFINAE
+    {
+        return end(std::forward<T>(t));
+    }
 }
 
-template <typename T>
-ErrorCode DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::false_type)
+using adl::adl_begin;
+using adl::adl_end;
+
+template <typename T, typename = void>
+struct IsContainer
+    : std::false_type
 {
-    return ::fmtxx::impl::pp::DispatchTuple(w, object, IsTuple<T>{});
-}
+};
 
 template <typename T>
-ErrorCode DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::true_type)
+struct IsContainer<T, Void_t< decltype(adl_begin(std::declval<T>()) == adl_end(std::declval<T>())) >>
+    : std::is_convertible<
+        decltype(adl_begin(std::declval<T>()) == adl_end(std::declval<T>())),
+        bool
+      >
 {
-    return ::fmtxx::impl::pp::PrintString(w, cxx::string_view{object.data(), object.size()});
-}
+};
 
-template <typename T>
-ErrorCode DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::false_type)
+template <typename T, typename = void>
+struct IsTuple
+    : std::false_type
 {
-    return ::fmtxx::impl::pp::DispatchContainer(w, object, IsContainer<T>{});
-}
+};
 
 template <typename T>
-ErrorCode PrettyPrint(Writer& w, T const& object)
+struct IsTuple<T, Void_t< decltype(std::get<0>(std::declval<T>())) >>
+    : std::true_type
 {
-    return ::fmtxx::impl::pp::DispatchString(w, object, TreatAsString<T>{});
-}
+};
 
-} // namespace pp
-} // namespace impl
+struct PP
+{
+    static ErrorCode PrintString(Writer& w, cxx::string_view val)
+    {
+        if (Failed ec = w.put('"'))
+            return ec;
+        if (Failed ec = w.write(val.data(), val.size()))
+            return ec;
+        if (Failed ec = w.put('"'))
+            return ec;
+
+        return ErrorCode::success;
+    }
+
+    template <typename T>
+    static ErrorCode PrintTuple(Writer& /*w*/, T const& /*object*/, std::integral_constant<size_t, 0>)
+    {
+        return ErrorCode::success;
+    }
+
+    template <typename T>
+    static ErrorCode PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, 1>)
+    {
+        return PrettyPrint(w, std::get<std::tuple_size<T>::value - 1>(object));
+    }
+
+    template <typename T, size_t N>
+    static ErrorCode PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, N>)
+    {
+        if (Failed ec = PrettyPrint(w, std::get<std::tuple_size<T>::value - N>(object)))
+            return ec;
+        if (Failed ec = w.put(','))
+            return ec;
+        if (Failed ec = w.put(' '))
+            return ec;
+        if (Failed ec = PrintTuple(w, object, std::integral_constant<size_t, N - 1>()))
+            return ec;
+
+        return ErrorCode::success;
+    }
+
+    template <typename T>
+    static ErrorCode DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
+    {
+        if (Failed ec = w.put('{'))
+            return ec;
+        if (Failed ec = PrintTuple(w, object, typename std::tuple_size<T>::type()))
+            return ec;
+        if (Failed ec = w.put('}'))
+            return ec;
+
+        return ErrorCode::success;
+    }
+
+    template <typename T>
+    static ErrorCode DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::false_type)
+    {
+        return ::fmtxx::format_value(w, {}, object);
+    }
+
+    template <typename T>
+    static ErrorCode DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_type)
+    {
+        if (Failed ec = w.put('['))
+            return ec;
+
+        auto I = adl_begin(object);
+        auto E = adl_end(object);
+        if (I != E)
+        {
+            for (;;)
+            {
+                if (Failed ec = PrettyPrint(w, *I))
+                    return ec;
+                if (++I == E)
+                    break;
+                if (Failed ec = w.put(','))
+                    return ec;
+                if (Failed ec = w.put(' '))
+                    return ec;
+            }
+        }
+
+        if (Failed ec = w.put(']'))
+            return ec;
+
+        return ErrorCode::success;
+    }
+
+    template <typename T>
+    static ErrorCode DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::false_type)
+    {
+        return DispatchTuple(w, object, typename IsTuple<T>::type{});
+    }
+
+    template <typename T>
+    static ErrorCode DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::true_type)
+    {
+        return PrintString(w, cxx::string_view{object.data(), object.size()});
+    }
+
+    template <typename T>
+    static ErrorCode DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::false_type)
+    {
+        return DispatchContainer(w, object, typename IsContainer<T>::type{});
+    }
+
+    template <typename T>
+    static ErrorCode PrettyPrint(Writer& w, T const& object)
+    {
+        return DispatchString(w, object, typename TreatAsString<T>::type{});
+    }
+
+    static ErrorCode PrettyPrint(Writer& w, char const* val)
+    {
+        return PrintString(w, val != nullptr ? val : "(null)");
+    }
+
+    static ErrorCode PrettyPrint(Writer& w, char* val)
+    {
+        return PrintString(w, val != nullptr ? val : "(null)");
+    }
+};
+
+} // namespace fmtxx::impl
 
 template <typename T>
-struct FormatValue<PrettyPrinter<T>> {
-    ErrorCode operator()(Writer& w, FormatSpec const& /*spec*/, PrettyPrinter<T> const& value) const {
-        return ::fmtxx::impl::pp::PrettyPrint(w, value.object);
+struct FormatValue<PrettyPrinter<T>>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& /*spec*/, PrettyPrinter<T> const& value) const
+    {
+        return fmtxx::impl::PP::PrettyPrint(w, value.object);
     }
 };
 
 } // namespace fmtxx
 
-#endif
+#endif // FMTXX_FORMAT_PRETTY_H

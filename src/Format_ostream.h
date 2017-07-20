@@ -56,7 +56,7 @@ public:
 
 // Allocates, but at least spec.fill and spec.width are handled correctly...
 template <typename T>
-struct StreamValue<T, void> //, Void_t< decltype(std::declval<std::ostream&>() << std::declval<T const&>()) >>
+struct StreamValue<T, void>
 {
     static_assert(IsStreamable<T>::value,
         "Formatting objects of type T is not supported. "
@@ -107,7 +107,7 @@ protected:
 
 // Does not allocate, but ignores all FormatSpec fields...
 template <typename T>
-struct StreamValue<T, void> //, Void_t< decltype(std::declval<std::ostream&>() << std::declval<T const&>()) >>
+struct StreamValue<T, void>
 {
     static_assert(IsStreamable<T>::value,
         "Formatting objects of type T is not supported. "

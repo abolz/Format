@@ -52,21 +52,6 @@ inline PrettyPrinter<T> pretty(T const& object)
 
 namespace impl {
 
-#if 1 // pre C++14
-
-template <typename ...>
-struct AlwaysVoid { using type = void; };
-
-template <typename ...Ts>
-using Void_t = typename AlwaysVoid<Ts...>::type;
-
-#else
-
-template <typename ...Ts>
-using Void_t = void;
-
-#endif
-
 namespace adl
 {
     using std::begin;

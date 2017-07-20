@@ -25,10 +25,23 @@
 
 #include <ostream>
 #include <sstream>
+#include <utility>
 
 namespace fmtxx {
 
 namespace impl {
+
+template <typename T, typename = void>
+struct IsStreamable
+    : std::false_type
+{
+};
+
+template <typename T>
+struct IsStreamable<T, Void_t< decltype(std::declval<std::ostream&>() << std::declval<T const&>()) >>
+    : std::true_type
+{
+};
 
 #if 1
 
@@ -43,8 +56,12 @@ public:
 
 // Allocates, but at least spec.fill and spec.width are handled correctly...
 template <typename T>
-struct StreamValue<T, void>
+struct StreamValue<T, void> //, Void_t< decltype(std::declval<std::ostream&>() << std::declval<T const&>()) >>
 {
+    static_assert(IsStreamable<T>::value,
+        "Formatting objects of type T is not supported. "
+        "Specialize 'FormatValue' or 'TreatAsString', or implement 'operator<<(std::ostream&, T const&)'.");
+
     ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const
     {
         StreamBuf buf;
@@ -74,7 +91,7 @@ protected:
             return 0;
         if (Failed(w_.put(static_cast<char>(ch))))
             return traits_type::eof(); // error
-        return ch;
+        return traits_type::to_int_type(ch);
     }
 
     std::streamsize xsputn(char const* str, std::streamsize len) override
@@ -90,8 +107,12 @@ protected:
 
 // Does not allocate, but ignores all FormatSpec fields...
 template <typename T>
-struct StreamValue<T, void>
+struct StreamValue<T, void> //, Void_t< decltype(std::declval<std::ostream&>() << std::declval<T const&>()) >>
 {
+    static_assert(IsStreamable<T>::value,
+        "Formatting objects of type T is not supported. "
+        "Specialize 'FormatValue' or 'TreatAsString', or implement 'operator<<(std::ostream&, T const&)'.");
+
     ErrorCode operator()(Writer& w, FormatSpec const& /*spec*/, T const& val) const
     {
         StreamBuf buf{w};
@@ -110,7 +131,7 @@ struct StreamValue<T, void>
 FMTXX_API ErrorCode DoFormat(std::ostream& os, cxx::string_view format, Arg const* args, Types types);
 FMTXX_API ErrorCode DoPrintf(std::ostream& os, cxx::string_view format, Arg const* args, Types types);
 
-} // namespace impl
+} // namespace fmtxx::impl
 
 template <typename ...Args>
 inline ErrorCode format(std::ostream& os, cxx::string_view format, Args const&... args)
@@ -138,4 +159,4 @@ inline ErrorCode printf(std::ostream& os, cxx::string_view format, FormatArgs co
 
 } // namespace fmtxx
 
-#endif
+#endif // FMTXX_FORMAT_OSTREAM_H

@@ -256,16 +256,13 @@ namespace impl
 {
     template <typename> struct AlwaysFalse : std::false_type {};
 
-    // The second template parameter is used in Format_ostream.h to "specialize"
-    // this class template for all T's.
     template <typename T, typename = void>
     struct StreamValue
     {
         static_assert(AlwaysFalse<T>::value,
             "Formatting objects of type T is not supported. "
-            "Specialize FormatValue or TreatAsString, or, if objects of type T "
-            "can be formatted using 'operator<<(std::ostream, T const&)', "
-            "include 'Format_ostream.h'.");
+            "Specialize 'FormatValue' or 'TreatAsString', or implement 'operator<<(std::ostream&, T const&)' "
+            "and include 'Format_ostream.h'.");
     };
 }
 
@@ -437,6 +434,22 @@ ErrorCode format_value(WriterT&& w, FormatSpec const& spec, T const& value) {
 }
 
 namespace impl {
+
+#if 0
+// C++14 or later
+
+template <typename ...Ts>
+using Void_t = void;
+
+#else
+
+template <typename ...>
+struct AlwaysVoid { using type = void; };
+
+template <typename ...Ts>
+using Void_t = typename AlwaysVoid<Ts...>::type;
+
+#endif
 
 enum struct Type {
     none,
@@ -650,7 +663,7 @@ FMTXX_API int DoFilePrintf(std::FILE* file, cxx::string_view format, Arg const* 
 FMTXX_API int DoArrayFormat(char* buf, size_t bufsize, cxx::string_view format, Arg const* args, Types types);
 FMTXX_API int DoArrayPrintf(char* buf, size_t bufsize, cxx::string_view format, Arg const* args, Types types);
 
-} // namespace impl
+} // namespace fmtxx::impl
 
 class FormatArgs
 {
@@ -816,4 +829,4 @@ inline int snprintf(char (&buf)[N], cxx::string_view format, FormatArgs const& a
 
 } // namespace fmtxx
 
-#endif
+#endif // FMTXX_FORMAT_CORE_H

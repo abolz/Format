@@ -1,5 +1,10 @@
 local build_dir = "build/" .. _ACTION
 
+newoption {
+    trigger = "cxxflags",
+    description = "Additional build options",
+}
+
 --------------------------------------------------------------------------------
 solution "Format"
     configurations { "release", "debug" }
@@ -72,6 +77,13 @@ solution "Format"
 
     configuration { "windows" }
         characterset "Unicode"
+
+    if _OPTIONS["cxxflags"] then
+        configuration {}
+            buildoptions {
+                _OPTIONS["cxxflags"],
+            }
+    end
 
 --------------------------------------------------------------------------------
 group "Libs"

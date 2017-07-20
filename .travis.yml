@@ -19,41 +19,61 @@ matrix:
       env:
         - COMPILER=g++-5
         - CONFIGURATION=release
+        - CXXFLAGS="-std=c++11"
     - os: linux
       compiler: gcc
       env:
         - COMPILER=g++-5
         - CONFIGURATION=debug
+        - CXXFLAGS="-std=c++11"
     - os: linux
       compiler: gcc
       env:
         - COMPILER=g++-6
         - CONFIGURATION=release
+        - CXXFLAGS="-std=c++14"
     - os: linux
       compiler: gcc
       env:
         - COMPILER=g++-6
         - CONFIGURATION=debug
+        - CXXFLAGS="-std=c++14"
     - os: linux
       compiler: gcc
       env:
         - COMPILER=g++-7
         - CONFIGURATION=release
+        - CXXFLAGS="-std=c++17"
     - os: linux
       compiler: gcc
       env:
         - COMPILER=g++-7
         - CONFIGURATION=debug
+        - CXXFLAGS="-std=c++17"
     - os: osx
       compiler: clang
       env:
         - COMPILER=clang++
         - CONFIGURATION=release
+        - CXXFLAGS="-std=c++11 -stdlib=libc++"
     - os: osx
       compiler: clang
       env:
         - COMPILER=clang++
         - CONFIGURATION=debug
+        - CXXFLAGS="-std=c++11 -stdlib=libc++"
+    - os: osx
+      compiler: clang
+      env:
+        - COMPILER=clang++
+        - CONFIGURATION=release
+        - CXXFLAGS="-std=c++14 -stdlib=libc++"
+    - os: osx
+      compiler: clang
+      env:
+        - COMPILER=clang++
+        - CONFIGURATION=debug
+        - CXXFLAGS="-std=c++14 -stdlib=libc++"
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha11/premake-5.0.0-alpha11-linux.tar.gz" -O premake5.tar.gz; fi
@@ -61,7 +81,7 @@ before_install:
   - tar -xvf premake5.tar.gz
 
 install:
-  - ./premake5 gmake
+  - ./premake5 --cxxflags="$CXXFLAGS" gmake
 
 script:
   - export CXX=$COMPILER

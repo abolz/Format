@@ -356,15 +356,6 @@ struct FormatValue<void>
     }
 };
 
-template <
-    typename WriterT,
-    typename T,
-    typename = typename std::enable_if< std::is_base_of<Writer, typename std::remove_reference<WriterT>::type>::value >::type
->
-ErrorCode format_value(WriterT&& w, FormatSpec const& spec, T const& value) {
-    return FormatValue<>{}(w, spec, value);
-}
-
 namespace impl {
 
 #if 0
@@ -408,7 +399,7 @@ struct Arg
     template <typename T>
     static ErrorCode FormatValue_fn(Writer& w, FormatSpec const& spec, void const* value)
     {
-        return fmtxx::format_value(w, spec, *static_cast<T const*>(value));
+        return FormatValue<>{}(w, spec, *static_cast<T const*>(value));
     }
 
     struct String { char const* data; size_t size; };

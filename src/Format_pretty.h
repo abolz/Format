@@ -157,7 +157,7 @@ struct PP
     template <typename T>
     static ErrorCode DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::false_type)
     {
-        return ::fmtxx::format_value(w, {}, object);
+        return FormatValue<>{}(w, FormatSpec{}, object);
     }
 
     template <typename T>

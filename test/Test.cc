@@ -1048,7 +1048,7 @@ TEST_CASE("FormatPretty_2")
 
 TEST_CASE("FormatPretty_3")
 {
-    std::tuple<int, double, std::string> tup = {123, 1.23, "123"};
+    std::tuple<int, double, std::string> tup {123, 1.23, "123"};
 
     std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(tup)).str;
     CHECK(R"(  {123, 1.23, "123"}  )" == s);

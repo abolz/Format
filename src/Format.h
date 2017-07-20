@@ -25,6 +25,7 @@
 #include "Format_memory.h"
 #include "Format_ostream.h"
 #include "Format_pretty.h"
+#include "Format_stdio.h"
 #include "Format_string.h"
 
 #endif

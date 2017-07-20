@@ -83,10 +83,6 @@ static constexpr char const* kDecDigits100 =
 //
 //--------------------------------------------------------------------------------------------------
 
-// std::clamp...
-template <typename T>
-static constexpr T Clip(T x, T lower, T upper) { return std::min(std::max(lower, x), upper); }
-
 template <typename T>
 static void UnusedParameter(T&&) {}
 
@@ -110,81 +106,6 @@ static RanIt MakeArrayIterator(RanIt first, intptr_t /*n*/)
 
 fmtxx::Writer::~Writer() noexcept
 {
-}
-
-ErrorCode fmtxx::FILEWriter::Put(char c) noexcept
-{
-    if (EOF == std::fputc(c, file_))
-        return ErrorCode::io_error;
-
-    size_ += 1;
-    return ErrorCode::success;
-}
-
-ErrorCode fmtxx::FILEWriter::Write(char const* ptr, size_t len) noexcept
-{
-    size_t n = std::fwrite(ptr, 1, len, file_);
-
-    // Count the number of characters successfully transmitted.
-    // This is unlike ArrayWriter, which counts characters that would have been written on success.
-    // (FILEWriter and ArrayWriter are for compatibility with fprintf and snprintf, resp.)
-    size_ += n;
-    return n == len ? ErrorCode::success : ErrorCode::io_error;
-}
-
-ErrorCode fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
-{
-    size_t const kBlockSize = 32;
-
-    char block[kBlockSize];
-    std::memset(block, static_cast<unsigned char>(c), kBlockSize);
-
-    while (count > 0)
-    {
-        auto const n = std::min(count, kBlockSize);
-        if (Failed ec = FILEWriter::Write(block, n))
-            return ec;
-        count -= n;
-    }
-
-    return ErrorCode::success;
-}
-
-size_t fmtxx::ArrayWriter::finish() noexcept
-{
-    if (size_ < bufsize_)
-        buf_[size_] = '\0';
-    else if (bufsize_ > 0)
-        buf_[bufsize_ - 1] = '\0';
-
-    return size_;
-}
-
-ErrorCode fmtxx::ArrayWriter::Put(char c) noexcept
-{
-    if (size_ < bufsize_)
-        buf_[size_] = c;
-
-    size_ += 1;
-    return ErrorCode::success;
-}
-
-ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
-{
-    if (size_ < bufsize_)
-        std::memcpy(buf_ + size_, ptr, std::min(len, bufsize_ - size_));
-
-    size_ += len;
-    return ErrorCode::success;
-}
-
-ErrorCode fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
-{
-    if (size_ < bufsize_)
-        std::memset(buf_ + size_, static_cast<unsigned char>(c), std::min(count, bufsize_ - size_));
-
-    size_ += count;
-    return ErrorCode::success;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2062,66 +1983,4 @@ ErrorCode fmtxx::impl::DoPrintf(Writer& w, cxx::string_view format, Arg const* a
     }
 
     return ErrorCode::success;
-}
-
-ErrorCode fmtxx::impl::DoFormat(std::FILE* file, cxx::string_view format, Arg const* args, Types types)
-{
-    FILEWriter w{file};
-    return fmtxx::impl::DoFormat(w, format, args, types);
-}
-
-ErrorCode fmtxx::impl::DoPrintf(std::FILE* file, cxx::string_view format, Arg const* args, Types types)
-{
-    FILEWriter w{file};
-    return fmtxx::impl::DoPrintf(w, format, args, types);
-}
-
-int fmtxx::impl::DoFileFormat(std::FILE* file, cxx::string_view format, Arg const* args, Types types)
-{
-    FILEWriter w{file};
-
-    if (Failed(fmtxx::impl::DoFormat(w, format, args, types)))
-        return -1;
-    if (w.size() > INT_MAX)
-        return -1;
-
-    return static_cast<int>(w.size());
-}
-
-int fmtxx::impl::DoFilePrintf(std::FILE* file, cxx::string_view format, Arg const* args, Types types)
-{
-    FILEWriter w{file};
-
-    if (Failed(fmtxx::impl::DoPrintf(w, format, args, types)))
-        return -1;
-    if (w.size() > INT_MAX)
-        return -1;
-
-    return static_cast<int>(w.size());
-}
-
-int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, cxx::string_view format, Arg const* args, Types types)
-{
-    ArrayWriter w{buf, bufsize};
-
-    if (Failed(fmtxx::impl::DoFormat(w, format, args, types)))
-        return -1;
-    if (w.size() > INT_MAX)
-        return -1;
-
-    w.finish();
-    return static_cast<int>(w.size());
-}
-
-int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, cxx::string_view format, Arg const* args, Types types)
-{
-    ArrayWriter w{buf, bufsize};
-
-    if (Failed(fmtxx::impl::DoPrintf(w, format, args, types)))
-        return -1;
-    if (w.size() > INT_MAX)
-        return -1;
-
-    w.finish();
-    return static_cast<int>(w.size());
 }

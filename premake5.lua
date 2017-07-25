@@ -18,6 +18,10 @@ solution "Format"
     -- exceptionhandling "Off"
     -- rtti "Off"
 
+    flags {
+        "StaticRuntime",
+    }
+
     configuration { "debug" }
         targetdir (build_dir .. "/bin/debug")
 
@@ -38,12 +42,10 @@ solution "Format"
     configuration { "gmake" }
         buildoptions {
             "-march=native",
-            "-std=c++11",
             "-Wformat",
             -- "-Wsign-compare",
             -- "-Wsign-conversion",
             -- "-pedantic",
-            -- "-fvisibility=hidden",
             -- "-fno-omit-frame-pointer",
             -- "-ftime-report",
         }
@@ -83,6 +85,11 @@ solution "Format"
             buildoptions {
                 _OPTIONS["cxxflags"],
             }
+    else
+        configuration { "gmake" }
+            buildoptions {
+                "-std=c++11",
+            }
     end
 
 --------------------------------------------------------------------------------
@@ -90,22 +97,19 @@ group "Libs"
 
 project "fmtxx"
     language "C++"
-    kind "SharedLib"
+    kind "StaticLib"
     files {
         "src/**.h",
         "src/**.cc",
-    }
-    defines {
-        "FMTXX_SHARED=1",
-        "FMTXX_EXPORT=1",
     }
     configuration { "gmake" }
         buildoptions {
             "-Wsign-compare",
             "-Wsign-conversion",
             "-Wold-style-cast",
+            "-Wshadow",
+            "-Wconversion",
             "-pedantic",
-            "-fvisibility=hidden",
         }
 
 --------------------------------------------------------------------------------
@@ -117,9 +121,6 @@ project "Test"
     files {
         "test/Test.cc",
     }
-    defines {
-        "FMTXX_SHARED=1",
-    }
     links {
         "fmtxx",
     }
@@ -129,9 +130,6 @@ project "Example"
     kind "ConsoleApp"
     files {
         "test/Example.cc",
-    }
-    defines {
-        "FMTXX_SHARED=1",
     }
     links {
         "fmtxx",

@@ -18,15 +18,51 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef FMTXX_FORMAT_H
-#define FMTXX_FORMAT_H 1
-
-#include "Format_core.h"
-#include "Format_memory.h"
-#include "Format_ostream.h"
-#include "Format_pretty.h"
-#include "Format_stdio.h"
-#include "Format_string.h"
 #include "Format_system_error.h"
 
-#endif
+using namespace fmtxx;
+
+namespace {
+
+class FormatErrorCategory : public std::error_category
+{
+public:
+    char const* name() const noexcept override;
+    std::string message(int ec) const override;
+};
+
+char const* FormatErrorCategory::name() const noexcept
+{
+    return "format error";
+}
+
+std::string FormatErrorCategory::message(int ec) const
+{
+    switch (static_cast<ErrorCode>(ec))
+    {
+    case ErrorCode::conversion_error:
+        return "conversion error";
+    case ErrorCode::index_out_of_range:
+        return "index out of range";
+    case ErrorCode::invalid_argument:
+        return "invalid argument";
+    case ErrorCode::invalid_format_string:
+        return "invalid format string";
+    case ErrorCode::io_error:
+        return "io error";
+    case ErrorCode::not_supported:
+        return "not supported";
+    case ErrorCode::value_out_of_range:
+        return "value out of range";
+    }
+
+    return "[[unknown format error]]";
+}
+
+} // namespace
+
+std::error_category const& fmtxx::format_error_category()
+{
+    static FormatErrorCategory cat;
+    return cat;
+}

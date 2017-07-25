@@ -98,6 +98,18 @@ class Writer {
 protected:
     virtual ~Writer();
 
+    // Write a character to the output stream.
+    ErrorCode put(char c);
+
+    // Write a character to the output stream iff it is not the null-character.
+    ErrorCode put_nonnull(char c);
+
+    // Insert a range of characters into the output stream.
+    ErrorCode write(char const* str, size_t len);
+
+    // Insert a character multiple times into the output stream.
+    ErrorCode pad(char c, size_t count);
+
 private:
     virtual ErrorCode Put(char c) = 0;
     virtual ErrorCode Write(char const* str, size_t len) = 0;
@@ -225,6 +237,9 @@ int snprintf(char (&buf)[N], cxx::string_view format, Args const&... args);
 
 ### Format_string.h
 
+Support for printing (to) `std::string`s and printing `std::string_view`s
+(if available).
+
 ```c++
 namespace fmtxx {
 
@@ -265,6 +280,10 @@ ErrorCode printf(std::ostream& os, cxx::string_view format, Args const&... args)
 } // namespace fmtxx
 ```
 
+### Format_system_error.h
+
+Provides support for printing `std::error_code`s and `std::error_condition`s.
+
 ### Format_pretty.h
 
 Provides support for pretty-printing arbitrary containers and tuples.
@@ -277,6 +296,10 @@ template <typename T>
 
 } // namespace fmtxx
 ```
+
+### Format.h
+
+Simply includes all the headers above.
 
 ## Format String Syntax
 

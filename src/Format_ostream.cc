@@ -36,7 +36,7 @@ class StreamWriter : public Writer
 public:
     std::ostream& os;
 
-    explicit StreamWriter(std::ostream& os) : os(os) {}
+    explicit StreamWriter(std::ostream& os_) : os(os_) {}
 
 private:
     ErrorCode Put(char c) override;

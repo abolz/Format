@@ -55,13 +55,13 @@
 
 namespace fmtxx {
 
-enum struct ErrorCode {
+enum struct ErrorCode { // XXX: Rename => 'Result'
     success = 0,
-    conversion_error,       // Value could not be converted to string. (E.g.: trying to format a non-existant date.)
+    conversion_error,       // Value could not be converted to string (E.g. trying to format a non-existant date.)
     index_out_of_range,     // Argument index out of range
     invalid_argument,
     invalid_format_string,
-    io_error,               // Writer failed. (XXX: Writer::Put() etc should probably return an error code?!)
+    io_error,               // Writer failed
     not_supported,          // Conversion not supported
     value_out_of_range,     // Value of integer argument out of range [INT_MIN, INT_MAX]
 };
@@ -73,7 +73,7 @@ struct Failed
     ErrorCode const ec = ErrorCode::success;
 
     Failed() = default;
-    Failed(ErrorCode ec) : ec(ec) {}
+    Failed(ErrorCode ec_) : ec(ec_) {}
     explicit operator bool() const { return ec != ErrorCode::success; }
 
     operator ErrorCode() const { return ec; }
@@ -127,8 +127,12 @@ public:
     ErrorCode pad(char c, size_t count) { return count == 0 ? ErrorCode::success : Pad(c, count); }
 
 private:
+    // XXX: Default implementation using Write???
     virtual ErrorCode Put(char c) = 0;
+    // XXX: Default implementation using Put???
     virtual ErrorCode Write(char const* str, size_t len) = 0;
+    // XXX: Default implementation using Write???
+    //      Default implementation using Put???
     virtual ErrorCode Pad(char c, size_t count) = 0;
 };
 
@@ -156,12 +160,14 @@ struct Util
 
 private:
     template <typename T>
-    static inline ErrorCode format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::true_type) {
+    static inline ErrorCode format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::true_type)
+    {
         return format_int(w, spec, value, static_cast<typename std::make_unsigned<T>::type>(value));
     }
 
     template <typename T>
-    static inline ErrorCode format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::false_type) {
+    static inline ErrorCode format_int(Writer& w, FormatSpec const& spec, T value, /*is_signed*/ std::false_type)
+    {
         return format_int(w, spec, 0, value);
     }
 };

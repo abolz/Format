@@ -52,9 +52,9 @@ static_assert(std::numeric_limits<double>::is_iec559 && std::numeric_limits<doub
 using namespace fmtxx;
 using namespace fmtxx::impl;
 
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 //
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 // Maximum supported integer precision (= minimum number of digits).
 static constexpr int kMaxIntPrec = 300;
@@ -79,9 +79,9 @@ static constexpr char const* kDecDigits100 =
     "80818283848586878889"
     "90919293949596979899";
 
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 //
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 template <typename T>
 static void UnusedParameter(T&&) {}
@@ -100,17 +100,17 @@ static RanIt MakeArrayIterator(RanIt first, intptr_t /*n*/)
 }
 #endif
 
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 //
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 fmtxx::Writer::~Writer() noexcept
 {
 }
 
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 //
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 static char ComputeSignChar(bool neg, Sign sign, char fill)
 {
@@ -124,16 +124,15 @@ static char ComputeSignChar(bool neg, Sign sign, char fill)
     return '\0';
 }
 
-namespace {
-
-struct Padding
+namespace
 {
-    size_t left       = 0;
-    size_t after_sign = 0;
-    size_t right      = 0;
-};
-
-} // namespace
+    struct Padding
+    {
+        size_t left       = 0;
+        size_t after_sign = 0;
+        size_t right      = 0;
+    };
+}
 
 static Padding ComputePadding(size_t len, Align align, int width)
 {
@@ -198,39 +197,9 @@ static ErrorCode ForEachEscaped(char const* str, size_t len, F func)
         {
         case '"':
         case '\\':
-        //case '\'':
-        //case '?':
             if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func(ch)  ) return ec;
+            if (Failed ec = func(ch)) return ec;
             break;
-        //case '\a':
-        //    if (Failed ec = func('\\')) return ec;
-        //    if (Failed ec = func('a') ) return ec;
-        //    break;
-        //case '\b':
-        //    if (Failed ec = func('\\')) return ec;
-        //    if (Failed ec = func('b') ) return ec;
-        //    break;
-        //case '\f':
-        //    if (Failed ec = func('\\')) return ec;
-        //    if (Failed ec = func('f') ) return ec;
-        //    break;
-        //case '\n':
-        //    if (Failed ec = func('\\')) return ec;
-        //    if (Failed ec = func('n') ) return ec;
-        //    break;
-        //case '\r':
-        //    if (Failed ec = func('\\')) return ec;
-        //    if (Failed ec = func('r') ) return ec;
-        //    break;
-        //case '\t':
-        //    if (Failed ec = func('\\')) return ec;
-        //    if (Failed ec = func('t') ) return ec;
-        //    break;
-        //case '\v':
-        //    if (Failed ec = func('\\')) return ec;
-        //    if (Failed ec = func('v') ) return ec;
-        //    break;
         default:
             if (Failed ec = func(ch)) return ec;
             break;
@@ -253,7 +222,11 @@ static ErrorCode WriteQuoted(Writer& w, char const* str, size_t len, size_t quot
 static ErrorCode PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t quoted_len = 0;
-    ForEachEscaped(str, len, [&](char) { ++quoted_len; return ErrorCode::success; });
+
+    ForEachEscaped(str, len, [&](char) -> ErrorCode {
+        ++quoted_len;
+        return ErrorCode::success;
+    });
 
     auto const pad = ComputePadding(2 + quoted_len, spec.align, spec.width);
 
@@ -544,7 +517,7 @@ ErrorCode fmtxx::Util::format_pointer(Writer& w, FormatSpec const& spec, void co
     return Util::format_int(w, fs, reinterpret_cast<uintptr_t>(pointer));
 }
 
-namespace {
+namespace dtoa {
 
 struct Double
 {
@@ -560,8 +533,8 @@ struct Double
         uint64_t const bits;
     };
 
-    explicit Double(double d) : d(d) {}
-    explicit Double(uint64_t bits) : bits(bits) {}
+    explicit Double(double d_) : d(d_) {}
+    explicit Double(uint64_t bits_) : bits(bits_) {}
 
     uint64_t Sign()        const { return (bits & kSignMask       ) >> 63; }
     uint64_t Exponent()    const { return (bits & kExponentMask   ) >> 52; }
@@ -595,10 +568,6 @@ struct Double
         return Double { bits & ~kSignMask }.d;
     }
 };
-
-} // namespace
-
-namespace dtoa {
 
 struct Options {
     bool use_upper_case_digits       = true;  //       A
@@ -1106,7 +1075,7 @@ static int ToECMAScript(char* buf, int bufsize, double d, char decimal_point, ch
 
 } // namespace dtoa
 
-static ErrorCode HandleSpecialFloat(Double d, Writer& w, FormatSpec const& spec, char sign, bool upper)
+static ErrorCode HandleSpecialFloat(dtoa::Double d, Writer& w, FormatSpec const& spec, char sign, bool upper)
 {
     assert(d.IsSpecial());
 
@@ -1187,7 +1156,7 @@ ErrorCode fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x
         break;
     }
 
-    Double const d { x };
+    dtoa::Double const d { x };
 
     bool   const neg = (d.Sign() != 0);
     double const abs_x = d.Abs();
@@ -1253,9 +1222,9 @@ ErrorCode fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x
     return PrintAndPadNumber(w, spec, sign, prefix, nprefix, buf, static_cast<size_t>(buflen));
 }
 
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 //
-//--------------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 static void FixNegativeFieldWidth(FormatSpec& spec)
 {

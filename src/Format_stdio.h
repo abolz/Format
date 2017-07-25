@@ -193,18 +193,6 @@ inline int snprintf(char (&buf)[N], cxx::string_view format, Args const&... args
     return ::fmtxx::snprintf(&buf[0], N, format, args...);
 }
 
-template <size_t N>
-inline int snformat(char (&buf)[N], cxx::string_view format, FormatArgs const& args)
-{
-    return ::fmtxx::snformat(&buf[0], N, format, args.args_, args.types_);
-}
-
-template <size_t N>
-inline int snprintf(char (&buf)[N], cxx::string_view format, FormatArgs const& args)
-{
-    return ::fmtxx::snprintf(&buf[0], N, format, args.args_, args.types_);
-}
-
 } // namespace fmtxx
 
 #endif // FMTXX_FORMAT_STDIO_H

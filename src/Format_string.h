@@ -53,6 +53,12 @@
 
 namespace fmtxx {
 
+template <typename Alloc>
+struct TreatAsString< std::basic_string<char, std::char_traits<char>, Alloc> >
+    : std::true_type
+{
+};
+
 #if FMTXX_HAS_STD_STRING_VIEW
 template <>
 struct TreatAsString< std::string_view >
@@ -68,12 +74,6 @@ struct TreatAsString< std::experimental::string_view >
 {
 };
 #endif
-
-template <typename Alloc>
-struct TreatAsString< std::basic_string<char, std::char_traits<char>, Alloc> >
-    : std::true_type
-{
-};
 
 namespace impl {
 
@@ -148,20 +148,6 @@ inline StringFormatResult string_printf(cxx::string_view format, Args const&... 
 {
     StringFormatResult r;
     r.ec = ::fmtxx::printf(r.str, format, args...);
-    return r;
-}
-
-inline StringFormatResult string_format(cxx::string_view format, FormatArgs const& args)
-{
-    StringFormatResult r;
-    r.ec = ::fmtxx::format(r.str, format, args);
-    return r;
-}
-
-inline StringFormatResult string_printf(cxx::string_view format, FormatArgs const& args)
-{
-    StringFormatResult r;
-    r.ec = ::fmtxx::printf(r.str, format, args);
     return r;
 }
 

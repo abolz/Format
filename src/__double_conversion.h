@@ -570,7 +570,7 @@ static const int kDoubleSignificandSize = 53;  // Includes the hidden bit.
 static void FillDigits32FixedLength(uint32_t number, int requested_length,
                                     Vector<char> buffer, int* length) {
   for (int i = requested_length - 1; i >= 0; --i) {
-    buffer[(*length) + i] = '0' + number % 10;
+    buffer[(*length) + i] = static_cast<char>('0' + number % 10);
     number /= 10;
   }
   *length += requested_length;
@@ -581,7 +581,7 @@ static void FillDigits32(uint32_t number, Vector<char> buffer, int* length) {
   int number_length = 0;
   // We fill the digits in reverse order and exchange them afterwards.
   while (number != 0) {
-    int digit = number % 10;
+    int digit = static_cast<int>(number % 10);
     number /= 10;
     buffer[(*length) + number_length] = static_cast<char>('0' + digit);
     number_length++;
@@ -1367,7 +1367,7 @@ static bool DigitGen(DiyFp low,
   // with the divisor exponent + 1. And the divisor is the biggest power of ten
   // that is smaller than integrals.
   while (*kappa > 0) {
-    int digit = integrals / divisor;
+    int digit = static_cast<int>(integrals / divisor);
     DOUBLE_CONVERSION_ASSERT(digit <= 9);
     buffer[*length] = static_cast<char>('0' + digit);
     (*length)++;
@@ -1478,7 +1478,7 @@ static bool DigitGenCounted(DiyFp w,
   // with the divisor exponent + 1. And the divisor is the biggest power of ten
   // that is smaller than 'integrals'.
   while (*kappa > 0) {
-    int digit = integrals / divisor;
+    int digit = static_cast<int>(integrals / divisor);
     DOUBLE_CONVERSION_ASSERT(digit <= 9);
     buffer[*length] = static_cast<char>('0' + digit);
     (*length)++;
@@ -2018,7 +2018,7 @@ inline void Bignum::AssignPowerUInt16(uint16_t base, int power_exponent) {
   // It does not make much sense to implement different algorithms for counting
   // the bits.
   while ((base & 1) == 0) {
-    base >>= 1;
+    base = static_cast<uint16_t>(base >> 1);
     shifts++;
   }
   int bit_size = 0;
@@ -2104,8 +2104,8 @@ inline uint16_t Bignum::DivideModuloIntBignum(const Bignum& other) {
     DOUBLE_CONVERSION_ASSERT(bigits_[used_digits_ - 1] < 0x10000);
     // Remove the multiples of the first digit.
     // Example this = 23 and other equals 9. -> Remove 2 multiples.
-    result += static_cast<uint16_t>(bigits_[used_digits_ - 1]);
-    SubtractTimes(other, bigits_[used_digits_ - 1]);
+    result = static_cast<uint16_t>(result + bigits_[used_digits_ - 1]);
+    SubtractTimes(other, static_cast<int>(bigits_[used_digits_ - 1]));
   }
 
   DOUBLE_CONVERSION_ASSERT(BigitLength() == other.BigitLength());
@@ -2118,18 +2118,18 @@ inline uint16_t Bignum::DivideModuloIntBignum(const Bignum& other) {
 
   if (other.used_digits_ == 1) {
     // Shortcut for easy (and common) case.
-    int quotient = this_bigit / other_bigit;
+    Chunk quotient = this_bigit / other_bigit;
     bigits_[used_digits_ - 1] = this_bigit - other_bigit * quotient;
     DOUBLE_CONVERSION_ASSERT(quotient < 0x10000);
-    result += static_cast<uint16_t>(quotient);
+    result = static_cast<uint16_t>(result + quotient);
     Clamp();
     return result;
   }
 
-  int division_estimate = this_bigit / (other_bigit + 1);
+  Chunk division_estimate = this_bigit / (other_bigit + 1);
   DOUBLE_CONVERSION_ASSERT(division_estimate < 0x10000);
-  result += static_cast<uint16_t>(division_estimate);
-  SubtractTimes(other, division_estimate);
+  result = static_cast<uint16_t>(result + division_estimate);
+  SubtractTimes(other, static_cast<int>(division_estimate));
 
   if (other_bigit * (division_estimate + 1) > this_bigit) {
     // No need to even try to subtract. Even if other's remaining digits were 0
@@ -2285,7 +2285,7 @@ inline void Bignum::SubtractTimes(const Bignum& other, int factor) {
   for (int i = 0; i < other.used_digits_; ++i) {
     DoubleChunk product = static_cast<DoubleChunk>(factor) * other.bigits_[i];
     DoubleChunk remove = borrow + product;
-    Chunk difference = bigits_[i + exponent_diff] - (remove & kBigitMask);
+    Chunk difference = static_cast<Chunk>(bigits_[i + exponent_diff] - (remove & kBigitMask));
     bigits_[i + exponent_diff] = difference & kBigitMask;
     borrow = static_cast<Chunk>((difference >> (kChunkSize - 1)) +
                                 (remove >> kBigitSize));

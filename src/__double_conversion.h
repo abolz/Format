@@ -1805,15 +1805,9 @@ inline Bignum::Bignum()
 }
 
 
-template<typename S>
-static int BitSize(S value) {
-  (void) value;  // Mark variable as used.
-  return 8 * sizeof(value);
-}
-
 // Guaranteed to lie in one Bigit.
 inline void Bignum::AssignUInt16(uint16_t value) {
-  DOUBLE_CONVERSION_ASSERT(kBigitSize >= BitSize(value));
+  static_assert(kBigitSize >= 16, "invalid configuration");
   Zero();
   if (value == 0) return;
 
@@ -1899,7 +1893,7 @@ inline void Bignum::MultiplyByUInt32(uint32_t factor) {
 
   // The product of a bigit with the factor is of size kBigitSize + 32.
   // Assert that this number + 1 (for the carry) fits into double chunk.
-  DOUBLE_CONVERSION_ASSERT(kDoubleChunkSize >= kBigitSize + 32 + 1);
+  static_assert(kDoubleChunkSize >= kBigitSize + 32 + 1, "invalid configuration");
   DoubleChunk carry = 0;
   for (int i = 0; i < used_digits_; ++i) {
     DoubleChunk product = static_cast<DoubleChunk>(factor) * bigits_[i] + carry;
@@ -1921,7 +1915,7 @@ inline void Bignum::MultiplyByUInt64(uint64_t factor) {
     Zero();
     return;
   }
-  DOUBLE_CONVERSION_ASSERT(kBigitSize < 32);
+  static_assert(kBigitSize < 32, "invalid configuration");
   uint64_t carry = 0;
   uint64_t low = factor & 0xFFFFFFFF;
   uint64_t high = factor >> 32;
@@ -2503,7 +2497,7 @@ inline uint64_t Bignum::LongDiv(Bignum& u, const Bignum& v) {
 
     // u0, u1 and u2 now contain the leading digits of u'.
 
-    constexpr uint64_t kBase = (uint64_t{1} << kBigitSize) - 1;
+    const uint64_t kBase = (uint64_t{1} << kBigitSize) - 1;
 
     const uint64_t num = (uint64_t{u0} << kBigitSize) + u1;
     uint64_t qp;
@@ -2737,7 +2731,7 @@ static void BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
   // 4e-324. In this case the denominator needs fewer than 324*4 binary digits.
   // The maximum double is 1.7976931348623157e308 which needs fewer than
   // 308*4 binary digits.
-  DOUBLE_CONVERSION_ASSERT(impl::Bignum::kMaxSignificantBits >= 324*4);
+  static_assert(impl::Bignum::kMaxSignificantBits >= 324*4, "invalid configuration");
   impl::InitialScaledStartValues(significand, exponent, lower_boundary_is_closer,
                            estimated_power, need_boundary_deltas,
                            &numerator, &denominator,

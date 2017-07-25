@@ -46,27 +46,20 @@
 // utils
 //==============================================================================
 
-#ifndef ASSERT
-#define ASSERT(condition)         \
-    assert(condition);
+#ifndef DOUBLE_CONVERSION_ASSERT
+#define DOUBLE_CONVERSION_ASSERT(condition) assert(condition)
 #endif
-#ifndef UNIMPLEMENTED
-#define UNIMPLEMENTED() (abort())
-#endif
-#ifndef UNREACHABLE
-#define UNREACHABLE()   (abort())
-#endif
+#define DOUBLE_CONVERSION_UNIMPLEMENTED() (abort())
+#define DOUBLE_CONVERSION_UNREACHABLE()   (abort())
 
 
 // The expression ARRAY_SIZE(a) is a compile-time constant of type
 // size_t which represents the number of elements of the given
 // array. You should only use ARRAY_SIZE on statically allocated
 // arrays.
-#ifndef ARRAY_SIZE
-#define ARRAY_SIZE(a)                                   \
+#define DOUBLE_CONVERSION_ARRAY_SIZE(a)                                   \
   ((sizeof(a) / sizeof(*(a))) /                         \
   static_cast<size_t>(!(sizeof(a) % sizeof(*(a)))))
-#endif
 
 namespace double_conversion {
 
@@ -94,15 +87,15 @@ class Vector {
  public:
   Vector() : start_(NULL), length_(0) {}
   Vector(T* data, int len) : start_(data), length_(len) {
-    ASSERT(len == 0 || (len > 0 && data != NULL));
+    DOUBLE_CONVERSION_ASSERT(len == 0 || (len > 0 && data != NULL));
   }
 
   // Returns a vector using the same backing storage as this one,
   // spanning from and including 'from', to but not including 'to'.
   Vector<T> SubVector(int from, int to) {
-    ASSERT(to <= length_);
-    ASSERT(from < to);
-    ASSERT(0 <= from);
+    DOUBLE_CONVERSION_ASSERT(to <= length_);
+    DOUBLE_CONVERSION_ASSERT(from < to);
+    DOUBLE_CONVERSION_ASSERT(0 <= from);
     return Vector<T>(start() + from, to - from);
   }
 
@@ -117,7 +110,7 @@ class Vector {
 
   // Access individual vector elements - checks bounds in debug mode.
   T& operator[](int index) const {
-    ASSERT(0 <= index && index < length_);
+    DOUBLE_CONVERSION_ASSERT(0 <= index && index < length_);
     return start_[index];
   }
 
@@ -193,8 +186,8 @@ class DiyFp {
   // must be bigger than the significand of other.
   // The result will not be normalized.
   void Subtract(const DiyFp& other) {
-    ASSERT(e_ == other.e_);
-    ASSERT(f_ >= other.f_);
+    DOUBLE_CONVERSION_ASSERT(e_ == other.e_);
+    DOUBLE_CONVERSION_ASSERT(f_ >= other.f_);
     f_ -= other.f_;
   }
 
@@ -219,7 +212,7 @@ class DiyFp {
   }
 
   void Normalize() {
-    ASSERT(f_ != 0);
+    DOUBLE_CONVERSION_ASSERT(f_ != 0);
     uint64_t significand = f_;
     int exponent = e_;
 
@@ -313,14 +306,14 @@ class Double {
   // The value encoded by this Double must be greater or equal to +0.0.
   // It must not be special (infinity, or NaN).
   DiyFp AsDiyFp() const {
-    ASSERT(Sign() > 0);
-    ASSERT(!IsSpecial());
+    DOUBLE_CONVERSION_ASSERT(Sign() > 0);
+    DOUBLE_CONVERSION_ASSERT(!IsSpecial());
     return DiyFp(Significand(), Exponent());
   }
 
   // The value encoded by this Double must be strictly greater than 0.
   DiyFp AsNormalizedDiyFp() const {
-    ASSERT(value() > 0.0);
+    DOUBLE_CONVERSION_ASSERT(value() > 0.0);
     uint64_t f = Significand();
     int e = Exponent();
 
@@ -392,7 +385,7 @@ class Double {
   // Precondition: the value encoded by this Double must be greater or equal
   // than +0.0.
   DiyFp UpperBoundary() const {
-    ASSERT(Sign() > 0);
+    DOUBLE_CONVERSION_ASSERT(Sign() > 0);
     return DiyFp(Significand() * 2 + 1, Exponent() - 1);
   }
 
@@ -401,7 +394,7 @@ class Double {
   // exponent as m_plus.
   // Precondition: the value encoded by this Double must be greater than 0.
   void NormalizedBoundaries(DiyFp* out_m_minus, DiyFp* out_m_plus) const {
-    ASSERT(value() > 0.0);
+    DOUBLE_CONVERSION_ASSERT(value() > 0.0);
     DiyFp v = this->AsDiyFp();
     DiyFp m_plus = DiyFp::Normalize(DiyFp((v.f() << 1) + 1, v.e() - 1));
     DiyFp m_minus;
@@ -510,11 +503,11 @@ class UInt128 {
     accumulator >>= 32;
     accumulator = accumulator + (high_bits_ >> 32) * multiplicand;
     high_bits_ = (accumulator << 32) + part;
-    ASSERT((accumulator >> 32) == 0);
+    DOUBLE_CONVERSION_ASSERT((accumulator >> 32) == 0);
   }
 
   void Shift(int shift_amount) {
-    ASSERT(-64 <= shift_amount && shift_amount <= 64);
+    DOUBLE_CONVERSION_ASSERT(-64 <= shift_amount && shift_amount <= 64);
     if (shift_amount == 0) {
       return;
     } else if (shift_amount == -64) {
@@ -687,13 +680,13 @@ static void RoundUp(Vector<char> buffer, int* length, int* decimal_point) {
 static void FillFractionals(uint64_t fractionals, int exponent,
                             int fractional_count, Vector<char> buffer,
                             int* length, int* decimal_point) {
-  ASSERT(-128 <= exponent && exponent <= 0);
+  DOUBLE_CONVERSION_ASSERT(-128 <= exponent && exponent <= 0);
   // 'fractionals' is a fixed-point number, with binary point at bit
   // (-exponent). Inside the function the non-converted remainder of fractionals
   // is a fixed-point number, with binary point at bit 'point'.
   if (-exponent <= 64) {
     // One 64 bit number is sufficient.
-    ASSERT(fractionals >> 56 == 0);
+    DOUBLE_CONVERSION_ASSERT(fractionals >> 56 == 0);
     int point = -exponent;
     for (int i = 0; i < fractional_count; ++i) {
       if (fractionals == 0) break;
@@ -710,18 +703,18 @@ static void FillFractionals(uint64_t fractionals, int exponent,
       fractionals *= 5;
       point--;
       int digit = static_cast<int>(fractionals >> point);
-      ASSERT(digit <= 9);
+      DOUBLE_CONVERSION_ASSERT(digit <= 9);
       buffer[*length] = static_cast<char>('0' + digit);
       (*length)++;
       fractionals -= static_cast<uint64_t>(digit) << point;
     }
     // If the first bit after the point is set we have to round up.
-    ASSERT(fractionals == 0 || point - 1 >= 0);
+    DOUBLE_CONVERSION_ASSERT(fractionals == 0 || point - 1 >= 0);
     if ((fractionals != 0) && ((fractionals >> (point - 1)) & 1) == 1) {
       RoundUp(buffer, length, decimal_point);
     }
   } else {  // We need 128 bits.
-    ASSERT(64 < -exponent && -exponent <= 128);
+    DOUBLE_CONVERSION_ASSERT(64 < -exponent && -exponent <= 128);
     UInt128 fractionals128 = UInt128(fractionals, 0);
     fractionals128.Shift(-exponent - 64);
     int point = 128;
@@ -733,7 +726,7 @@ static void FillFractionals(uint64_t fractionals, int exponent,
       fractionals128.Multiply(5);
       point--;
       int digit = fractionals128.DivModPowerOf2(point);
-      ASSERT(digit <= 9);
+      DOUBLE_CONVERSION_ASSERT(digit <= 9);
       buffer[*length] = static_cast<char>('0' + digit);
       (*length)++;
     }
@@ -842,7 +835,7 @@ static bool FastFixedDtoa(double v,
   } else if (exponent < -128) {
     // This configuration (with at most 20 digits) means that all digits must be
     // 0.
-    ASSERT(fractional_count <= 20);
+    DOUBLE_CONVERSION_ASSERT(fractional_count <= 20);
     buffer[0] = '\0';
     *length = 0;
     *decimal_point = -fractional_count;
@@ -1010,11 +1003,11 @@ inline void PowersOfTenCache::GetCachedPowerForBinaryExponentRange(
   int foo = kCachedPowersOffset;
   int index =
       (foo + static_cast<int>(k) - 1) / kDecimalExponentDistance + 1;
-  ASSERT(0 <= index && index < static_cast<int>(ARRAY_SIZE(kCachedPowers)));
+  DOUBLE_CONVERSION_ASSERT(0 <= index && index < static_cast<int>(DOUBLE_CONVERSION_ARRAY_SIZE(kCachedPowers)));
   CachedPower cached_power = kCachedPowers[index];
-  ASSERT(min_exponent <= cached_power.binary_exponent);
+  DOUBLE_CONVERSION_ASSERT(min_exponent <= cached_power.binary_exponent);
   (void) max_exponent;  // Mark variable as used.
-  ASSERT(cached_power.binary_exponent <= max_exponent);
+  DOUBLE_CONVERSION_ASSERT(cached_power.binary_exponent <= max_exponent);
   *decimal_exponent = cached_power.decimal_exponent;
   *power = DiyFp(cached_power.significand, cached_power.binary_exponent);
 }
@@ -1023,15 +1016,15 @@ inline void PowersOfTenCache::GetCachedPowerForBinaryExponentRange(
 inline void PowersOfTenCache::GetCachedPowerForDecimalExponent(int requested_exponent,
                                                         DiyFp* power,
                                                         int* found_exponent) {
-  ASSERT(kMinDecimalExponent <= requested_exponent);
-  ASSERT(requested_exponent < kMaxDecimalExponent + kDecimalExponentDistance);
+  DOUBLE_CONVERSION_ASSERT(kMinDecimalExponent <= requested_exponent);
+  DOUBLE_CONVERSION_ASSERT(requested_exponent < kMaxDecimalExponent + kDecimalExponentDistance);
   int index =
       (requested_exponent + kCachedPowersOffset) / kDecimalExponentDistance;
   CachedPower cached_power = kCachedPowers[index];
   *power = DiyFp(cached_power.significand, cached_power.binary_exponent);
   *found_exponent = cached_power.decimal_exponent;
-  ASSERT(*found_exponent <= requested_exponent);
-  ASSERT(requested_exponent < *found_exponent + kDecimalExponentDistance);
+  DOUBLE_CONVERSION_ASSERT(*found_exponent <= requested_exponent);
+  DOUBLE_CONVERSION_ASSERT(requested_exponent < *found_exponent + kDecimalExponentDistance);
 }
 
 } // namespace impl
@@ -1166,7 +1159,7 @@ static bool RoundWeed(Vector<char> buffer,
   // Conceptually rest ~= too_high - buffer
   // We need to do the following tests in this order to avoid over- and
   // underflows.
-  ASSERT(rest <= unsafe_interval);
+  DOUBLE_CONVERSION_ASSERT(rest <= unsafe_interval);
   while (rest < small_distance &&  // Negated condition 1
          unsafe_interval - rest >= ten_kappa &&  // Negated condition 2
          (rest + ten_kappa < small_distance ||  // buffer{-1} > w_high
@@ -1212,7 +1205,7 @@ static bool RoundWeedCounted(Vector<char> buffer,
                              uint64_t ten_kappa,
                              uint64_t unit,
                              int* kappa) {
-  ASSERT(rest < ten_kappa);
+  DOUBLE_CONVERSION_ASSERT(rest < ten_kappa);
   // The following tests are done in a specific order to avoid overflows. They
   // will work correctly with any uint64 values of rest < ten_kappa and unit.
   //
@@ -1269,7 +1262,7 @@ static void BiggestPowerTen(uint32_t number,
                             int number_bits,
                             uint32_t* power,
                             int* exponent_plus_one) {
-  ASSERT(number < (1u << (number_bits + 1)));
+  DOUBLE_CONVERSION_ASSERT(number < (1u << (number_bits + 1)));
   // 1233/4096 is approximately 1/lg(10).
   int exponent_plus_one_guess = ((number_bits + 1) * 1233 >> 12);
   // We increment to skip over the first entry in the kPowersOf10 table.
@@ -1331,9 +1324,9 @@ static bool DigitGen(DiyFp low,
                      Vector<char> buffer,
                      int* length,
                      int* kappa) {
-  ASSERT(low.e() == w.e() && w.e() == high.e());
-  ASSERT(low.f() + 1 <= high.f() - 1);
-  ASSERT(kMinimalTargetExponent <= w.e() && w.e() <= kMaximalTargetExponent);
+  DOUBLE_CONVERSION_ASSERT(low.e() == w.e() && w.e() == high.e());
+  DOUBLE_CONVERSION_ASSERT(low.f() + 1 <= high.f() - 1);
+  DOUBLE_CONVERSION_ASSERT(kMinimalTargetExponent <= w.e() && w.e() <= kMaximalTargetExponent);
   // low, w and high are imprecise, but by less than one ulp (unit in the last
   // place).
   // If we remove (resp. add) 1 ulp from low (resp. high) we are certain that
@@ -1375,7 +1368,7 @@ static bool DigitGen(DiyFp low,
   // that is smaller than integrals.
   while (*kappa > 0) {
     int digit = integrals / divisor;
-    ASSERT(digit <= 9);
+    DOUBLE_CONVERSION_ASSERT(digit <= 9);
     buffer[*length] = static_cast<char>('0' + digit);
     (*length)++;
     integrals %= divisor;
@@ -1402,16 +1395,16 @@ static bool DigitGen(DiyFp low,
   // data (like the interval or 'unit'), too.
   // Note that the multiplication by 10 does not overflow, because w.e >= -60
   // and thus one.e >= -60.
-  ASSERT(one.e() >= -60);
-  ASSERT(fractionals < one.f());
-  ASSERT(0xFFFFFFFFFFFFFFFF / 10 >= one.f());
+  DOUBLE_CONVERSION_ASSERT(one.e() >= -60);
+  DOUBLE_CONVERSION_ASSERT(fractionals < one.f());
+  DOUBLE_CONVERSION_ASSERT(0xFFFFFFFFFFFFFFFF / 10 >= one.f());
   for (;;) {
     fractionals *= 10;
     unit *= 10;
     unsafe_interval.set_f(unsafe_interval.f() * 10);
     // Integer division by one.
     int digit = static_cast<int>(fractionals >> -one.e());
-    ASSERT(digit <= 9);
+    DOUBLE_CONVERSION_ASSERT(digit <= 9);
     buffer[*length] = static_cast<char>('0' + digit);
     (*length)++;
     fractionals &= one.f() - 1;  // Modulo by one.
@@ -1458,9 +1451,9 @@ static bool DigitGenCounted(DiyFp w,
                             Vector<char> buffer,
                             int* length,
                             int* kappa) {
-  ASSERT(kMinimalTargetExponent <= w.e() && w.e() <= kMaximalTargetExponent);
-  ASSERT(kMinimalTargetExponent >= -60);
-  ASSERT(kMaximalTargetExponent <= -32);
+  DOUBLE_CONVERSION_ASSERT(kMinimalTargetExponent <= w.e() && w.e() <= kMaximalTargetExponent);
+  DOUBLE_CONVERSION_ASSERT(kMinimalTargetExponent >= -60);
+  DOUBLE_CONVERSION_ASSERT(kMaximalTargetExponent <= -32);
   // w is assumed to have an error less than 1 unit. Whenever w is scaled we
   // also scale its error.
   uint64_t w_error = 1;
@@ -1486,7 +1479,7 @@ static bool DigitGenCounted(DiyFp w,
   // that is smaller than 'integrals'.
   while (*kappa > 0) {
     int digit = integrals / divisor;
-    ASSERT(digit <= 9);
+    DOUBLE_CONVERSION_ASSERT(digit <= 9);
     buffer[*length] = static_cast<char>('0' + digit);
     (*length)++;
     requested_digits--;
@@ -1512,15 +1505,15 @@ static bool DigitGenCounted(DiyFp w,
   // data (the 'unit'), too.
   // Note that the multiplication by 10 does not overflow, because w.e >= -60
   // and thus one.e >= -60.
-  ASSERT(one.e() >= -60);
-  ASSERT(fractionals < one.f());
-  ASSERT(0xFFFFFFFFFFFFFFFF / 10 >= one.f());
+  DOUBLE_CONVERSION_ASSERT(one.e() >= -60);
+  DOUBLE_CONVERSION_ASSERT(fractionals < one.f());
+  DOUBLE_CONVERSION_ASSERT(0xFFFFFFFFFFFFFFFF / 10 >= one.f());
   while (requested_digits > 0 && fractionals > w_error) {
     fractionals *= 10;
     w_error *= 10;
     // Integer division by one.
     int digit = static_cast<int>(fractionals >> -one.e());
-    ASSERT(digit <= 9);
+    DOUBLE_CONVERSION_ASSERT(digit <= 9);
     buffer[*length] = static_cast<char>('0' + digit);
     (*length)++;
     requested_digits--;
@@ -1556,7 +1549,7 @@ static bool Grisu3(double v,
   // Grisu3 will never output representations that lie exactly on a boundary.
   DiyFp boundary_minus, boundary_plus;
   Double(v).NormalizedBoundaries(&boundary_minus, &boundary_plus);
-  ASSERT(boundary_plus.e() == w.e());
+  DOUBLE_CONVERSION_ASSERT(boundary_plus.e() == w.e());
   DiyFp ten_mk;  // Cached power of ten: 10^-k
   int mk;        // -k
   int ten_mk_minimal_binary_exponent =
@@ -1567,7 +1560,7 @@ static bool Grisu3(double v,
       ten_mk_minimal_binary_exponent,
       ten_mk_maximal_binary_exponent,
       &ten_mk, &mk);
-  ASSERT((kMinimalTargetExponent <= w.e() + ten_mk.e() +
+  DOUBLE_CONVERSION_ASSERT((kMinimalTargetExponent <= w.e() + ten_mk.e() +
           DiyFp::kSignificandSize) &&
          (kMaximalTargetExponent >= w.e() + ten_mk.e() +
           DiyFp::kSignificandSize));
@@ -1581,7 +1574,7 @@ static bool Grisu3(double v,
   // In other words: let f = scaled_w.f() and e = scaled_w.e(), then
   //           (f-1) * 2^e < w*10^k < (f+1) * 2^e
   DiyFp scaled_w = DiyFp::Times(w, ten_mk);
-  ASSERT(scaled_w.e() ==
+  DOUBLE_CONVERSION_ASSERT(scaled_w.e() ==
          boundary_plus.e() + ten_mk.e() + DiyFp::kSignificandSize);
   // In theory it would be possible to avoid some recomputations by computing
   // the difference between w and boundary_minus/plus (a power of 2) and to
@@ -1626,7 +1619,7 @@ static bool Grisu3Counted(double v,
       ten_mk_minimal_binary_exponent,
       ten_mk_maximal_binary_exponent,
       &ten_mk, &mk);
-  ASSERT((kMinimalTargetExponent <= w.e() + ten_mk.e() +
+  DOUBLE_CONVERSION_ASSERT((kMinimalTargetExponent <= w.e() + ten_mk.e() +
           DiyFp::kSignificandSize) &&
          (kMaximalTargetExponent >= w.e() + ten_mk.e() +
           DiyFp::kSignificandSize));
@@ -1662,8 +1655,8 @@ static bool FastDtoa(double v,
               Vector<char> buffer,
               int* length,
               int* decimal_point) {
-  ASSERT(v > 0);
-  ASSERT(!impl::Double(v).IsSpecial());
+  DOUBLE_CONVERSION_ASSERT(v > 0);
+  DOUBLE_CONVERSION_ASSERT(!impl::Double(v).IsSpecial());
 
   bool result = false;
   int decimal_exponent = 0;
@@ -1676,7 +1669,7 @@ static bool FastDtoa(double v,
                              buffer, length, &decimal_exponent);
       break;
     default:
-      UNREACHABLE();
+      DOUBLE_CONVERSION_UNREACHABLE();
   }
   if (result) {
     *decimal_point = *length + decimal_exponent;
@@ -1766,7 +1759,7 @@ class Bignum {
 
   void EnsureCapacity(int size) {
     if (size > kBigitCapacity) {
-      UNREACHABLE();
+      DOUBLE_CONVERSION_UNREACHABLE();
     }
   }
   void Align(const Bignum& other);
@@ -1811,7 +1804,7 @@ static int BitSize(S value) {
 
 // Guaranteed to lie in one Bigit.
 inline void Bignum::AssignUInt16(uint16_t value) {
-  ASSERT(kBigitSize >= BitSize(value));
+  DOUBLE_CONVERSION_ASSERT(kBigitSize >= BitSize(value));
   Zero();
   if (value == 0) return;
 
@@ -1852,10 +1845,10 @@ inline void Bignum::AssignBignum(const Bignum& other) {
 
 
 inline void Bignum::SubtractBignum(const Bignum& other) {
-  ASSERT(IsClamped());
-  ASSERT(other.IsClamped());
+  DOUBLE_CONVERSION_ASSERT(IsClamped());
+  DOUBLE_CONVERSION_ASSERT(other.IsClamped());
   // We require this to be bigger than other.
-  ASSERT(LessEqual(other, *this));
+  DOUBLE_CONVERSION_ASSERT(LessEqual(other, *this));
 
   Align(other);
 
@@ -1863,7 +1856,7 @@ inline void Bignum::SubtractBignum(const Bignum& other) {
   Chunk borrow = 0;
   int i;
   for (i = 0; i < other.used_digits_; ++i) {
-    ASSERT((borrow == 0) || (borrow == 1));
+    DOUBLE_CONVERSION_ASSERT((borrow == 0) || (borrow == 1));
     Chunk difference = bigits_[i + offset] - other.bigits_[i] - borrow;
     bigits_[i + offset] = difference & kBigitMask;
     borrow = difference >> (kChunkSize - 1);
@@ -1897,7 +1890,7 @@ inline void Bignum::MultiplyByUInt32(uint32_t factor) {
 
   // The product of a bigit with the factor is of size kBigitSize + 32.
   // Assert that this number + 1 (for the carry) fits into double chunk.
-  ASSERT(kDoubleChunkSize >= kBigitSize + 32 + 1);
+  DOUBLE_CONVERSION_ASSERT(kDoubleChunkSize >= kBigitSize + 32 + 1);
   DoubleChunk carry = 0;
   for (int i = 0; i < used_digits_; ++i) {
     DoubleChunk product = static_cast<DoubleChunk>(factor) * bigits_[i] + carry;
@@ -1919,7 +1912,7 @@ inline void Bignum::MultiplyByUInt64(uint64_t factor) {
     Zero();
     return;
   }
-  ASSERT(kBigitSize < 32);
+  DOUBLE_CONVERSION_ASSERT(kBigitSize < 32);
   uint64_t carry = 0;
   uint64_t low = factor & 0xFFFFFFFF;
   uint64_t high = factor >> 32;
@@ -1941,7 +1934,7 @@ inline void Bignum::MultiplyByUInt64(uint64_t factor) {
 
 
 inline void Bignum::Square() {
-  ASSERT(IsClamped());
+  DOUBLE_CONVERSION_ASSERT(IsClamped());
   int product_length = 2 * used_digits_;
   EnsureCapacity(product_length);
 
@@ -1958,7 +1951,7 @@ inline void Bignum::Square() {
   // Assert that the additional number of bits in a DoubleChunk are enough to
   // sum up used_digits of Bigit*Bigit.
   if ((1 << (2 * (kChunkSize - kBigitSize))) <= used_digits_) {
-    UNIMPLEMENTED();
+    DOUBLE_CONVERSION_UNIMPLEMENTED();
   }
   DoubleChunk accumulator = 0;
   // First shift the digits so we don't overwrite them.
@@ -2003,7 +1996,7 @@ inline void Bignum::Square() {
   }
   // Since the result was guaranteed to lie inside the number the
   // accumulator must be 0 now.
-  ASSERT(accumulator == 0);
+  DOUBLE_CONVERSION_ASSERT(accumulator == 0);
 
   // Don't forget to update the used_digits and the exponent.
   used_digits_ = product_length;
@@ -2013,8 +2006,8 @@ inline void Bignum::Square() {
 
 
 inline void Bignum::AssignPowerUInt16(uint16_t base, int power_exponent) {
-  ASSERT(base != 0);
-  ASSERT(power_exponent >= 0);
+  DOUBLE_CONVERSION_ASSERT(base != 0);
+  DOUBLE_CONVERSION_ASSERT(power_exponent >= 0);
   if (power_exponent == 0) {
     AssignUInt16(1);
     return;
@@ -2087,9 +2080,9 @@ inline void Bignum::AssignPowerUInt16(uint16_t base, int power_exponent) {
 
 // Precondition: this/other < 16bit.
 inline uint16_t Bignum::DivideModuloIntBignum(const Bignum& other) {
-  ASSERT(IsClamped());
-  ASSERT(other.IsClamped());
-  ASSERT(other.used_digits_ > 0);
+  DOUBLE_CONVERSION_ASSERT(IsClamped());
+  DOUBLE_CONVERSION_ASSERT(other.IsClamped());
+  DOUBLE_CONVERSION_ASSERT(other.used_digits_ > 0);
 
   // Easy case: if we have less digits than the divisor than the result is 0.
   // Note: this handles the case where this == 0, too.
@@ -2107,15 +2100,15 @@ inline uint16_t Bignum::DivideModuloIntBignum(const Bignum& other) {
     // This naive approach is extremely inefficient if `this` divided by other
     // is big. This function is implemented for doubleToString where
     // the result should be small (less than 10).
-    ASSERT(other.bigits_[other.used_digits_ - 1] >= ((1 << kBigitSize) / 16));
-    ASSERT(bigits_[used_digits_ - 1] < 0x10000);
+    DOUBLE_CONVERSION_ASSERT(other.bigits_[other.used_digits_ - 1] >= ((1 << kBigitSize) / 16));
+    DOUBLE_CONVERSION_ASSERT(bigits_[used_digits_ - 1] < 0x10000);
     // Remove the multiples of the first digit.
     // Example this = 23 and other equals 9. -> Remove 2 multiples.
     result += static_cast<uint16_t>(bigits_[used_digits_ - 1]);
     SubtractTimes(other, bigits_[used_digits_ - 1]);
   }
 
-  ASSERT(BigitLength() == other.BigitLength());
+  DOUBLE_CONVERSION_ASSERT(BigitLength() == other.BigitLength());
 
   // Both bignums are at the same length now.
   // Since other has more than 0 digits we know that the access to
@@ -2127,14 +2120,14 @@ inline uint16_t Bignum::DivideModuloIntBignum(const Bignum& other) {
     // Shortcut for easy (and common) case.
     int quotient = this_bigit / other_bigit;
     bigits_[used_digits_ - 1] = this_bigit - other_bigit * quotient;
-    ASSERT(quotient < 0x10000);
+    DOUBLE_CONVERSION_ASSERT(quotient < 0x10000);
     result += static_cast<uint16_t>(quotient);
     Clamp();
     return result;
   }
 
   int division_estimate = this_bigit / (other_bigit + 1);
-  ASSERT(division_estimate < 0x10000);
+  DOUBLE_CONVERSION_ASSERT(division_estimate < 0x10000);
   result += static_cast<uint16_t>(division_estimate);
   SubtractTimes(other, division_estimate);
 
@@ -2160,8 +2153,8 @@ inline Bignum::Chunk Bignum::BigitAt(int index) const {
 
 
 inline int Bignum::Compare(const Bignum& a, const Bignum& b) {
-  ASSERT(a.IsClamped());
-  ASSERT(b.IsClamped());
+  DOUBLE_CONVERSION_ASSERT(a.IsClamped());
+  DOUBLE_CONVERSION_ASSERT(b.IsClamped());
   int bigit_length_a = a.BigitLength();
   int bigit_length_b = b.BigitLength();
   if (bigit_length_a < bigit_length_b) return -1;
@@ -2178,9 +2171,9 @@ inline int Bignum::Compare(const Bignum& a, const Bignum& b) {
 
 
 inline int Bignum::PlusCompare(const Bignum& a, const Bignum& b, const Bignum& c) {
-  ASSERT(a.IsClamped());
-  ASSERT(b.IsClamped());
-  ASSERT(c.IsClamped());
+  DOUBLE_CONVERSION_ASSERT(a.IsClamped());
+  DOUBLE_CONVERSION_ASSERT(b.IsClamped());
+  DOUBLE_CONVERSION_ASSERT(c.IsClamped());
   if (a.BigitLength() < b.BigitLength()) {
     return PlusCompare(b, a, c);
   }
@@ -2257,15 +2250,15 @@ inline void Bignum::Align(const Bignum& other) {
     }
     used_digits_ += zero_digits;
     exponent_ -= zero_digits;
-    ASSERT(used_digits_ >= 0);
-    ASSERT(exponent_ >= 0);
+    DOUBLE_CONVERSION_ASSERT(used_digits_ >= 0);
+    DOUBLE_CONVERSION_ASSERT(exponent_ >= 0);
   }
 }
 
 
 inline void Bignum::BigitsShiftLeft(int shift_amount) {
-  ASSERT(shift_amount < kBigitSize);
-  ASSERT(shift_amount >= 0);
+  DOUBLE_CONVERSION_ASSERT(shift_amount < kBigitSize);
+  DOUBLE_CONVERSION_ASSERT(shift_amount >= 0);
   Chunk carry = 0;
   for (int i = 0; i < used_digits_; ++i) {
     Chunk new_carry = bigits_[i] >> (kBigitSize - shift_amount);
@@ -2280,7 +2273,7 @@ inline void Bignum::BigitsShiftLeft(int shift_amount) {
 
 
 inline void Bignum::SubtractTimes(const Bignum& other, int factor) {
-  ASSERT(exponent_ <= other.exponent_);
+  DOUBLE_CONVERSION_ASSERT(exponent_ <= other.exponent_);
   if (factor < 3) {
     for (int i = 0; i < factor; ++i) {
       SubtractBignum(other);
@@ -2332,7 +2325,7 @@ enum BignumDtoaMode {
 namespace impl {
 
 static int NormalizedExponent(uint64_t significand, int exponent) {
-  ASSERT(significand != 0);
+  DOUBLE_CONVERSION_ASSERT(significand != 0);
   while ((significand & Double::kHiddenBit) == 0) {
     significand = significand << 1;
     exponent = exponent - 1;
@@ -2387,8 +2380,8 @@ static void GenerateCountedDigits(int count, int* decimal_point,
 
 static void BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
                 Vector<char> buffer, int* length, int* decimal_point) {
-  ASSERT(v > 0);
-  ASSERT(!impl::Double(v).IsSpecial());
+  DOUBLE_CONVERSION_ASSERT(v > 0);
+  DOUBLE_CONVERSION_ASSERT(!impl::Double(v).IsSpecial());
   uint64_t significand;
   int exponent;
   bool lower_boundary_is_closer;
@@ -2425,7 +2418,7 @@ static void BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
   // 4e-324. In this case the denominator needs fewer than 324*4 binary digits.
   // The maximum double is 1.7976931348623157e308 which needs fewer than
   // 308*4 binary digits.
-  ASSERT(impl::Bignum::kMaxSignificantBits >= 324*4);
+  DOUBLE_CONVERSION_ASSERT(impl::Bignum::kMaxSignificantBits >= 324*4);
   impl::InitialScaledStartValues(significand, exponent, lower_boundary_is_closer,
                            estimated_power, need_boundary_deltas,
                            &numerator, &denominator,
@@ -2453,7 +2446,7 @@ static void BignumDtoa(double v, BignumDtoaMode mode, int requested_digits,
                             buffer, length);
       break;
     default:
-      UNREACHABLE();
+      DOUBLE_CONVERSION_UNREACHABLE();
   }
   buffer[*length] = '\0';
 }
@@ -2486,7 +2479,7 @@ static void GenerateShortestDigits(Bignum* numerator, Bignum* denominator,
   for (;;) {
     uint16_t digit;
     digit = numerator->DivideModuloIntBignum(*denominator);
-    ASSERT(digit <= 9);  // digit is a uint16_t and therefore always positive.
+    DOUBLE_CONVERSION_ASSERT(digit <= 9);  // digit is a uint16_t and therefore always positive.
     // digit = numerator / denominator (integer division).
     // numerator = numerator % denominator.
     buffer[(*length)++] = static_cast<char>(digit + '0');
@@ -2532,7 +2525,7 @@ static void GenerateShortestDigits(Bignum* numerator, Bignum* denominator,
         // loop would have stopped earlier.
         // We still have an assert here in case the preconditions were not
         // satisfied.
-        ASSERT(buffer[(*length) - 1] != '9');
+        DOUBLE_CONVERSION_ASSERT(buffer[(*length) - 1] != '9');
         buffer[(*length) - 1]++;
       } else {
         // Halfway case.
@@ -2543,7 +2536,7 @@ static void GenerateShortestDigits(Bignum* numerator, Bignum* denominator,
         if ((buffer[(*length) - 1] - '0') % 2 == 0) {
           // Round down => Do nothing.
         } else {
-          ASSERT(buffer[(*length) - 1] != '9');
+          DOUBLE_CONVERSION_ASSERT(buffer[(*length) - 1] != '9');
           buffer[(*length) - 1]++;
         }
       }
@@ -2557,7 +2550,7 @@ static void GenerateShortestDigits(Bignum* numerator, Bignum* denominator,
       // stopped the loop earlier.
       // We still have an ASSERT here, in case the preconditions were not
       // satisfied.
-      ASSERT(buffer[(*length) -1] != '9');
+      DOUBLE_CONVERSION_ASSERT(buffer[(*length) -1] != '9');
       buffer[(*length) - 1]++;
       return;
     }
@@ -2574,11 +2567,11 @@ static void GenerateShortestDigits(Bignum* numerator, Bignum* denominator,
 static void GenerateCountedDigits(int count, int* decimal_point,
                                   Bignum* numerator, Bignum* denominator,
                                   Vector<char> buffer, int* length) {
-  ASSERT(count >= 0);
+  DOUBLE_CONVERSION_ASSERT(count >= 0);
   for (int i = 0; i < count - 1; ++i) {
     uint16_t digit;
     digit = numerator->DivideModuloIntBignum(*denominator);
-    ASSERT(digit <= 9);  // digit is a uint16_t and therefore always positive.
+    DOUBLE_CONVERSION_ASSERT(digit <= 9);  // digit is a uint16_t and therefore always positive.
     // digit = numerator / denominator (integer division).
     // numerator = numerator % denominator.
     buffer[i] = static_cast<char>(digit + '0');
@@ -2591,7 +2584,7 @@ static void GenerateCountedDigits(int count, int* decimal_point,
   if (Bignum::PlusCompare(*numerator, *numerator, *denominator) >= 0) {
     digit++;
   }
-  ASSERT(digit <= 10);
+  DOUBLE_CONVERSION_ASSERT(digit <= 10);
   buffer[count - 1] = static_cast<char>(digit + '0');
   // Correct bad digits (in case we had a sequence of '9's). Propagate the
   // carry until we hat a non-'9' or til we reach the first digit.
@@ -2632,7 +2625,7 @@ static void BignumToFixed(int requested_digits, int* decimal_point,
   } else if (-(*decimal_point) == requested_digits) {
     // We only need to verify if the number rounds down or up.
     // Ex: 0.04 and 0.06 with requested_digits == 1.
-    ASSERT(*decimal_point == -requested_digits);
+    DOUBLE_CONVERSION_ASSERT(*decimal_point == -requested_digits);
     // Initially the fraction lies in range (1, 10]. Multiply the denominator
     // by 10 so that we can compare more easily.
     denominator->Times10();
@@ -2711,7 +2704,7 @@ static void InitialScaledStartValuesPositiveExponent(
     Bignum* numerator, Bignum* denominator,
     Bignum* delta_minus, Bignum* delta_plus) {
   // A positive exponent implies a positive power.
-  ASSERT(estimated_power >= 0);
+  DOUBLE_CONVERSION_ASSERT(estimated_power >= 0);
   // Since the estimated_power is positive we simply multiply the denominator
   // by 10^estimated_power.
 
@@ -2797,7 +2790,7 @@ static void InitialScaledStartValuesNegativeExponentNegativePower(
   // numerator = v * 10^-estimated_power * 2 * 2^-exponent.
   // Remember: numerator has been abused as power_ten. So no need to assign it
   //  to itself.
-  ASSERT(numerator == power_ten);
+  DOUBLE_CONVERSION_ASSERT(numerator == power_ten);
   numerator->MultiplyByUInt64(significand);
 
   // denominator = 2 * 2^-exponent with exponent < 0.

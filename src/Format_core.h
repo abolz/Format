@@ -138,6 +138,9 @@ struct ToCharsResult
     char* next = nullptr;
     ErrorCode ec = ErrorCode{};
 
+    ToCharsResult() = default;
+    ToCharsResult(char* next_, ErrorCode ec_) : next(next_), ec(ec_) {}
+
 #if 1
     // Test for successful conversions
     explicit operator bool() const { return ec == ErrorCode{}; }

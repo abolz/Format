@@ -1,9 +1,7 @@
 #include "../src/Format.h"
 
 #include <cmath>
-#include <iostream>
 #include <map>
-#include <string>
 #include <vector>
 
 //------------------------------------------------------------------------------
@@ -59,9 +57,9 @@ static void Example2()
 {
     Vector2D vec { 3.0, 4.0 };
 
-    fmtxx::format(std::cout, "{}\n", vec);
+    fmtxx::format(stdout, "{}\n", vec);
         // "(3, 4)"
-    fmtxx::format(std::cout, "{:p}\n", vec);
+    fmtxx::format(stdout, "{:p}\n", vec);
         // "(r=5, phi=0.927)"
 }
 
@@ -139,7 +137,7 @@ static void Example5()
         // This does not compile:
         // args.push_back(std::string("world"));
 
-    std::cout << fmtxx::string_format("{} {} {}\n", args).str;
+    fmtxx::format(stdout, "{} {} {}\n", args);
         // "42 hello world"
 }
 

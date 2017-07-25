@@ -1953,3 +1953,69 @@ ErrorCode fmtxx::impl::DoPrintf(Writer& w, cxx::string_view format, Arg const* a
 
     return {};
 }
+
+namespace {
+
+class ToCharsWriter : public Writer
+{
+public:
+    char*       next = nullptr;
+    char* const last = nullptr;
+
+    ToCharsWriter() = default;
+    ToCharsWriter(char* first_, char* last_) : next(first_), last(last_) {}
+
+private:
+    FMTXX_API ErrorCode Put(char c) noexcept override;
+    FMTXX_API ErrorCode Write(char const* str, size_t len) noexcept override;
+    FMTXX_API ErrorCode Pad(char c, size_t count) noexcept override;
+};
+
+inline ErrorCode ToCharsWriter::Put(char c) noexcept
+{
+    if (last - next < 1)
+        return ErrorCode::io_error;
+
+    *next++ = c;
+    return {};
+}
+
+inline ErrorCode ToCharsWriter::Write(char const* ptr, size_t len) noexcept
+{
+    if (static_cast<size_t>(last - next) < len)
+        return ErrorCode::io_error;
+
+    std::memcpy(next, ptr, len);
+    next += len;
+    return {};
+}
+
+inline ErrorCode ToCharsWriter::Pad(char c, size_t count) noexcept
+{
+    if (static_cast<size_t>(last - next) < count)
+        return ErrorCode::io_error;
+
+    std::memset(next, static_cast<unsigned char>(c), count);
+    next += count;
+    return {};
+}
+
+} // namespace
+
+ToCharsResult fmtxx::impl::DoFormatToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types)
+{
+    ToCharsWriter w{first, last};
+    if (Failed ec = fmtxx::impl::DoFormat(w, format, args, types))
+        return ToCharsResult{last, ec};
+    else
+        return ToCharsResult{w.next, ErrorCode{}};
+}
+
+ToCharsResult fmtxx::impl::DoPrintfToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types)
+{
+    ToCharsWriter w{first, last};
+    if (Failed ec = fmtxx::impl::DoPrintf(w, format, args, types))
+        return ToCharsResult{last, ec};
+    else
+        return ToCharsResult{w.next, ErrorCode{}};
+}

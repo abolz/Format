@@ -131,6 +131,19 @@ private:
     virtual ErrorCode Pad(char c, size_t count) = 0;
 };
 
+// Returned by the format_to_chars/printf_to_chars function (below).
+// Like std::to_chars.
+struct ToCharsResult
+{
+    char* next = nullptr;
+    ErrorCode ec = ErrorCode{};
+
+#if 1
+    // Test for successful conversions
+    explicit operator bool() const { return ec == ErrorCode{}; }
+#endif
+};
+
 struct Util
 {
     // Note:
@@ -577,6 +590,9 @@ struct Types
 FMTXX_API ErrorCode DoFormat(Writer& w, cxx::string_view format, Arg const* args, Types types);
 FMTXX_API ErrorCode DoPrintf(Writer& w, cxx::string_view format, Arg const* args, Types types);
 
+FMTXX_API ToCharsResult DoFormatToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types);
+FMTXX_API ToCharsResult DoPrintfToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types);
+
 } // namespace fmtxx::impl
 
 class FormatArgs
@@ -643,6 +659,30 @@ inline ErrorCode format(Writer& w, cxx::string_view format, FormatArgs const& ar
 inline ErrorCode printf(Writer& w, cxx::string_view format, FormatArgs const& args)
 {
     return ::fmtxx::impl::DoPrintf(w, format, args.args_, args.types_);
+}
+
+template <typename ...Args>
+inline ToCharsResult format_to_chars(char* first, char* last, cxx::string_view format, Args const&... args)
+{
+    impl::ArgArray<sizeof...(Args)> arr = {args...};
+    return ::fmtxx::impl::DoFormatToChars(first, last, format, arr, impl::Types{args...});
+}
+
+template <typename ...Args>
+inline ToCharsResult printf_to_chars(char* first, char* last, cxx::string_view format, Args const&... args)
+{
+    impl::ArgArray<sizeof...(Args)> arr = {args...};
+    return ::fmtxx::impl::DoPrintfToChars(first, last, format, arr, impl::Types{args...});
+}
+
+inline ToCharsResult format_to_chars(char* first, char* last, cxx::string_view format, FormatArgs const& args)
+{
+    return ::fmtxx::impl::DoFormatToChars(first, last, format, args.args_, args.types_);
+}
+
+inline ToCharsResult printf_to_chars(char* first, char* last, cxx::string_view format, FormatArgs const& args)
+{
+    return ::fmtxx::impl::DoPrintfToChars(first, last, format, args.args_, args.types_);
 }
 
 } // namespace fmtxx

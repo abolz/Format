@@ -42,11 +42,15 @@ on the TODO-list.*
 ### Format_core.h
 
 ```c++
-namespace fmtxx {
+namespace cxx {
 
 // A minimal replacement for std::string_view.
 // For compatibility.
-class StringView;
+class string_view;
+
+} // namespace cxx
+
+namespace fmtxx {
 
 enum struct ErrorCode {
     success = 0,
@@ -60,28 +64,28 @@ enum struct ErrorCode {
 };
 
 enum struct Align : unsigned char {
-    Default,
-    Left,
-    Right,
-    Center,
-    PadAfterSign,
+    use_default,
+    left,
+    right,
+    center,
+    pad_after_sign,
 };
 
 enum struct Sign : unsigned char {
-    Default, // = Minus
-    Minus,   // => '-' if negative, nothing otherwise
-    Plus,    // => '-' if negative, '+' otherwise
-    Space,   // => '-' if negative, fill-char otherwise
+    use_default, // => minus
+    minus,       // => '-' if negative, nothing otherwise
+    plus,        // => '-' if negative, '+' otherwise
+    space,       // => '-' if negative, fill-char otherwise
 };
 
 // Contains the fields of the format-specification (see below).
 struct FormatSpec {
-    StringView style;
+    cxx::string_view style;
     int   width = 0;
     int   prec  = -1;
     char  fill  = ' ';
-    Align align = Align::Default;
-    Sign  sign  = Sign::Default;
+    Align align = Align::use_default;
+    Sign  sign  = Sign::use_default;
     bool  hash  = false;
     bool  zero  = false;
     char  tsep  = '\0';
@@ -93,22 +97,22 @@ struct FormatSpec {
 class Writer {
 protected:
     virtual ~Writer();
-    virtual bool Put(char c) = 0;
-    virtual bool Write(char const* str, size_t len) = 0;
-    virtual bool Pad(char c, size_t count) = 0;
+
+private:
+    virtual ErrorCode Put(char c) = 0;
+    virtual ErrorCode Write(char const* str, size_t len) = 0;
+    virtual ErrorCode Pad(char c, size_t count) = 0;
 };
 
-// Implements the Writer interface to format into std::FILE's.
-class FILEWriter;
-
-// Implements the Writer interface to format into user-provided arrays.
-class ArrayWriter;
-
 // Determine whether objects of type T should be handled as strings.
+//
+// May be specialized for user-defined types to provide more efficient string
+// formatting.
 template <typename T>
 struct TreatAsString : std::false_type {};
 
 // Dynamically created argument list.
+//
 // May be passed (as the only argument) to the formatting functions instead of
 // the variadic arguments.
 class FormatArgs {
@@ -125,75 +129,121 @@ public:
 // Specialize this to enable formatting of user-defined types.
 // Or include "Format_ostream.h" if objects of type T can be formatted using
 // operator<<(std::ostream, T const&).
-template <typename T>
+//
+// The second template parameter may be used to conditionally enable partial
+// specializations.
+template <typename T, typename /*Enable*/ = void>
 struct FormatValue {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& value) const;
 };
 
-// The format-methods use a python-style format string (see below).
-// The printf-methods use a printf-style format string.
-
+// The format-method uses a python-style format string (see below).
 template <typename ...Args>
-ErrorCode format(Writer& w, StringView format, Args const&... args);
+ErrorCode format(Writer& w, cxx::string_view format, Args const&... args);
 
+// The printf-method uses a printf-style format string.
 template <typename ...Args>
-ErrorCode printf(Writer& w, StringView format, Args const&... args);
-
-template <typename ...Args>
-ErrorCode format(std::FILE* file, StringView format, Args const&... args);
-
-template <typename ...Args>
-ErrorCode printf(std::FILE* file, StringView format, Args const&... args);
-
-template <typename ...Args>
-int fformat(std::FILE* file, StringView format, Args const&... args);
-
-template <typename ...Args>
-int fprintf(std::FILE* file, StringView format, Args const&... args);
-
-template <typename ...Args>
-int snformat(char* buf, size_t bufsize, StringView format, Args const&... args);
-
-template <typename ...Args>
-int snprintf(char* buf, size_t bufsize, StringView format, Args const&... args);
-
-template <size_t N, typename ...Args>
-int snformat(char (&buf)[N], StringView format, Args const&... args);
-
-template <size_t N, typename ...Args>
-int snprintf(char (&buf)[N], StringView format, Args const&... args);
+ErrorCode printf(Writer& w, cxx::string_view format, Args const&... args);
 
 } // namespace fmtxx
 ```
 
 **NOTE**: The formatting functions currently only accept at most 16 arguments.
 
+### Format_stdio.h
+
+```c++
+// Write to std::FILE's, keeping track of the number of characters
+// (successfully) transmitted.
+class FILEWriter : public Writer {
+public:
+    explicit FILEWriter(std::FILE* v);
+
+    // Returns the FILE stream.
+    std::FILE* file() const;
+
+    // Returns the number of bytes successfully transmitted (since construction).
+    size_t size() const;
+};
+
+// Write to a user allocated buffer.
+// If the buffer overflows, keep track of the number of characters that would
+// have been written if the buffer were large enough. This is for compatibility
+// with snprintf.
+class ArrayWriter : public Writer {
+public:
+    ArrayWriter(char* buffer, size_t buffer_size);
+
+    template <size_t N>
+    explicit ArrayWriter(char (&buf)[N]);
+
+    // Returns a pointer to the string.
+    // The string is null-terminated if finish() has been called.
+    char* data() const;
+
+    // Returns the buffer capacity.
+    size_t capacity() const;
+
+    // Returns the length of the string.
+    size_t size() const;
+
+    // Returns true if the buffer was too small.
+    bool overflow() const;
+
+    // Returns the string.
+    cxx::string_view view() const;
+
+    // Null-terminate the buffer.
+    // Returns the length of the string not including the null-character.
+    size_t finish() noexcept;
+};
+
+template <typename ...Args>
+ErrorCode format(std::FILE* file, cxx::string_view format, Args const&... args);
+
+template <typename ...Args>
+ErrorCode printf(std::FILE* file, cxx::string_view format, Args const&... args);
+
+template <typename ...Args>
+int fformat(std::FILE* file, cxx::string_view format, Args const&... args);
+
+template <typename ...Args>
+int fprintf(std::FILE* file, cxx::string_view format, Args const&... args);
+
+template <typename ...Args>
+int snformat(char* buf, size_t bufsize, cxx::string_view format, Args const&... args);
+
+template <typename ...Args>
+int snprintf(char* buf, size_t bufsize, cxx::string_view format, Args const&... args);
+
+template <size_t N, typename ...Args>
+int snformat(char (&buf)[N], cxx::string_view format, Args const&... args);
+
+template <size_t N, typename ...Args>
+int snprintf(char (&buf)[N], cxx::string_view format, Args const&... args);
+```
+
 ### Format_string.h
 
 ```c++
 namespace fmtxx {
 
-class StringWriter;
-
-class TreatAsString<std::string     > : std::true_type {};
-class TreatAsString<std::string_view> : std::true_type {}; // if available
-
 struct StringFormatResult {
     std::string str;
-    ErrorCode ec = ErrorCode::success;
+    ErrorCode res = ErrorCode::success;
 };
 
 template <typename ...Args>
-ErrorCode format(std::string& str, StringView format, Args const&... args);
+ErrorCode format(std::string& str, cxx::string_view format, Args const&... args);
 
 template <typename ...Args>
-ErrorCode printf(std::string& str, StringView format, Args const&... args);
+ErrorCode printf(std::string& str, cxx::string_view format, Args const&... args);
 
 template <typename ...Args>
-StringFormatResult string_format(StringView format, Args const&... args);
+StringFormatResult string_format(cxx::string_view format, Args const&... args);
 
 template <typename ...Args>
-StringFormatResult string_printf(StringView format, Args const&... args);
+StringFormatResult string_printf(cxx::string_view format, Args const&... args);
 
 } // namespace fmtxx
 ```
@@ -206,13 +256,11 @@ which `operator<<(std::ostream&, T)` is defined.
 ```c++
 namespace fmtxx {
 
-class StreamWriter;
+template <typename ...Args>
+ErrorCode format(std::ostream& os, cxx::string_view format, Args const&... args);
 
 template <typename ...Args>
-ErrorCode format(std::ostream& os, StringView format, Args const&... args);
-
-template <typename ...Args>
-ErrorCode printf(std::ostream& os, StringView format, Args const&... args);
+ErrorCode printf(std::ostream& os, cxx::string_view format, Args const&... args);
 
 } // namespace fmtxx
 ```

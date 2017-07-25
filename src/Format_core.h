@@ -127,12 +127,8 @@ public:
     ErrorCode pad(char c, size_t count) { return count == 0 ? ErrorCode::success : Pad(c, count); }
 
 private:
-    // XXX: Default implementation using Write???
     virtual ErrorCode Put(char c) = 0;
-    // XXX: Default implementation using Put???
     virtual ErrorCode Write(char const* str, size_t len) = 0;
-    // XXX: Default implementation using Write???
-    //      Default implementation using Put???
     virtual ErrorCode Pad(char c, size_t count) = 0;
 };
 

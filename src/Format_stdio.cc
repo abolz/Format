@@ -34,7 +34,7 @@ ErrorCode fmtxx::FILEWriter::Put(char c) noexcept
         return ErrorCode::io_error;
 
     size_ += 1;
-    return ErrorCode::success;
+    return {};
 }
 
 ErrorCode fmtxx::FILEWriter::Write(char const* ptr, size_t len) noexcept
@@ -45,7 +45,7 @@ ErrorCode fmtxx::FILEWriter::Write(char const* ptr, size_t len) noexcept
     // This is unlike ArrayWriter, which counts characters that would have been written on success.
     // (FILEWriter and ArrayWriter are for compatibility with fprintf and snprintf, resp.)
     size_ += n;
-    return n == len ? ErrorCode::success : ErrorCode::io_error;
+    return n == len ? ErrorCode{} : ErrorCode::io_error;
 }
 
 ErrorCode fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
@@ -63,7 +63,7 @@ ErrorCode fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
         count -= n;
     }
 
-    return ErrorCode::success;
+    return {};
 }
 
 size_t fmtxx::ArrayWriter::finish() noexcept
@@ -82,7 +82,7 @@ ErrorCode fmtxx::ArrayWriter::Put(char c) noexcept
         buf_[size_] = c;
 
     size_ += 1;
-    return ErrorCode::success;
+    return {};
 }
 
 ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
@@ -91,7 +91,7 @@ ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
         std::memcpy(buf_ + size_, ptr, std::min(len, bufsize_ - size_));
 
     size_ += len;
-    return ErrorCode::success;
+    return {};
 }
 
 ErrorCode fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
@@ -100,7 +100,7 @@ ErrorCode fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
         std::memset(buf_ + size_, static_cast<unsigned char>(c), std::min(count, bufsize_ - size_));
 
     size_ += count;
-    return ErrorCode::success;
+    return {};
 }
 
 //--------------------------------------------------------------------------------------------------

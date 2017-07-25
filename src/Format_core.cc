@@ -179,7 +179,7 @@ static ErrorCode PrintAndPadString(Writer& w, FormatSpec const& spec, char const
     if (Failed ec = w.pad(spec.fill, pad.right))
         return ec;
 
-    return ErrorCode::success;
+    return {};
 }
 
 static ErrorCode PrintAndPadString(Writer& w, FormatSpec const& spec, cxx::string_view str)
@@ -206,13 +206,13 @@ static ErrorCode ForEachEscaped(char const* str, size_t len, F func)
         }
     }
 
-    return ErrorCode::success;
+    return {};
 }
 
 static ErrorCode WriteQuoted(Writer& w, char const* str, size_t len, size_t quoted_len)
 {
     if (len == 0)
-        return ErrorCode::success;
+        return {};
     if (len == quoted_len)
         return w.write(str, len);
 
@@ -225,7 +225,7 @@ static ErrorCode PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char
 
     ForEachEscaped(str, len, [&](char) -> ErrorCode {
         ++quoted_len;
-        return ErrorCode::success;
+        return {};
     });
 
     auto const pad = ComputePadding(2 + quoted_len, spec.align, spec.width);
@@ -241,7 +241,7 @@ static ErrorCode PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char
     if (Failed ec = w.pad(spec.fill, pad.right))
         return ec;
 
-    return ErrorCode::success;
+    return {};
 }
 
 ErrorCode fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* str, size_t len)
@@ -296,7 +296,7 @@ static ErrorCode PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign,
     if (Failed ec = w.pad(spec.fill, pad.right))
         return ec;
 
-    return ErrorCode::success;
+    return {};
 }
 
 static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
@@ -1272,7 +1272,7 @@ static ErrorCode CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& ar
         break;
     }
 
-    return ErrorCode::success; // unreachable
+    return {}; // unreachable
 }
 
 static bool IsDigit(char ch) { return '0' <= ch && ch <= '9'; }
@@ -1311,15 +1311,15 @@ static ErrorCode GetIntArg(int& value, int index, Arg const* args, Types types)
 
     case Type::schar:
         value = args[index].schar;
-        return ErrorCode::success;
+        return {};
 
     case Type::sshort:
         value = args[index].sshort;
-        return ErrorCode::success;
+        return {};
 
     case Type::sint:
         value = args[index].sint;
-        return ErrorCode::success;
+        return {};
 
     case Type::slonglong:
         if (args[index].slonglong > INT_MAX)
@@ -1327,13 +1327,13 @@ static ErrorCode GetIntArg(int& value, int index, Arg const* args, Types types)
         if (args[index].slonglong < INT_MIN)
             return ErrorCode::value_out_of_range;
         value = static_cast<int>(args[index].slonglong);
-        return ErrorCode::success;
+        return {};
 
     case Type::ulonglong:
         if (args[index].ulonglong > INT_MAX)
             return ErrorCode::value_out_of_range;
         value = static_cast<int>(args[index].ulonglong);
-        return ErrorCode::success;
+        return {};
 
     default:
         return ErrorCode::invalid_argument;
@@ -1394,7 +1394,7 @@ static ErrorCode ParseFormatSpecArg(FormatSpec& spec, cxx::string_view::const_it
     spec = *static_cast<FormatSpec const*>(args[index].pvoid);
     FixNegativeFieldWidth(spec);
 
-    return ErrorCode::success;
+    return {};
 }
 
 static bool ParseAlign(FormatSpec& spec, char c)
@@ -1520,11 +1520,11 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, cxx::string_view::const_itera
 // Conversion
         case '!':
         case '}':
-            return ErrorCode::success;
+            return {};
         default:
             spec.conv = *f;
             ++f;
-            return ErrorCode::success;
+            return {};
         }
 
         if (f == end)
@@ -1584,7 +1584,7 @@ static ErrorCode ParseStyle(FormatSpec& spec, cxx::string_view::const_iterator& 
         ++f; // skip delim
     }
 
-    return ErrorCode::success;
+    return {};
 }
 
 static ErrorCode ParseReplacementField(FormatSpec& spec, cxx::string_view::const_iterator& f, cxx::string_view::const_iterator end, int& nextarg, Arg const* args, Types types)
@@ -1620,13 +1620,13 @@ static ErrorCode ParseReplacementField(FormatSpec& spec, cxx::string_view::const
 
     ++f;
 
-    return ErrorCode::success;
+    return {};
 }
 
 ErrorCode fmtxx::impl::DoFormat(Writer& w, cxx::string_view format, Arg const* args, Types types)
 {
     if (format.empty())
-        return ErrorCode::success;
+        return {};
 
     int nextarg = 0;
 
@@ -1698,7 +1698,7 @@ ErrorCode fmtxx::impl::DoFormat(Writer& w, cxx::string_view format, Arg const* a
             return ec;
     }
 
-    return ErrorCode::success;
+    return {};
 }
 
 static ErrorCode ParseAsterisk(int& value, cxx::string_view::const_iterator& f, cxx::string_view::const_iterator end, int& nextarg, Arg const* args, Types types)
@@ -1867,7 +1867,7 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
         case 'y': // EXTENSION: bool "yes"/"no"
             spec.conv = *f;
             ++f;
-            return ErrorCode::success;
+            return {};
         case 'n':
             // The number of characters written so far is stored into the integer
             // indicated by the int * (or variant) pointer argument.
@@ -1890,7 +1890,7 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
 ErrorCode fmtxx::impl::DoPrintf(Writer& w, cxx::string_view format, Arg const* args, Types types)
 {
     if (format.empty())
-        return ErrorCode::success;
+        return {};
 
     int nextarg = 0;
 
@@ -1951,5 +1951,5 @@ ErrorCode fmtxx::impl::DoPrintf(Writer& w, cxx::string_view format, Arg const* a
             return ec;
     }
 
-    return ErrorCode::success;
+    return {};
 }

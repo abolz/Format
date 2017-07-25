@@ -54,7 +54,7 @@ inline ErrorCode StreamWriter::Put(char c)
         return ErrorCode::io_error;
     }
 
-    return ErrorCode::success;
+    return {};
 }
 
 inline ErrorCode StreamWriter::Write(char const* str, size_t len)
@@ -74,7 +74,7 @@ inline ErrorCode StreamWriter::Write(char const* str, size_t len)
         len -= n;
     }
 
-    return ErrorCode::success;
+    return {};
 }
 
 inline ErrorCode StreamWriter::Pad(char c, size_t count)
@@ -96,7 +96,7 @@ inline ErrorCode StreamWriter::Pad(char c, size_t count)
         count -= n;
     }
 
-    return ErrorCode::success;
+    return {};
 }
 
 } // namespace

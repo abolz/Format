@@ -55,26 +55,25 @@
 
 namespace fmtxx {
 
-enum struct ErrorCode { // XXX: Rename => 'Result'
-    success = 0,
-    conversion_error,       // Value could not be converted to string (E.g. trying to format a non-existant date.)
-    index_out_of_range,     // Argument index out of range
-    invalid_argument,
-    invalid_format_string,
-    io_error,               // Writer failed
-    not_supported,          // Conversion not supported
-    value_out_of_range,     // Value of integer argument out of range [INT_MIN, INT_MAX]
+enum struct ErrorCode {
+    conversion_error        = 1, // Value could not be converted to string (E.g. trying to format a non-existant date.)
+    index_out_of_range      = 2, // Argument index out of range
+    invalid_argument        = 3,
+    invalid_format_string   = 4,
+    io_error                = 5, // Writer failed
+    not_supported           = 6, // Conversion not supported
+    value_out_of_range      = 7, // Value of integer argument out of range [INT_MIN, INT_MAX]
 };
 
 // Wraps an error code, may be checked for failure.
 // Replaces ErrorCode::operator bool() in most cases (and is more explicit).
 struct Failed
 {
-    ErrorCode const ec = ErrorCode::success;
+    ErrorCode const ec = ErrorCode{};
 
     Failed() = default;
     Failed(ErrorCode ec_) : ec(ec_) {}
-    explicit operator bool() const { return ec != ErrorCode::success; }
+    explicit operator bool() const { return ec != ErrorCode{}; }
 
     operator ErrorCode() const { return ec; }
 };
@@ -118,13 +117,13 @@ public:
     ErrorCode put(char c) { return Put(c); }
 
     // Write a character to the output stream iff it is not the null-character.
-    ErrorCode put_nonnull(char c) { return c == '\0' ? ErrorCode::success : Put(c); }
+    ErrorCode put_nonnull(char c) { return c == '\0' ? ErrorCode{} : Put(c); }
 
     // Insert a range of characters into the output stream.
-    ErrorCode write(char const* str, size_t len) { return len == 0 ? ErrorCode::success : Write(str, len); }
+    ErrorCode write(char const* str, size_t len) { return len == 0 ? ErrorCode{} : Write(str, len); }
 
     // Insert a character multiple times into the output stream.
-    ErrorCode pad(char c, size_t count) { return count == 0 ? ErrorCode::success : Pad(c, count); }
+    ErrorCode pad(char c, size_t count) { return count == 0 ? ErrorCode{} : Pad(c, count); }
 
 private:
     virtual ErrorCode Put(char c) = 0;

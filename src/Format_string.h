@@ -132,7 +132,7 @@ inline ErrorCode printf(std::string& str, cxx::string_view format, FormatArgs co
 struct StringFormatResult
 {
     std::string str;
-    ErrorCode ec = ErrorCode::success;
+    ErrorCode ec = ErrorCode{};
 };
 
 template <typename ...Args>

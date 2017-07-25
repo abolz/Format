@@ -29,19 +29,19 @@ using namespace fmtxx;
 ErrorCode fmtxx::StringWriter::Put(char c)
 {
     str.push_back(c);
-    return ErrorCode::success;
+    return {};
 }
 
 ErrorCode fmtxx::StringWriter::Write(char const* ptr, size_t len)
 {
     str.append(ptr, len);
-    return ErrorCode::success;
+    return {};
 }
 
 ErrorCode fmtxx::StringWriter::Pad(char c, size_t count)
 {
     str.append(count, c);
-    return ErrorCode::success;
+    return {};
 }
 
 //------------------------------------------------------------------------------

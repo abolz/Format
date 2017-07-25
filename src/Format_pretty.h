@@ -111,13 +111,13 @@ struct PP
         if (Failed ec = w.put('"'))
             return ec;
 
-        return ErrorCode::success;
+        return {};
     }
 
     template <typename T>
     static ErrorCode PrintTuple(Writer& /*w*/, T const& /*object*/, std::integral_constant<size_t, 0>)
     {
-        return ErrorCode::success;
+        return {};
     }
 
     template <typename T>
@@ -138,7 +138,7 @@ struct PP
         if (Failed ec = PrintTuple(w, object, std::integral_constant<size_t, N - 1>()))
             return ec;
 
-        return ErrorCode::success;
+        return {};
     }
 
     template <typename T>
@@ -151,7 +151,7 @@ struct PP
         if (Failed ec = w.put('}'))
             return ec;
 
-        return ErrorCode::success;
+        return {};
     }
 
     template <typename T>
@@ -186,7 +186,7 @@ struct PP
         if (Failed ec = w.put(']'))
             return ec;
 
-        return ErrorCode::success;
+        return {};
     }
 
     template <typename T>

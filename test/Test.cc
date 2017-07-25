@@ -182,9 +182,9 @@ TEST_CASE("FormatStringChecks_Format")
     CHECK(fmtxx::ErrorCode::index_out_of_range        == fmtxx::format(w, "{10}", 1));
     CHECK(fmtxx::ErrorCode::index_out_of_range        == fmtxx::format(w, "{2147483647}", 1));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{2147483648}", 1));
-    CHECK(fmtxx::ErrorCode::success                   == fmtxx::format(w, "{:2147483647}", 0));
+    CHECK(fmtxx::ErrorCode{}                          == fmtxx::format(w, "{:2147483647}", 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:2147483648}", 0));
-    CHECK(fmtxx::ErrorCode::success                   == fmtxx::format(w, "{:.2147483647}", 0));
+    CHECK(fmtxx::ErrorCode{}                          == fmtxx::format(w, "{:.2147483647}", 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:.2147483648}", 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:.", 0));
 }
@@ -814,14 +814,14 @@ TEST_CASE("Floats_1")
         {
             fmtxx::ArrayWriter w { buf, kBufSize };
             fmtxx::ErrorCode ec = fmtxx::format(w, "{:'.1074f}", std::numeric_limits<double>::max());
-            CHECK(fmtxx::ErrorCode::success == ec);
+            CHECK(fmtxx::ErrorCode{} == ec);
             CHECK(kBufSize == w.size());
         }
         {
             // Precision is clipped.
             fmtxx::ArrayWriter w { buf, kBufSize };
             fmtxx::ErrorCode ec = fmtxx::format(w, "{:'.1075f}", std::numeric_limits<double>::max());
-            CHECK(fmtxx::ErrorCode::success == ec);
+            CHECK(fmtxx::ErrorCode{} == ec);
             CHECK(kBufSize == w.size());
         }
     }
@@ -970,17 +970,17 @@ public:
 private:
     fmtxx::ErrorCode Put(char c) override {
         os.push_back(c);
-        return fmtxx::ErrorCode::success;
+        return {};
     }
 
     fmtxx::ErrorCode Write(char const* str, size_t len) override {
         os.insert(os.end(), str, str + len);
-        return fmtxx::ErrorCode::success;
+        return {};
     }
 
     fmtxx::ErrorCode Pad(char c, size_t count) override {
         os.resize(os.size() + count, c);
-        return fmtxx::ErrorCode::success;
+        return {};
     }
 };
 

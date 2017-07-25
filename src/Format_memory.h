@@ -84,7 +84,7 @@ ErrorCode MemoryWriterBase<BufferSize>::Put(char c)
     assert(size_ + 1 <= capacity_);
 
     ptr_[size_++] = c;
-    return ErrorCode::success;
+    return {};
 }
 
 template <size_t BufferSize>
@@ -103,7 +103,7 @@ ErrorCode MemoryWriterBase<BufferSize>::Write(char const* str, size_t len)
 
     std::memcpy(ptr_ + size_, str, len);
     size_ += len;
-    return ErrorCode::success;
+    return {};
 }
 
 template <size_t BufferSize>
@@ -122,7 +122,7 @@ ErrorCode MemoryWriterBase<BufferSize>::Pad(char c, size_t count)
 
     std::memset(ptr_ + size_, static_cast<unsigned char>(c), count);
     size_ += count;
-    return ErrorCode::success;
+    return {};
 }
 
 template <size_t BufferSize>

@@ -43,23 +43,13 @@ inline std::error_code make_error_code(ErrorCode ec)
 template <>
 struct FormatValue<std::error_code>
 {
-    std::error_code operator()(Writer& w, FormatSpec const& spec, std::error_code const& val) const
-    {
-        // NOTE:
-        // This is different from 'ostream << error_code'.
-        auto const message = val.message();
-        return Util::format_string(w, spec, message.data(), message.size());
-    }
+    FMTXX_API std::error_code operator()(Writer& w, FormatSpec const& spec, std::error_code const& val) const;
 };
 
 template <>
 struct FormatValue<std::error_condition>
 {
-    std::error_code operator()(Writer& w, FormatSpec const& spec, std::error_condition const& val) const
-    {
-        auto const message = val.message();
-        return Util::format_string(w, spec, message.data(), message.size());
-    }
+    FMTXX_API std::error_code operator()(Writer& w, FormatSpec const& spec, std::error_condition const& val) const;
 };
 
 } // namespace fmtxx

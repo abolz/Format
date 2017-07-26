@@ -69,7 +69,7 @@ std::error_category const& fmtxx::format_error_category()
     return cat;
 }
 
-std::error_code fmtxx::FormatValue<std::error_code>::operator()(Writer& w, FormatSpec const& spec, std::error_code const& val) const
+std::error_code FormatValue<std::error_code>::operator()(Writer& w, FormatSpec const& spec, std::error_code const& val) const
 {
     // NOTE:
     // This is different from 'ostream << error_code'.

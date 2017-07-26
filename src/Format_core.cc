@@ -1966,9 +1966,9 @@ public:
     ToCharsWriter(char* first_, char* last_) : next(first_), last(last_) {}
 
 private:
-    FMTXX_API ErrorCode Put(char c) noexcept override;
-    FMTXX_API ErrorCode Write(char const* str, size_t len) noexcept override;
-    FMTXX_API ErrorCode Pad(char c, size_t count) noexcept override;
+    ErrorCode Put(char c) noexcept override;
+    ErrorCode Write(char const* str, size_t len) noexcept override;
+    ErrorCode Pad(char c, size_t count) noexcept override;
 };
 
 inline ErrorCode ToCharsWriter::Put(char c) noexcept
@@ -2005,17 +2005,19 @@ inline ErrorCode ToCharsWriter::Pad(char c, size_t count) noexcept
 ToCharsResult fmtxx::impl::DoFormatToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types)
 {
     ToCharsWriter w{first, last};
+
     if (Failed ec = fmtxx::impl::DoFormat(w, format, args, types))
         return ToCharsResult{last, ec};
-    else
-        return ToCharsResult{w.next, ErrorCode{}};
+
+    return ToCharsResult{w.next, ErrorCode{}};
 }
 
 ToCharsResult fmtxx::impl::DoPrintfToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types)
 {
     ToCharsWriter w{first, last};
+
     if (Failed ec = fmtxx::impl::DoPrintf(w, format, args, types))
         return ToCharsResult{last, ec};
-    else
-        return ToCharsResult{w.next, ErrorCode{}};
+
+    return ToCharsResult{w.next, ErrorCode{}};
 }

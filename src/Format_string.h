@@ -133,6 +133,12 @@ struct StringFormatResult
 {
     std::string str;
     ErrorCode ec = ErrorCode{};
+
+    StringFormatResult() = default;
+    StringFormatResult(std::string str_, ErrorCode ec_) : str(std::move(str_)), ec(ec_) {}
+
+    // Test for successful conversion
+    explicit operator bool() const { return ec == ErrorCode{}; }
 };
 
 template <typename ...Args>

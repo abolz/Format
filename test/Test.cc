@@ -21,10 +21,12 @@
 
 static constexpr size_t kBufferSize = 8 * 1024;
 
+using fmtxx::StringFormatResult;
+
 struct ToCharsFormatter
 {
     template <typename ...Args>
-    static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
+    static StringFormatResult do_format(cxx::string_view format, Args const&... args)
     {
         char buf[kBufferSize];
         const auto res = fmtxx::format_to_chars(buf, buf + kBufferSize, format, args...);
@@ -32,7 +34,7 @@ struct ToCharsFormatter
     }
 
     template <typename ...Args>
-    static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+    static StringFormatResult do_printf(cxx::string_view format, Args const&... args)
     {
         char buf[kBufferSize];
         const auto res = fmtxx::printf_to_chars(buf, buf + kBufferSize, format, args...);
@@ -44,7 +46,7 @@ struct ToCharsFormatter
 struct FILEFormatter
 {
     template <typename ...Args>
-    static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
+    static StringFormatResult do_format(cxx::string_view format, Args const&... args)
     {
         char buf[kBufferSize] = {0};
         FILE* f = fmemopen(buf, kBufferSize, "w");
@@ -54,7 +56,7 @@ struct FILEFormatter
     }
 
     template <typename ...Args>
-    static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+    static StringFormatResult do_printf(cxx::string_view format, Args const&... args)
     {
         char buf[kBufferSize] = {0};
         FILE* f = fmemopen(buf, kBufferSize, "w");
@@ -68,7 +70,7 @@ struct FILEFormatter
 struct ArrayFormatter
 {
     template <typename ...Args>
-    static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
+    static StringFormatResult do_format(cxx::string_view format, Args const&... args)
     {
         char buf[kBufferSize];
         fmtxx::ArrayWriter w{buf};
@@ -77,7 +79,7 @@ struct ArrayFormatter
     }
 
     template <typename ...Args>
-    static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+    static StringFormatResult do_printf(cxx::string_view format, Args const&... args)
     {
         char buf[kBufferSize];
         fmtxx::ArrayWriter w{buf};
@@ -89,26 +91,22 @@ struct ArrayFormatter
 struct StringFormatter
 {
    template <typename ...Args>
-   static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
+   static StringFormatResult do_format(cxx::string_view format, Args const&... args)
    {
-       std::string os;
-       const auto ec = fmtxx::format(os, format, args...);
-       return { os, ec };
+       return fmtxx::string_format(format, args...);
    }
 
    template <typename ...Args>
-   static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+   static StringFormatResult do_printf(cxx::string_view format, Args const&... args)
    {
-       std::string os;
-       const auto ec = fmtxx::printf(os, format, args...);
-       return { os, ec };
+       return fmtxx::string_printf(format, args...);
    }
 };
 
 struct StreamFormatter
 {
    template <typename ...Args>
-   static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
+   static StringFormatResult do_format(cxx::string_view format, Args const&... args)
    {
        std::ostringstream os;
        const auto ec = fmtxx::format(os, format, args...);
@@ -116,7 +114,7 @@ struct StreamFormatter
    }
 
    template <typename ...Args>
-   static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+   static StringFormatResult do_printf(cxx::string_view format, Args const&... args)
    {
        std::ostringstream os;
        const auto ec = fmtxx::printf(os, format, args...);
@@ -127,7 +125,7 @@ struct StreamFormatter
 struct MemoryFormatter
 {
    template <typename ...Args>
-   static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
+   static StringFormatResult do_format(cxx::string_view format, Args const&... args)
    {
        fmtxx::MemoryWriter<> w;
        const auto ec = fmtxx::format(w, format, args...);
@@ -135,7 +133,7 @@ struct MemoryFormatter
    }
 
    template <typename ...Args>
-   static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+   static StringFormatResult do_printf(cxx::string_view format, Args const&... args)
    {
        fmtxx::MemoryWriter<> w;
        const auto ec = fmtxx::printf(w, format, args...);
@@ -147,7 +145,7 @@ template <typename Formatter>
 struct FormatFn
 {
     template <typename ...Args>
-    static fmtxx::StringFormatResult apply(cxx::string_view format, Args const&... args)
+    static StringFormatResult apply(cxx::string_view format, Args const&... args)
     {
         return Formatter::do_format(format, args...);
     }
@@ -157,7 +155,7 @@ template <typename Formatter>
 struct PrintfFn
 {
     template <typename ...Args>
-    static fmtxx::StringFormatResult apply(cxx::string_view format, Args const&... args)
+    static StringFormatResult apply(cxx::string_view format, Args const&... args)
     {
         return Formatter::do_printf(format, args...);
     }

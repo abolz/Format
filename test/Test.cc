@@ -13,124 +13,191 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+#include <cstdlib>
 
-struct FormatterResult
-{
-    std::string str;
-    fmtxx::ErrorCode ec;
-};
+//------------------------------------------------------------------------------
+// Clean me up, Scotty!
+//------------------------------------------------------------------------------
 
-template <typename Fn>
-struct ArrayFormatter
+static constexpr size_t kBufferSize = 8 * 1024;
+
+struct ToCharsFormatter
 {
     template <typename ...Args>
-    FormatterResult operator ()(cxx::string_view format, Args const&... args) const
+    static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
     {
-        char buf[1024 * 8];
-        fmtxx::ArrayWriter w { buf };
-        const auto ec = Fn{}(w, format, args...);
-        return { std::string(w.data(), w.size()), ec };
+        char buf[kBufferSize];
+        const auto res = fmtxx::format_to_chars(buf, buf + kBufferSize, format, args...);
+        return { std::string(buf, res.next), res.ec };
+    }
+
+    template <typename ...Args>
+    static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+    {
+        char buf[kBufferSize];
+        const auto res = fmtxx::printf_to_chars(buf, buf + kBufferSize, format, args...);
+        return { std::string(buf, res.next), res.ec };
     }
 };
 
-template <typename Fn>
-struct StringFormatter
-{
-   template <typename ...Args>
-   FormatterResult operator ()(cxx::string_view format, Args const&... args) const
-   {
-       std::string os;
-       const auto ec = Fn{}(os, format, args...);
-       return { os, ec };
-   }
-};
-
-template <typename Fn>
-struct StreamFormatter
-{
-   template <typename ...Args>
-   FormatterResult operator ()(cxx::string_view format, Args const&... args) const
-   {
-       std::ostringstream os;
-       const auto ec = Fn{}(os, format, args...);
-       return { os.str(), ec };
-   }
-};
-
 #ifdef __linux__
-template <typename Fn>
 struct FILEFormatter
 {
     template <typename ...Args>
-    FormatterResult operator ()(cxx::string_view format, Args const&... args) const
+    static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
     {
-        char buf[1024 * 8] = {0};
-        FILE* f = fmemopen(buf, sizeof(buf), "w");
-        const auto ec = Fn{}(f, format, args...);
+        char buf[kBufferSize] = {0};
+        FILE* f = fmemopen(buf, kBufferSize, "w");
+        const auto ec = fmtxx::format(f, format, args...);
+        fclose(f); // flush!
+        return { std::string(buf), ec };
+    }
+
+    template <typename ...Args>
+    static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+    {
+        char buf[kBufferSize] = {0};
+        FILE* f = fmemopen(buf, kBufferSize, "w");
+        const auto ec = fmtxx::printf(f, format, args...);
         fclose(f); // flush!
         return { std::string(buf), ec };
     }
 };
 #endif
 
-template <typename Fn>
+struct ArrayFormatter
+{
+    template <typename ...Args>
+    static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
+    {
+        char buf[kBufferSize];
+        fmtxx::ArrayWriter w{buf};
+        const auto ec = fmtxx::format(w, format, args...);
+        return { std::string(w.data(), w.size()), ec };
+    }
+
+    template <typename ...Args>
+    static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+    {
+        char buf[kBufferSize];
+        fmtxx::ArrayWriter w{buf};
+        const auto ec = fmtxx::printf(w, format, args...);
+        return { std::string(w.data(), w.size()), ec };
+    }
+};
+
+struct StringFormatter
+{
+   template <typename ...Args>
+   static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
+   {
+       std::string os;
+       const auto ec = fmtxx::format(os, format, args...);
+       return { os, ec };
+   }
+
+   template <typename ...Args>
+   static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+   {
+       std::string os;
+       const auto ec = fmtxx::printf(os, format, args...);
+       return { os, ec };
+   }
+};
+
+struct StreamFormatter
+{
+   template <typename ...Args>
+   static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
+   {
+       std::ostringstream os;
+       const auto ec = fmtxx::format(os, format, args...);
+       return { os.str(), ec };
+   }
+
+   template <typename ...Args>
+   static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+   {
+       std::ostringstream os;
+       const auto ec = fmtxx::printf(os, format, args...);
+       return { os.str(), ec };
+   }
+};
+
 struct MemoryFormatter
 {
    template <typename ...Args>
-   FormatterResult operator()(cxx::string_view format, Args const&... args) const
+   static fmtxx::StringFormatResult do_format(cxx::string_view format, Args const&... args)
    {
        fmtxx::MemoryWriter<> w;
-       const auto ec = Fn{}(w, format, args...);
+       const auto ec = fmtxx::format(w, format, args...);
+       return { std::string(w.data(), w.size()), ec };
+   }
+
+   template <typename ...Args>
+   static fmtxx::StringFormatResult do_printf(cxx::string_view format, Args const&... args)
+   {
+       fmtxx::MemoryWriter<> w;
+       const auto ec = fmtxx::printf(w, format, args...);
        return { std::string(w.data(), w.size()), ec };
    }
 };
 
-template <typename Formatter, typename ...Args>
-static std::string FormatArgs1(cxx::string_view format, Args const&... args)
+template <typename Formatter>
+struct FormatFn
 {
-    FormatterResult res = Formatter{}(format, args...);
-    //assert(res.ec == fmtxx::ErrorCode::success);
-    return res.str;
-}
-
-struct FormatFn {
-    template <typename Buffer, typename ...Args>
-    fmtxx::ErrorCode operator()(Buffer& fb, cxx::string_view format, Args const&... args) const {
-        return fmtxx::format(fb, format, args...);
+    template <typename ...Args>
+    static fmtxx::StringFormatResult apply(cxx::string_view format, Args const&... args)
+    {
+        return Formatter::do_format(format, args...);
     }
 };
 
-struct PrintfFn {
-    template <typename Buffer, typename ...Args>
-    fmtxx::ErrorCode operator()(Buffer& fb, cxx::string_view format, Args const&... args) const {
-        return fmtxx::printf(fb, format, args...);
+template <typename Formatter>
+struct PrintfFn
+{
+    template <typename ...Args>
+    static fmtxx::StringFormatResult apply(cxx::string_view format, Args const&... args)
+    {
+        return Formatter::do_printf(format, args...);
     }
 };
 
-template <typename Fn, typename ...Args>
+template <template <typename> class Fn, typename ...Args>
 static std::string FormatArgsTemplate(cxx::string_view format, Args const&... args)
 {
-    std::string const s1 = FormatArgs1<ArrayFormatter<Fn>>(format, args...);
-
-    std::string const s2 = FormatArgs1<StreamFormatter<Fn>>(format, args...);
-    if (s2 != s1)
-       return "[[[[ formatter mismatch 1 ]]]]";
+    auto const res = Fn< ToCharsFormatter >::apply(format, args...);
+//  REQUIRE(fmtxx::ErrorCode{} == res.ec);
 
 #ifdef __linux__
-    std::string const s3 = FormatArgs1<FILEFormatter<Fn>>(format, args...);
-    if (s3 != s1)
-        return "[[[[ formatter mismatch 2 ]]]]";
+    {
+        auto const x = Fn< FILEFormatter >::apply(format, args...);
+        REQUIRE(res.ec == x.ec);
+        REQUIRE(res.str == x.str);
+    }
 #endif
+    {
+        auto const x = Fn< ArrayFormatter >::apply(format, args...);
+        REQUIRE(res.ec == x.ec);
+        REQUIRE(res.str == x.str);
+    }
+    {
+        auto const x = Fn< StreamFormatter >::apply(format, args...);
+        REQUIRE(res.ec == x.ec);
+        REQUIRE(res.str == x.str);
+    }
+    {
+        auto const x = Fn< StringFormatter >::apply(format, args...);
+        REQUIRE(res.ec == x.ec);
+        REQUIRE(res.str == x.str);
+    }
+    {
+        auto const x = Fn< MemoryFormatter >::apply(format, args...);
+        REQUIRE(res.ec == x.ec);
+        REQUIRE(res.str == x.str);
+    }
 
-    std::string const s4 = FormatArgs1<StringFormatter<Fn>>(format, args...);
-    if (s4 != s1)
-       return "[[[[ formatter mismatch 3 ]]]]";
-
-    std::string const s5 = FormatArgs1<MemoryFormatter<Fn>>(format, args...);
-    if (s5 != s1)
-       return "[[[[ formatter mismatch 4 ]]]]";
-
-    return s1;
+    return res.str;
 }
 
 template <typename ...Args>
@@ -144,6 +211,10 @@ static std::string PrintfArgs(cxx::string_view format, Args const&... args)
 {
     return FormatArgsTemplate<PrintfFn>(format, args...);
 }
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
 
 TEST_CASE("FormatStringChecks_Format")
 {
@@ -1108,3 +1179,374 @@ TEST_CASE("FormatArgs_1")
 //    //fmtxx::format(stdout, "", &S::i);
 //    fmtxx::format(stdout, "", (int*)nullptr);
 //}
+
+//------------------------------------------------------------------------------
+// printf-conformance tests
+//------------------------------------------------------------------------------
+
+// From
+// https://github.com/BartMassey/printf-tests/blob/master/sources/tests-libc-sprintf.c
+
+/*
+ * Copyright (c) 2011 The tyndur Project. All rights reserved.
+ *
+ * This code is derived from software contributed to the tyndur Project
+ * by Kevin Wolf.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#ifdef _MSC_VER
+#pragma warning(disable: 4146) // warning C4146: unary minus operator applied to unsigned type, result still unsigned
+#endif
+
+// printf-conformance test
+#if 0
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wformat"
+#endif
+#define CHECK_EQUAL_PRINTF(EXPECTED, N, FORMAT, ...)                                \
+    {                                                                               \
+        std::string printf_result;                                                  \
+        printf_result.resize(kBufferSize);                                          \
+        int n = ::snprintf(&printf_result[0], kBufferSize, FORMAT, ## __VA_ARGS__); \
+        REQUIRE(n >= 0);                                                            \
+        REQUIRE(n < kBufferSize);                                                   \
+        CHECK(n == N);                                                              \
+        printf_result.resize(static_cast<size_t>(n));                               \
+        CHECK(EXPECTED == printf_result);                                           \
+        std::string out = fmtxx::string_printf(FORMAT, ## __VA_ARGS__).str;         \
+        CHECK(EXPECTED == out);                                                     \
+    }                                                                               \
+    /**/
+#else
+#define CHECK_EQUAL_PRINTF(EXPECTED, N, FORMAT, ...)                                \
+    {                                                                               \
+        std::string out = fmtxx::string_printf(FORMAT, ## __VA_ARGS__).str;         \
+        CHECK(N == out.size());                                                     \
+        CHECK(EXPECTED == out);                                                     \
+    }                                                                               \
+    /**/
+#endif
+
+TEST_CASE("Printf_conformance1")
+{
+    /* Ein String ohne alles */
+    CHECK_EQUAL_PRINTF("Hallo heimur", 12, "Hallo heimur")
+
+    /* Einfache Konvertierungen */
+    CHECK_EQUAL_PRINTF("Hallo heimur",   12, "%s",       "Hallo heimur")
+    CHECK_EQUAL_PRINTF("1024",            4, "%d",       1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "%d",       -1024)
+    CHECK_EQUAL_PRINTF("1024",            4, "%i",       1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "%i",       -1024)
+    CHECK_EQUAL_PRINTF("1024",            4, "%u",       1024u)
+    CHECK_EQUAL_PRINTF("4294966272",     10, "%u",       -1024u)
+    CHECK_EQUAL_PRINTF("777",             3, "%o",       0777u)
+    CHECK_EQUAL_PRINTF("37777777001",    11, "%o",       -0777u)
+    CHECK_EQUAL_PRINTF("1234abcd",        8, "%x",       0x1234abcdu)
+    CHECK_EQUAL_PRINTF("edcb5433",        8, "%x",       -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("1234ABCD",        8, "%X",       0x1234abcdu)
+    CHECK_EQUAL_PRINTF("EDCB5433",        8, "%X",       -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("x",               1, "%c",       'x')
+    CHECK_EQUAL_PRINTF("%",               1, "%%")
+
+    /* Mit %c kann man auch Nullbytes ausgeben */
+    CHECK_EQUAL_PRINTF(std::string("\0", 1),              1, "%c",       '\0')
+
+    /* Vorzeichen erzwingen (Flag +) */
+    CHECK_EQUAL_PRINTF("Hallo heimur",   12, "%+s",      "Hallo heimur")
+    CHECK_EQUAL_PRINTF("+1024",           5, "%+d",      1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "%+d",      -1024)
+    CHECK_EQUAL_PRINTF("+1024",           5, "%+i",      1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "%+i",      -1024)
+    CHECK_EQUAL_PRINTF("1024",            4, "%+u",      1024u)
+    CHECK_EQUAL_PRINTF("4294966272",     10, "%+u",      -1024u)
+    CHECK_EQUAL_PRINTF("777",             3, "%+o",      0777u)
+    CHECK_EQUAL_PRINTF("37777777001",    11, "%+o",      -0777u)
+    CHECK_EQUAL_PRINTF("1234abcd",        8, "%+x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("edcb5433",        8, "%+x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("1234ABCD",        8, "%+X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("EDCB5433",        8, "%+X",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("x",               1, "%+c",      'x')
+
+    /* Vorzeichenplatzhalter erzwingen (Flag <space>) */
+    CHECK_EQUAL_PRINTF("Hallo heimur",   12, "% s",      "Hallo heimur")
+    CHECK_EQUAL_PRINTF(" 1024",           5, "% d",      1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "% d",      -1024)
+    CHECK_EQUAL_PRINTF(" 1024",           5, "% i",      1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "% i",      -1024)
+    CHECK_EQUAL_PRINTF("1024",            4, "% u",      1024u)
+    CHECK_EQUAL_PRINTF("4294966272",     10, "% u",      -1024u)
+    CHECK_EQUAL_PRINTF("777",             3, "% o",      0777u)
+    CHECK_EQUAL_PRINTF("37777777001",    11, "% o",      -0777u)
+    CHECK_EQUAL_PRINTF("1234abcd",        8, "% x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("edcb5433",        8, "% x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("1234ABCD",        8, "% X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("EDCB5433",        8, "% X",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("x",               1, "% c",      'x')
+
+    /* Flag + hat Vorrang ueber <space> */
+    CHECK_EQUAL_PRINTF("Hallo heimur",   12, "%+ s",      "Hallo heimur")
+    CHECK_EQUAL_PRINTF("+1024",           5, "%+ d",      1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "%+ d",      -1024)
+    CHECK_EQUAL_PRINTF("+1024",           5, "%+ i",      1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "%+ i",      -1024)
+    CHECK_EQUAL_PRINTF("1024",            4, "%+ u",      1024u)
+    CHECK_EQUAL_PRINTF("4294966272",     10, "%+ u",      -1024u)
+    CHECK_EQUAL_PRINTF("777",             3, "%+ o",      0777u)
+    CHECK_EQUAL_PRINTF("37777777001",    11, "%+ o",      -0777u)
+    CHECK_EQUAL_PRINTF("1234abcd",        8, "%+ x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("edcb5433",        8, "%+ x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("1234ABCD",        8, "%+ X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("EDCB5433",        8, "%+ X",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("x",               1, "%+ c",      'x')
+    CHECK_EQUAL_PRINTF("Hallo heimur",   12, "% +s",      "Hallo heimur")
+    CHECK_EQUAL_PRINTF("+1024",           5, "% +d",      1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "% +d",      -1024)
+    CHECK_EQUAL_PRINTF("+1024",           5, "% +i",      1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "% +i",      -1024)
+    CHECK_EQUAL_PRINTF("1024",            4, "% +u",      1024u)
+    CHECK_EQUAL_PRINTF("4294966272",     10, "% +u",      -1024u)
+    CHECK_EQUAL_PRINTF("777",             3, "% +o",      0777u)
+    CHECK_EQUAL_PRINTF("37777777001",    11, "% +o",      -0777u)
+    CHECK_EQUAL_PRINTF("1234abcd",        8, "% +x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("edcb5433",        8, "% +x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("1234ABCD",        8, "% +X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("EDCB5433",        8, "% +X",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("x",               1, "% +c",      'x')
+
+    /* Alternative Form */
+    CHECK_EQUAL_PRINTF("0777",            4, "%#o",      0777u)
+    CHECK_EQUAL_PRINTF("037777777001",   12, "%#o",      -0777u)
+    CHECK_EQUAL_PRINTF("0x1234abcd",     10, "%#x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("0xedcb5433",     10, "%#x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("0X1234ABCD",     10, "%#X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("0XEDCB5433",     10, "%#X",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("0",               1, "%#o",      0u)
+#if 0
+    // we always print a prefix
+    CHECK_EQUAL_PRINTF("0",               1, "%#x",      0u)
+    CHECK_EQUAL_PRINTF("0",               1, "%#X",      0u)
+#endif
+
+    /* Feldbreite: Kleiner als Ausgabe */
+    CHECK_EQUAL_PRINTF("Hallo heimur",   12, "%1s",      "Hallo heimur")
+    CHECK_EQUAL_PRINTF("1024",            4, "%1d",      1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "%1d",      -1024)
+    CHECK_EQUAL_PRINTF("1024",            4, "%1i",      1024)
+    CHECK_EQUAL_PRINTF("-1024",           5, "%1i",      -1024)
+    CHECK_EQUAL_PRINTF("1024",            4, "%1u",      1024u)
+    CHECK_EQUAL_PRINTF("4294966272",     10, "%1u",      -1024u)
+    CHECK_EQUAL_PRINTF("777",             3, "%1o",      0777u)
+    CHECK_EQUAL_PRINTF("37777777001",    11, "%1o",      -0777u)
+    CHECK_EQUAL_PRINTF("1234abcd",        8, "%1x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("edcb5433",        8, "%1x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("1234ABCD",        8, "%1X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("EDCB5433",        8, "%1X",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("x",               1, "%1c",      'x')
+
+    /* Feldbreite: Groesser als Ausgabe */
+    CHECK_EQUAL_PRINTF("               Hallo",  20, "%20s",      "Hallo")
+    CHECK_EQUAL_PRINTF("                1024",  20, "%20d",      1024)
+    CHECK_EQUAL_PRINTF("               -1024",  20, "%20d",      -1024)
+    CHECK_EQUAL_PRINTF("                1024",  20, "%20i",      1024)
+    CHECK_EQUAL_PRINTF("               -1024",  20, "%20i",      -1024)
+    CHECK_EQUAL_PRINTF("                1024",  20, "%20u",      1024u)
+    CHECK_EQUAL_PRINTF("          4294966272",  20, "%20u",      -1024u)
+    CHECK_EQUAL_PRINTF("                 777",  20, "%20o",      0777u)
+    CHECK_EQUAL_PRINTF("         37777777001",  20, "%20o",      -0777u)
+    CHECK_EQUAL_PRINTF("            1234abcd",  20, "%20x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            edcb5433",  20, "%20x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            1234ABCD",  20, "%20X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            EDCB5433",  20, "%20X",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("                   x",  20, "%20c",      'x')
+
+    /* Feldbreite: Linksbuendig */
+    CHECK_EQUAL_PRINTF("Hallo               ",  20, "%-20s",      "Hallo")
+    CHECK_EQUAL_PRINTF("1024                ",  20, "%-20d",      1024)
+    CHECK_EQUAL_PRINTF("-1024               ",  20, "%-20d",      -1024)
+    CHECK_EQUAL_PRINTF("1024                ",  20, "%-20i",      1024)
+    CHECK_EQUAL_PRINTF("-1024               ",  20, "%-20i",      -1024)
+    CHECK_EQUAL_PRINTF("1024                ",  20, "%-20u",      1024u)
+    CHECK_EQUAL_PRINTF("4294966272          ",  20, "%-20u",      -1024u)
+    CHECK_EQUAL_PRINTF("777                 ",  20, "%-20o",      0777u)
+    CHECK_EQUAL_PRINTF("37777777001         ",  20, "%-20o",      -0777u)
+    CHECK_EQUAL_PRINTF("1234abcd            ",  20, "%-20x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("edcb5433            ",  20, "%-20x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("1234ABCD            ",  20, "%-20X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("EDCB5433            ",  20, "%-20X",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("x                   ",  20, "%-20c",      'x')
+
+    /* Feldbreite: Padding mit 0 */
+    CHECK_EQUAL_PRINTF("00000000000000001024",  20, "%020d",      1024)
+    CHECK_EQUAL_PRINTF("-0000000000000001024",  20, "%020d",      -1024)
+    CHECK_EQUAL_PRINTF("00000000000000001024",  20, "%020i",      1024)
+    CHECK_EQUAL_PRINTF("-0000000000000001024",  20, "%020i",      -1024)
+    CHECK_EQUAL_PRINTF("00000000000000001024",  20, "%020u",      1024u)
+    CHECK_EQUAL_PRINTF("00000000004294966272",  20, "%020u",      -1024u)
+    CHECK_EQUAL_PRINTF("00000000000000000777",  20, "%020o",      0777u)
+    CHECK_EQUAL_PRINTF("00000000037777777001",  20, "%020o",      -0777u)
+    CHECK_EQUAL_PRINTF("0000000000001234abcd",  20, "%020x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("000000000000edcb5433",  20, "%020x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("0000000000001234ABCD",  20, "%020X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("000000000000EDCB5433",  20, "%020X",      -0x1234abcdu)
+
+    /* Feldbreite: Padding und alternative Form */
+    CHECK_EQUAL_PRINTF("                0777",  20, "%#20o",      0777u)
+    CHECK_EQUAL_PRINTF("        037777777001",  20, "%#20o",      -0777u)
+    CHECK_EQUAL_PRINTF("          0x1234abcd",  20, "%#20x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("          0xedcb5433",  20, "%#20x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("          0X1234ABCD",  20, "%#20X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("          0XEDCB5433",  20, "%#20X",      -0x1234abcdu)
+
+    CHECK_EQUAL_PRINTF("00000000000000000777",  20, "%#020o",     0777u)
+    CHECK_EQUAL_PRINTF("00000000037777777001",  20, "%#020o",     -0777u)
+    CHECK_EQUAL_PRINTF("0x00000000001234abcd",  20, "%#020x",     0x1234abcdu)
+    CHECK_EQUAL_PRINTF("0x0000000000edcb5433",  20, "%#020x",     -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("0X00000000001234ABCD",  20, "%#020X",     0x1234abcdu)
+    CHECK_EQUAL_PRINTF("0X0000000000EDCB5433",  20, "%#020X",     -0x1234abcdu)
+
+    /* Feldbreite: - hat Vorrang vor 0 */
+    CHECK_EQUAL_PRINTF("Hallo               ",  20, "%0-20s",      "Hallo")
+    CHECK_EQUAL_PRINTF("1024                ",  20, "%0-20d",      1024)
+    CHECK_EQUAL_PRINTF("-1024               ",  20, "%0-20d",      -1024)
+    CHECK_EQUAL_PRINTF("1024                ",  20, "%0-20i",      1024)
+    CHECK_EQUAL_PRINTF("-1024               ",  20, "%0-20i",      -1024)
+    CHECK_EQUAL_PRINTF("1024                ",  20, "%0-20u",      1024u)
+    CHECK_EQUAL_PRINTF("4294966272          ",  20, "%0-20u",      -1024u)
+    CHECK_EQUAL_PRINTF("777                 ",  20, "%-020o",      0777u)
+    CHECK_EQUAL_PRINTF("37777777001         ",  20, "%-020o",      -0777u)
+    CHECK_EQUAL_PRINTF("1234abcd            ",  20, "%-020x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("edcb5433            ",  20, "%-020x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("1234ABCD            ",  20, "%-020X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("EDCB5433            ",  20, "%-020X",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("x                   ",  20, "%-020c",      'x')
+
+    /* Feldbreite: Aus Parameter */
+    CHECK_EQUAL_PRINTF("               Hallo",  20, "%*s",      20, "Hallo")
+    CHECK_EQUAL_PRINTF("                1024",  20, "%*d",      20, 1024)
+    CHECK_EQUAL_PRINTF("               -1024",  20, "%*d",      20, -1024)
+    CHECK_EQUAL_PRINTF("                1024",  20, "%*i",      20, 1024)
+    CHECK_EQUAL_PRINTF("               -1024",  20, "%*i",      20, -1024)
+    CHECK_EQUAL_PRINTF("                1024",  20, "%*u",      20, 1024u)
+    CHECK_EQUAL_PRINTF("          4294966272",  20, "%*u",      20, -1024u)
+    CHECK_EQUAL_PRINTF("                 777",  20, "%*o",      20, 0777u)
+    CHECK_EQUAL_PRINTF("         37777777001",  20, "%*o",      20, -0777u)
+    CHECK_EQUAL_PRINTF("            1234abcd",  20, "%*x",      20, 0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            edcb5433",  20, "%*x",      20, -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            1234ABCD",  20, "%*X",      20, 0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            EDCB5433",  20, "%*X",      20, -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("                   x",  20, "%*c",      20, 'x')
+
+    /* Praezision / Mindestanzahl von Ziffern */
+    CHECK_EQUAL_PRINTF("Hallo heimur",           12, "%.20s",      "Hallo heimur")
+    CHECK_EQUAL_PRINTF("00000000000000001024",   20, "%.20d",      1024)
+    CHECK_EQUAL_PRINTF("-00000000000000001024",  21, "%.20d",      -1024)
+    CHECK_EQUAL_PRINTF("00000000000000001024",   20, "%.20i",      1024)
+    CHECK_EQUAL_PRINTF("-00000000000000001024",  21, "%.20i",      -1024)
+    CHECK_EQUAL_PRINTF("00000000000000001024",   20, "%.20u",      1024u)
+    CHECK_EQUAL_PRINTF("00000000004294966272",   20, "%.20u",      -1024u)
+    CHECK_EQUAL_PRINTF("00000000000000000777",   20, "%.20o",      0777u)
+    CHECK_EQUAL_PRINTF("00000000037777777001",   20, "%.20o",      -0777u)
+    CHECK_EQUAL_PRINTF("0000000000001234abcd",   20, "%.20x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("000000000000edcb5433",   20, "%.20x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("0000000000001234ABCD",   20, "%.20X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("000000000000EDCB5433",   20, "%.20X",      -0x1234abcdu)
+
+    /* Feldbreite und Praezision */
+    CHECK_EQUAL_PRINTF("               Hallo",   20, "%20.5s",     "Hallo heimur")
+    CHECK_EQUAL_PRINTF("               01024",   20, "%20.5d",      1024)
+    CHECK_EQUAL_PRINTF("              -01024",   20, "%20.5d",      -1024)
+    CHECK_EQUAL_PRINTF("               01024",   20, "%20.5i",      1024)
+    CHECK_EQUAL_PRINTF("              -01024",   20, "%20.5i",      -1024)
+    CHECK_EQUAL_PRINTF("               01024",   20, "%20.5u",      1024u)
+    CHECK_EQUAL_PRINTF("          4294966272",   20, "%20.5u",      -1024u)
+    CHECK_EQUAL_PRINTF("               00777",   20, "%20.5o",      0777u)
+    CHECK_EQUAL_PRINTF("         37777777001",   20, "%20.5o",      -0777u)
+    CHECK_EQUAL_PRINTF("            1234abcd",   20, "%20.5x",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("          00edcb5433",   20, "%20.10x",     -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            1234ABCD",   20, "%20.5X",      0x1234abcdu)
+    CHECK_EQUAL_PRINTF("          00EDCB5433",   20, "%20.10X",     -0x1234abcdu)
+
+    /* Praezision: 0 wird ignoriert */
+    CHECK_EQUAL_PRINTF("               Hallo",   20, "%020.5s",    "Hallo heimur")
+    CHECK_EQUAL_PRINTF("               01024",   20, "%020.5d",     1024)
+    CHECK_EQUAL_PRINTF("              -01024",   20, "%020.5d",     -1024)
+    CHECK_EQUAL_PRINTF("               01024",   20, "%020.5i",     1024)
+    CHECK_EQUAL_PRINTF("              -01024",   20, "%020.5i",     -1024)
+    CHECK_EQUAL_PRINTF("               01024",   20, "%020.5u",     1024u)
+    CHECK_EQUAL_PRINTF("          4294966272",   20, "%020.5u",     -1024u)
+    CHECK_EQUAL_PRINTF("               00777",   20, "%020.5o",     0777u)
+    CHECK_EQUAL_PRINTF("         37777777001",   20, "%020.5o",     -0777u)
+    CHECK_EQUAL_PRINTF("            1234abcd",   20, "%020.5x",     0x1234abcdu)
+    CHECK_EQUAL_PRINTF("          00edcb5433",   20, "%020.10x",    -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            1234ABCD",   20, "%020.5X",     0x1234abcdu)
+    CHECK_EQUAL_PRINTF("          00EDCB5433",   20, "%020.10X",    -0x1234abcdu)
+
+    /* Praezision 0 */
+    CHECK_EQUAL_PRINTF("",                        0, "%.0s",        "Hallo heimur")
+    CHECK_EQUAL_PRINTF("                    ",   20, "%20.0s",      "Hallo heimur")
+    CHECK_EQUAL_PRINTF("",                        0, "%.s",         "Hallo heimur")
+    CHECK_EQUAL_PRINTF("                    ",   20, "%20.s",       "Hallo heimur")
+    CHECK_EQUAL_PRINTF("                1024",   20, "%20.0d",      1024)
+    CHECK_EQUAL_PRINTF("               -1024",   20, "%20.d",       -1024)
+    CHECK_EQUAL_PRINTF("                1024",   20, "%20.0i",      1024)
+    CHECK_EQUAL_PRINTF("               -1024",   20, "%20.i",       -1024)
+    CHECK_EQUAL_PRINTF("                1024",   20, "%20.u",       1024u)
+    CHECK_EQUAL_PRINTF("          4294966272",   20, "%20.0u",      -1024u)
+    CHECK_EQUAL_PRINTF("                 777",   20, "%20.o",       0777u)
+    CHECK_EQUAL_PRINTF("         37777777001",   20, "%20.0o",      -0777u)
+    CHECK_EQUAL_PRINTF("            1234abcd",   20, "%20.x",       0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            edcb5433",   20, "%20.0x",      -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            1234ABCD",   20, "%20.X",       0x1234abcdu)
+    CHECK_EQUAL_PRINTF("            EDCB5433",   20, "%20.0X",      -0x1234abcdu)
+#if 0
+    // not conforming if value == 0
+    // but printf's behavior is quite surprising... at least for me
+    CHECK_EQUAL_PRINTF("                    ",   20, "%20.d",       0)
+    CHECK_EQUAL_PRINTF("                    ",   20, "%20.i",       0)
+    CHECK_EQUAL_PRINTF("                    ",   20, "%20.u",       0u)
+    CHECK_EQUAL_PRINTF("                    ",   20, "%20.o",       0u)
+    CHECK_EQUAL_PRINTF("                    ",   20, "%20.x",       0u)
+    CHECK_EQUAL_PRINTF("                    ",   20, "%20.X",       0u)
+#endif
+
+    /*
+     * Praezision und Feldbreite aus Parameter.
+     * + hat Vorrang vor <space>, - hat Vorrang vor 0 (das eh ignoriert wird,
+     * weil eine Praezision angegeben ist)
+     */
+    CHECK_EQUAL_PRINTF("Hallo               ",   20, "% -0+*.*s",    20,  5, "Hallo heimur")
+    CHECK_EQUAL_PRINTF("+01024              ",   20, "% -0+*.*d",    20,  5,  1024)
+    CHECK_EQUAL_PRINTF("-01024              ",   20, "% -0+*.*d",    20,  5,  -1024)
+    CHECK_EQUAL_PRINTF("+01024              ",   20, "% -0+*.*i",    20,  5,  1024)
+    CHECK_EQUAL_PRINTF("-01024              ",   20, "% 0-+*.*i",    20,  5,  -1024)
+    CHECK_EQUAL_PRINTF("01024               ",   20, "% 0-+*.*u",    20,  5,  1024u)
+    CHECK_EQUAL_PRINTF("4294966272          ",   20, "% 0-+*.*u",    20,  5,  -1024u)
+    CHECK_EQUAL_PRINTF("00777               ",   20, "%+ -0*.*o",    20,  5,  0777u)
+    CHECK_EQUAL_PRINTF("37777777001         ",   20, "%+ -0*.*o",    20,  5,  -0777u)
+    CHECK_EQUAL_PRINTF("1234abcd            ",   20, "%+ -0*.*x",    20,  5,  0x1234abcdu)
+    CHECK_EQUAL_PRINTF("00edcb5433          ",   20, "%+ -0*.*x",    20, 10,  -0x1234abcdu)
+    CHECK_EQUAL_PRINTF("1234ABCD            ",   20, "% -+0*.*X",    20,  5,  0x1234abcdu)
+    CHECK_EQUAL_PRINTF("00EDCB5433          ",   20, "% -+0*.*X",    20, 10,  -0x1234abcdu)
+}

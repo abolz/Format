@@ -384,6 +384,17 @@ static int InsertThousandsSep(char* first, char* last, int off1, int off2, char 
 
 ErrorCode fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext)
 {
+    // N1570, p. 310
+    //
+    // '+' flag:
+    //      The result of a signed conversion always begins with a plus or minus sign. (It
+    //      begins with a sign only when a negative value is converted if this flag is not
+    //      specified.)
+    //
+    // 'space' flag:
+    //      If the first character of a signed conversion is not a sign, or if a signed conversion
+    //      results in no characters, a space is prefixed to the result
+
     uint64_t number = zext;
     char     conv = spec.conv;
     char     sign = '\0';
@@ -1737,12 +1748,17 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
 {
     assert(f != end && *(f - 1) == '%');
 
+    bool has_precision = false;
+
     for (;;)
     {
         switch (*f)
         {
 // Flags
         case '-':
+            // N1570, p. 310:
+            // If the 0 and - flags both appear, the 0 flag is ignored
+            spec.zero = false;
             spec.align = Align::left;
             ++f;
             break;
@@ -1751,7 +1767,10 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
             ++f;
             break;
         case ' ':
-            spec.sign = Sign::space;
+            // N1570, p. 310:
+            // If the space and + flags both appear, the space flag is ignored
+            if (spec.sign != Sign::plus)
+                spec.sign = Sign::space;
             ++f;
             break;
         case '#':
@@ -1759,7 +1778,10 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
             ++f;
             break;
         case '0':
-            spec.zero = true;
+            // N1570, p. 310:
+            // If the 0 and - flags both appear, the 0 flag is ignored
+            if (spec.align != Align::left)
+                spec.zero = true;
             ++f;
             break;
         case '\'':
@@ -1806,6 +1828,7 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
             break;
 // Precision
         case '.':
+            has_precision = true;
             ++f;
             if (f == end)
                 return ErrorCode::invalid_format_string;
@@ -1851,6 +1874,11 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
         case 'X':
         case 'b':
         case 'B':
+            // N1570, pp. 310:
+            // For d, i, o, u, x, and X conversions, if a precision is specified, the 0 flag is ignored
+            if (has_precision)
+                spec.zero = false;
+            FALLTHROUGH;
         case 'f':
         case 'F':
         case 'e':

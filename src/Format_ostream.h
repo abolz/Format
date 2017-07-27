@@ -24,58 +24,11 @@
 #include "Format_core.h"
 
 #include <ostream>
-#include <sstream>
 #include <utility>
 
 namespace fmtxx {
 
 namespace impl {
-
-template <typename T, typename = void>
-struct IsStreamable
-    : std::false_type
-{
-};
-
-template <typename T>
-struct IsStreamable<T, Void_t< decltype(std::declval<std::ostream&>() << std::declval<T const&>()) >>
-    : std::true_type
-{
-};
-
-#if 1
-
-// Provides access to the underlying write buffer.
-// To avoid having to make a copy of the string in StreamValue below.
-class StreamBuf : public std::stringbuf
-{
-public:
-    char* pub_pbase() const { return pbase(); }
-    char* pub_pptr() const { return pptr(); }
-};
-
-// Allocates, but at least spec.fill and spec.width are handled correctly...
-template <typename T>
-struct StreamValue<T, void>
-{
-    static_assert(IsStreamable<T>::value,
-        "Formatting objects of type T is not supported. "
-        "Specialize FormatValue<T> or TreatAsString<T>, or implement operator<<(std::ostream&, T const&).");
-
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const
-    {
-        StreamBuf buf;
-        std::ostream os{&buf};
-        os << val;
-        if (os.bad())
-            return ErrorCode::io_error;
-        if (os.fail())
-            return ErrorCode::conversion_error;
-        return Util::format_string(w, spec, buf.pub_pbase(), static_cast<size_t>(buf.pub_pptr() - buf.pub_pbase()));
-    }
-};
-
-#else
 
 class StreamBuf : public std::streambuf
 {
@@ -89,9 +42,9 @@ protected:
     {
         if (traits_type::eq_int_type(ch, traits_type::eof()))
             return 0;
-        if (Failed(w_.put(static_cast<char>(ch))))
+        if (Failed(w_.put(traits_type::to_char_type(ch))))
             return traits_type::eof(); // error
-        return traits_type::to_int_type(ch);
+        return ch;
     }
 
     std::streamsize xsputn(char const* str, std::streamsize len) override
@@ -105,7 +58,18 @@ protected:
     }
 };
 
-// Does not allocate, but ignores all FormatSpec fields...
+template <typename T, typename = void>
+struct IsStreamable
+    : std::false_type
+{
+};
+
+template <typename T>
+struct IsStreamable<T, Void_t< decltype(std::declval<std::ostream&>() << std::declval<T const&>()) >>
+    : std::true_type
+{
+};
+
 template <typename T>
 struct StreamValue<T, void>
 {
@@ -113,6 +77,9 @@ struct StreamValue<T, void>
         "Formatting objects of type T is not supported. "
         "Specialize 'FormatValue' or 'TreatAsString', or implement 'operator<<(std::ostream&, T const&)'.");
 
+    // Ignores all FormatSpec fields...
+    // Setting the stream flags like width, fill-char etc. is not guarenteed to work since many
+    // implementations of operator<< set some flags themselves (possibly resetting on exit).
     ErrorCode operator()(Writer& w, FormatSpec const& /*spec*/, T const& val) const
     {
         StreamBuf buf{w};
@@ -122,11 +89,9 @@ struct StreamValue<T, void>
             return ErrorCode::io_error;
         if (os.fail())
             return ErrorCode::conversion_error;
-        return ErrorCode::success;
+        return {};
     }
 };
-
-#endif
 
 FMTXX_API ErrorCode DoFormat(std::ostream& os, cxx::string_view format, Arg const* args, Types types);
 FMTXX_API ErrorCode DoPrintf(std::ostream& os, cxx::string_view format, Arg const* args, Types types);

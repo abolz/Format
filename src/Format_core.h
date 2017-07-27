@@ -620,27 +620,14 @@ public:
     int size() const { return size_; }
     int max_size() const { return kMaxArgs; }
 
-    // Add arguments to this list.
-    // PRE: max_size() - size() >= sizeof...(Ts)
-    template <typename ...Ts>
-    void push_back(Ts&&... vals)
-    {
-        static_assert(sizeof...(Ts) >= 1, "Too few arguments");
-        static_assert(sizeof...(Ts) <= kMaxArgs, "Too many arguments");
-
-        assert(size_ + sizeof...(Ts) <= kMaxArgs);
-
-        int const unused[] = { (push_back_(static_cast<Ts&&>(vals)), 0)... };
-        static_cast<void>(unused);
-    }
-
-private:
+    // Add an argument to this list.
+    // PRE: size() < max_size()
     template <typename T>
-    void push_back_(T&& val)
+    void push_back(T&& val)
     {
-        static_assert(
-            std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<typename std::decay<T>::type>::value,
+        static_assert(std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<typename std::decay<T>::type>::value,
             "Adding temporaries of non-built-in types to FormatArgs is not allowed. ");
+        assert(size_ < kMaxArgs);
 
         args_[size_] = static_cast<T&&>(val);
         types_.set_type(size_, impl::TypeFor<T>::value);

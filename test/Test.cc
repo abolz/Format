@@ -1157,8 +1157,9 @@ TEST_CASE("FormatArgs_1")
     int i = 42;
     args.push_back(i);
     args.push_back(42);
-    //args.push_back("hello", std::string("world"));     // should not compile
-    args.push_back("hello", str_world);
+    args.push_back("hello");
+    //args.push_back(std::string("world"));     // should not compile
+    args.push_back(str_world);
     args.push_back(cxx::string_view("hello"));
 
     auto const s = fmtxx::string_format("{} {} {} {} {}", args).str;

@@ -215,8 +215,8 @@ namespace impl
     {
         static_assert(AlwaysFalse<T>::value,
             "Formatting objects of type T is not supported. "
-            "Specialize 'FormatValue' or 'TreatAsString', or implement 'operator<<(std::ostream&, T const&)' "
-            "and include 'Format_ostream.h'.");
+            "Specialize FormatValue<T> or TreatAsString<T>, or implement operator<<(std::ostream&, T const&) "
+            "and include Format_ostream.h.");
     };
 }
 
@@ -380,21 +380,11 @@ struct FormatValue<void>
 
 namespace impl {
 
-#if 0
-// C++14 or later
-
-template <typename ...Ts>
-using Void_t = void;
-
-#else
-
 template <typename ...>
 struct AlwaysVoid { using type = void; };
 
 template <typename ...Ts>
 using Void_t = typename AlwaysVoid<Ts...>::type;
-
-#endif
 
 enum struct Type {
     none,
@@ -413,6 +403,99 @@ enum struct Type {
     double_,    // Includes 'float'
     last,       // Unused -- must be last.
 };
+static constexpr unsigned LastType = static_cast<unsigned>(Type::last);
+
+template <Type Val>
+using Type_t = std::integral_constant<Type, Val>;
+
+template <typename T> struct SelectType                     : Type_t<TreatAsString<T>::value ? Type::string : Type::other> {};
+template <>           struct SelectType<FormatSpec        > : Type_t<Type::formatspec> {};
+template <>           struct SelectType<char const*       > : Type_t<Type::pchar> {};
+template <>           struct SelectType<char*             > : Type_t<Type::pchar> {};
+template <>           struct SelectType<std::nullptr_t    > : Type_t<Type::pvoid> {};
+template <>           struct SelectType<void const*       > : Type_t<Type::pvoid> {};
+template <>           struct SelectType<void*             > : Type_t<Type::pvoid> {};
+template <>           struct SelectType<bool              > : Type_t<Type::bool_> {};
+template <>           struct SelectType<char              > : Type_t<Type::char_> {};
+template <>           struct SelectType<signed char       > : Type_t<Type::schar> {};
+template <>           struct SelectType<signed short      > : Type_t<Type::sshort> {};
+template <>           struct SelectType<signed int        > : Type_t<Type::sint> {};
+#if LONG_MAX == INT_MAX
+template <>           struct SelectType<signed long       > : Type_t<Type::sint> {};
+#else
+template <>           struct SelectType<signed long       > : Type_t<Type::slonglong> {};
+#endif
+template <>           struct SelectType<signed long long  > : Type_t<Type::slonglong> {};
+template <>           struct SelectType<unsigned char     > : Type_t<Type::ulonglong> {};
+template <>           struct SelectType<unsigned short    > : Type_t<Type::ulonglong> {};
+template <>           struct SelectType<unsigned int      > : Type_t<Type::ulonglong> {};
+template <>           struct SelectType<unsigned long     > : Type_t<Type::ulonglong> {};
+template <>           struct SelectType<unsigned long long> : Type_t<Type::ulonglong> {};
+template <>           struct SelectType<double            > : Type_t<Type::double_> {};
+template <>           struct SelectType<float             > : Type_t<Type::double_> {};
+
+template <typename T>
+using TypeFor = typename SelectType<typename std::decay<T>::type>::type;
+
+template <typename T, Type Val = SelectType<T>::value>
+struct SelectType_checked : Type_t<Val>
+{
+};
+
+template <typename T>
+struct SelectType_checked<T, Type::other> : Type_t<Type::other>
+{
+    static_assert(!std::is_function<T>::value,
+        "Formatting function types is not supported");
+    static_assert(!std::is_pointer<T>::value && !std::is_member_pointer<T>::value,
+        "Formatting non-void pointer types is not allowed. A cast to void* or intptr_t is required.");
+    static_assert(!std::is_same<FormatArgs, T>::value,
+        "Formatting variadic FormatArgs in combination with other arguments "
+        "is (currently) not supported. The only valid syntax for FormatArgs is "
+        "as a single argument to the formatting functions.");
+};
+
+template <typename T, typename = void>
+struct MayTreatAsString : std::false_type {};
+
+template <typename T>
+struct MayTreatAsString<T, Void_t< decltype(std::declval<T const&>().data(), std::declval<T const&>().size()) >>
+    : std::integral_constant<
+        bool,
+        std::is_convertible< decltype(std::declval<T const&>().data()), char const* >::value &&
+        std::is_convertible< decltype(std::declval<T const&>().size()), size_t >::value
+      >
+{
+};
+
+template <typename T>
+struct SelectType_checked<T, Type::string> : Type_t<Type::string>
+{
+    static_assert(MayTreatAsString<T>::value,
+        "TreatAsString<T> requires T to be a valid string type, i.e. T must provide "
+        "member functions data() and size() and their return types must be convertible "
+        "to 'char const*' and 'size_t' resp. Implement FormatValue<T> instead.");
+};
+
+template <typename T>
+using TypeFor_checked = typename SelectType_checked<typename std::decay<T>::type>::type;
+
+template <typename T>
+struct IsSafeRValueType : std::integral_constant<
+    bool,
+    //
+    // Do not allow to push rvalue references of these types into a FormatArg list.
+    // The Arg class stores pointers to these arguments.
+    //
+    TypeFor<T>::value != Type::formatspec &&
+    TypeFor<T>::value != Type::string &&
+    TypeFor<T>::value != Type::other
+    >
+{
+};
+
+template <>
+struct IsSafeRValueType<cxx::string_view> : std::true_type {};
 
 struct Arg
 {
@@ -442,113 +525,38 @@ struct Arg
         double             double_;
     };
 
+    template <typename T> Arg(T const& v, Type_t<Type::formatspec>) : pvoid(&v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::string>    ) : string{v.data(), v.size()}  {}
+    template <typename T> Arg(T const& v, Type_t<Type::other>     ) : other{&v, &FormatValue_fn<T>} {}
+    template <typename T> Arg(T const& v, Type_t<Type::pchar>     ) : pchar(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::pvoid>     ) : pvoid(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::bool_>     ) : bool_(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::char_>     ) : char_(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::schar>     ) : schar(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::sshort>    ) : sshort(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::sint>      ) : sint(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::slonglong> ) : slonglong(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::ulonglong> ) : ulonglong(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::double_>   ) : double_(v) {}
+
     Arg() = default;
 
-    template <typename T> Arg(T const& v, /*IsString*/ std::true_type) : string{v.data(), v.size()} {}
-    template <typename T> Arg(T const& v, /*IsString*/ std::false_type) : other{ &v, &FormatValue_fn<T> }
-    {
-        static_assert(
-            !std::is_function<T>::value,
-            "Formatting function types is not supported");
-        static_assert(
-            !std::is_pointer<T>::value && !std::is_member_pointer<T>::value,
-            "Formatting non-void pointer types is not allowed. "
-            "A cast to void* or intptr_t is required.");
-        static_assert(
-            !std::is_same<FormatArgs, T>::value,
-            "Formatting variadic FormatArgs in combination with other arguments "
-            "is (currently) not supported. The only valid syntax for FormatArgs is "
-            "as a single argument to the formatting functions.");
-    }
-
-    // XXX:
-    // Keep in sync with SelectType<> below!!!
     template <typename T>
-    Arg(T                  const& v) : Arg(v, TreatAsString<typename std::decay<T>::type>{}) {}
-    Arg(FormatSpec         const& v) : pvoid(&v) {}
-    Arg(char const*        const& v) : pchar(v) {}
-    Arg(char*              const& v) : pchar(v) {}
-    Arg(std::nullptr_t     const& v) : pvoid(v) {}
-    Arg(void const*        const& v) : pvoid(v) {}
-    Arg(void*              const& v) : pvoid(v) {}
-    Arg(bool               const& v) : bool_(v) {}
-    Arg(char               const& v) : char_(v) {}
-    Arg(signed char        const& v) : schar(v) {}
-    Arg(signed short       const& v) : sshort(v) {}
-    Arg(signed int         const& v) : sint(v) {}
-#if LONG_MAX == INT_MAX
-    Arg(signed long        const& v) : sint(v) {}
-#else
-    Arg(signed long        const& v) : slonglong(v) {}
-#endif
-    Arg(signed long long   const& v) : slonglong(v) {}
-    Arg(unsigned char      const& v) : ulonglong(v) {}
-    Arg(unsigned short     const& v) : ulonglong(v) {}
-    Arg(unsigned int       const& v) : ulonglong(v) {}
-    Arg(unsigned long      const& v) : ulonglong(v) {}
-    Arg(unsigned long long const& v) : ulonglong(v) {}
-    Arg(double             const& v) : double_(v) {}
-    Arg(float              const& v) : double_(static_cast<double>(v)) {}
+    /*implicit*/ Arg(T const& v) : Arg(v, TypeFor_checked<T>{})
+    {
+    }
 };
 
 template <size_t N>
 using ArgArray = typename std::conditional< N != 0, Arg[], Arg* >::type;
 
-// XXX:
-// Keep in sync with Arg::Arg() above!!!
-template <typename T> struct SelectType                     { static const Type value = TreatAsString<T>::value ? Type::string : Type::other; };
-template <>           struct SelectType<FormatSpec        > { static const Type value = Type::formatspec; };
-template <>           struct SelectType<char const*       > { static const Type value = Type::pchar; };
-template <>           struct SelectType<char*             > { static const Type value = Type::pchar; };
-template <>           struct SelectType<std::nullptr_t    > { static const Type value = Type::pvoid; };
-template <>           struct SelectType<void const*       > { static const Type value = Type::pvoid; };
-template <>           struct SelectType<void*             > { static const Type value = Type::pvoid; };
-template <>           struct SelectType<bool              > { static const Type value = Type::bool_; };
-template <>           struct SelectType<char              > { static const Type value = Type::char_; };
-template <>           struct SelectType<signed char       > { static const Type value = Type::schar; };
-template <>           struct SelectType<signed short      > { static const Type value = Type::sshort; };
-template <>           struct SelectType<signed int        > { static const Type value = Type::sint; };
-#if LONG_MAX == INT_MAX
-template <>           struct SelectType<signed long       > { static const Type value = Type::sint; };
-#else
-template <>           struct SelectType<signed long       > { static const Type value = Type::slonglong; };
-#endif
-template <>           struct SelectType<signed long long  > { static const Type value = Type::slonglong; };
-template <>           struct SelectType<unsigned char     > { static const Type value = Type::ulonglong; };
-template <>           struct SelectType<unsigned short    > { static const Type value = Type::ulonglong; };
-template <>           struct SelectType<unsigned int      > { static const Type value = Type::ulonglong; };
-template <>           struct SelectType<unsigned long     > { static const Type value = Type::ulonglong; };
-template <>           struct SelectType<unsigned long long> { static const Type value = Type::ulonglong; };
-template <>           struct SelectType<double            > { static const Type value = Type::double_; };
-template <>           struct SelectType<float             > { static const Type value = Type::double_; };
-
-template <typename T>
-struct TypeFor : SelectType<typename std::decay<T>::type>
-{
-};
-
-template <typename T>
-struct IsSafeRValueType : std::integral_constant<
-    bool,
-    //
-    // Do not allow to push rvalue references of these types into a FormatArg list.
-    // The Arg class stores pointers to these arguments.
-    //
-    TypeFor<T>::value != Type::formatspec &&
-    TypeFor<T>::value != Type::string &&
-    TypeFor<T>::value != Type::other
-    >
-{
-};
-
-template <>
-struct IsSafeRValueType<cxx::string_view> : std::true_type {};
-
 struct Types
 {
     using value_type = uint64_t;
 
-    static constexpr int kBitsPerArg = 4;
+    static constexpr int StaticLog2(unsigned n) { return n < 2 ? 1 : 1 + StaticLog2(n / 2); }
+
+    static constexpr int kBitsPerArg = 4; // Should be computed from Type::last...
     static constexpr int kMaxArgs    = CHAR_BIT * sizeof(value_type) / kBitsPerArg;
     static constexpr int kMaxTypes   = 1 << kBitsPerArg;
     static constexpr int kTypeMask   = kMaxTypes - 1;
@@ -565,23 +573,18 @@ struct Types
     {
     }
 
-    Type operator[](int index) const {
+    Type operator[](int index) const
+    {
         return (index >= 0 && index < kMaxArgs) ? get_type(index) : Type::none;
     }
 
     Type get_type(int index) const
     {
-        assert(index >= 0);
-        assert(index < kMaxArgs);
-        auto const t = (types >> (kBitsPerArg * index)) & kTypeMask;
-        assert(t < kMaxTypes);
-        return static_cast<Type>(t);
+        return static_cast<Type>((types >> (kBitsPerArg * index)) & kTypeMask);
     }
 
     void set_type(int index, Type type)
     {
-        assert(index >= 0);
-        assert(index < kMaxArgs);
         types |= static_cast<value_type>(type) << (kBitsPerArg * index);
     }
 

@@ -282,7 +282,7 @@ TEST_CASE("General_Printf")
     CHECK("2 1 1 2"                         == PrintfArgs("%2$d %d %1$d %d",                          1, 2));
 }
 
-TEST_CASE("Strings_1")
+TEST_CASE("Strings")
 {
     CHECK(""  == FormatArgs(""));
     CHECK("x" == FormatArgs("x"));
@@ -300,7 +300,10 @@ TEST_CASE("Strings_1")
     CHECK("     xxx" == FormatArgs("{:>8}", "xxx"));
     CHECK("xxx     " == FormatArgs("{:<8}", "xxx"));
     CHECK("  xxx   " == FormatArgs("{:^8}", "xxx"));
+}
 
+TEST_CASE("Strings")
+{
     CHECK(":Hello, world!:"       == FormatArgs(":{}:",         "Hello, world!"));
     CHECK(":  Hello, world!:"     == FormatArgs(":{:15}:",      "Hello, world!"));
     CHECK(":Hello, wor:"          == FormatArgs(":{:.10}:",     "Hello, world!"));
@@ -321,7 +324,10 @@ TEST_CASE("Strings_1")
 
     std::string str = "hello hello hello hello hello hello hello hello hello hello ";
     CHECK("hello hello hello hello hello hello hello hello hello hello " == FormatArgs("{}", str));
+}
 
+TEST_CASE("Strings")
+{
     CHECK(">---<" == FormatArgs(">{}<", "---"));
     CHECK("<--->" == FormatArgs("<{}>", "---"));
     CHECK(">---<" == FormatArgs(">{0}<", "---"));
@@ -332,7 +338,10 @@ TEST_CASE("Strings_1")
     CHECK(">--->" == FormatArgs(">{0:}<s}>", "---"));
     CHECK("<---<" == FormatArgs("<{0:}>s}<", "---"));
     CHECK("^---^" == FormatArgs("^{0:}^s}^", "---"));
+}
 
+TEST_CASE("Strings")
+{
     CHECK("(null)"     == FormatArgs("{}",      (char*)0));
     CHECK("(null)"     == FormatArgs("{}",      (char const*)0));
     CHECK("(null)"     == FormatArgs("{:.3}",   (char const*)0));
@@ -346,7 +355,10 @@ TEST_CASE("Strings_1")
     CHECK("(null)"     == PrintfArgs("%.10s",  (char const*)0));
     CHECK("(null)"     == PrintfArgs("%3.3s",  (char const*)0));
     CHECK("    (null)" == PrintfArgs("%10.3s", (char const*)0));
+}
 
+TEST_CASE("Strings")
+{
     std::string spad = std::string(128, ' ');
     CHECK(spad.c_str() == FormatArgs("{:128}", ' '));
 
@@ -361,7 +373,7 @@ TEST_CASE("Strings_1")
     CHECK("hello" == FormatArgs("{}", arr1));
 }
 
-TEST_CASE("Ints_1")
+TEST_CASE("Ints")
 {
     CHECK("2 1 1 2" == FormatArgs("{1} {} {0} {}", 1, 2));
 
@@ -464,7 +476,10 @@ TEST_CASE("Ints_1")
     CHECK("fffffffffffedcbb" == FormatArgs("{:x}",   (signed long long)-V));
     CHECK("12345"            == FormatArgs("{:X}",   (signed long long) V));
     CHECK("FFFFFFFFFFFEDCBB" == FormatArgs("{:X}",   (signed long long)-V));
+}
 
+TEST_CASE("Ints")
+{
     CHECK("1'234'567'890" == FormatArgs("{:'13}", 1234567890));
     CHECK("  123'456'789" == FormatArgs("{:'13}", 123456789));
     CHECK("   12'345'678" == FormatArgs("{:'13}", 12345678));
@@ -516,13 +531,19 @@ TEST_CASE("Ints_1")
     CHECK("        1" == FormatArgs("{:_9b}", 0x01));
     CHECK("        0" == FormatArgs("{:_9b}", 0x00));
     CHECK("1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111_1111" == FormatArgs("{:_b}", UINT64_MAX));
+}
 
+TEST_CASE("Ints")
+{
     CHECK("4294966062" == FormatArgs("{:u}", -1234));
     CHECK("4294966062" == FormatArgs("{: u}", -1234));
     CHECK("4294966062" == FormatArgs("{:+u}", -1234));
     CHECK("4294966062" == FormatArgs("{:-u}", -1234));
     CHECK("18446744073709550382" == FormatArgs("{:u}", -1234ll));
+}
 
+TEST_CASE("Ints")
+{
     CHECK("0"          == FormatArgs("{:x}",  0));
     CHECK("0"          == FormatArgs("{:b}",  0));
     CHECK("0"          == FormatArgs("{:o}",  0));
@@ -549,7 +570,7 @@ TEST_CASE("Ints_1")
     CHECK("        01" == FormatArgs("{:#10o}",  1));
 }
 
-TEST_CASE("Floats_1")
+TEST_CASE("Floats")
 {
     CHECK(
         "243546080556034731077856379609316893158278902575447060151047"
@@ -579,7 +600,10 @@ TEST_CASE("Floats_1")
         "911014510378627381672509558373897335989936648099411642057026"
         "37090279242767544565229087538682506419718265533447265625"
             == FormatArgs("{:.1074f}", std::numeric_limits<double>::denorm_min()));
+}
 
+TEST_CASE("Floats")
+{
     static const double PI  = 3.1415926535897932384626433832795;
 
     CHECK("0.000000"  == FormatArgs("{:f}",   0.0));
@@ -644,7 +668,10 @@ TEST_CASE("Floats_1")
     CHECK("-3.141593....." == FormatArgs("{:.<+14f}",   -PI));
     CHECK(".3.141593....." == FormatArgs("{:.< 14f}",    PI));
     CHECK("-3.141593....." == FormatArgs("{:.< 14f}",   -PI));
+}
 
+TEST_CASE("Floats")
+{
     CHECK("0.010000" == FormatArgs("{:f}", 0.01));
 
     CHECK("1.000000"     == FormatArgs("{:f}",  1.0));
@@ -684,7 +711,10 @@ TEST_CASE("Floats_1")
     CHECK("1.234568E+04" == FormatArgs("{:E}",  12345.6789));
     CHECK("12345.7"      == FormatArgs("{:g}",  12345.6789));
     CHECK("1.23e+04"     == FormatArgs("{:.3g}",  12345.6789));
+}
 
+TEST_CASE("Floats")
+{
     CHECK("0"                    == FormatArgs("{:s}", 0.0));
     CHECK("10"                   == FormatArgs("{:s}", 10.0));
     CHECK("10"                   == FormatArgs("{:S}", 10.0));
@@ -713,14 +743,20 @@ TEST_CASE("Floats_1")
     CHECK("-0x000001.500p+5"     == FormatArgs("{:016.3a}", -42.0));
     CHECK("-0x00001.5000p+5"     == FormatArgs("{:016.4a}", -42.0));
     CHECK("-0x0001.50000p+5"     == FormatArgs("{:016.5a}", -42.0));
+}
 
+TEST_CASE("Floats")
+{
     CHECK("1p-1022"   == FormatArgs("{:x}", std::numeric_limits<double>::min()));
     CHECK("1p-1074"   == FormatArgs("{:x}", std::numeric_limits<double>::denorm_min()));
     CHECK("1P-1074"   == FormatArgs("{:X}", std::numeric_limits<double>::denorm_min()));
     CHECK("0x1p-1022" == FormatArgs("{:#x}", std::numeric_limits<double>::min()));
     CHECK("0x1p-1074" == FormatArgs("{:#x}", std::numeric_limits<double>::denorm_min()));
     CHECK("0X1P-1074" == FormatArgs("{:#X}", std::numeric_limits<double>::denorm_min()));
+}
 
+TEST_CASE("Floats")
+{
     CHECK("1.7976931348623157e+308"  == FormatArgs("{:s}",  std::numeric_limits<double>::max()));
     CHECK("1.7976931348623157E+308"  == FormatArgs("{:S}",  std::numeric_limits<double>::max()));
     CHECK("-1.7976931348623157e+308" == FormatArgs("{:s}", -std::numeric_limits<double>::max()));
@@ -735,14 +771,20 @@ TEST_CASE("Floats_1")
     CHECK("-                 5e-324" == FormatArgs("{: =24s}", -std::numeric_limits<double>::denorm_min()));
     CHECK("0000000000000000005e-324" == FormatArgs("{:024s}",  std::numeric_limits<double>::denorm_min()));
     CHECK("-000000000000000005e-324" == FormatArgs("{:024s}", -std::numeric_limits<double>::denorm_min()));
+}
 
+TEST_CASE("Floats")
+{
     CHECK("0"       == FormatArgs("{:s}",  0.0));
     CHECK("-0"      == FormatArgs("{:s}",  -0.0));
     CHECK("0p+0"    == FormatArgs("{:x}",  0.0));
     CHECK("-0p+0"   == FormatArgs("{:x}",  -0.0));
     CHECK("0x0p+0"  == FormatArgs("{:#x}",  0.0));
     CHECK("-0x0p+0" == FormatArgs("{:#x}",  -0.0));
+}
 
+TEST_CASE("Floats")
+{
     CHECK("1.0p+0"       == FormatArgs("{:.1x}",   1.0));
     CHECK("1.00p+0"      == FormatArgs("{:.2x}",   1.0));
     CHECK("0x1.0p+0"     == FormatArgs("{:#.1x}",   1.0));
@@ -760,7 +802,10 @@ TEST_CASE("Floats_1")
     CHECK("0x1p+0"    == FormatArgs("{:.0a}",   1.0));
     CHECK("0x1.0p+0"  == FormatArgs("{:.1a}",   1.0));
     CHECK("0x1.00p+0" == FormatArgs("{:.2a}",   1.0));
+}
 
+TEST_CASE("Floats")
+{
     double InvVal = std::numeric_limits<double>::infinity();
     CHECK("inf"    == FormatArgs("{:s}", InvVal));
     CHECK("   inf" == FormatArgs("{:6s}", InvVal));
@@ -794,7 +839,10 @@ TEST_CASE("Floats_1")
     CHECK("   INF" == FormatArgs("{: 06S}", InvVal));
     CHECK("INF..." == FormatArgs("{:.<06S}", InvVal));
     CHECK(".INF.." == FormatArgs("{:.< 06S}", InvVal));
+}
 
+TEST_CASE("Floats")
+{
     double NanVal = std::numeric_limits<double>::quiet_NaN();
     CHECK("nan" == FormatArgs("{:s}", NanVal));
     CHECK("NAN" == FormatArgs("{:S}", NanVal));
@@ -804,7 +852,10 @@ TEST_CASE("Floats_1")
     CHECK("NAN" == FormatArgs("{:S}", -NanVal));
     CHECK("nan" == FormatArgs("{:x}", -NanVal));
     CHECK("NAN" == FormatArgs("{:X}", -NanVal));
+}
 
+TEST_CASE("Floats")
+{
     CHECK("1.000000" == FormatArgs("{:f}",    1.0));
     CHECK("1"        == FormatArgs("{:.f}",   1.0));
     CHECK("1"        == FormatArgs("{:.0f}",  1.0));
@@ -834,7 +885,10 @@ TEST_CASE("Floats_1")
     CHECK("1'234."       == PrintfArgs("%'#.0f", 1234.0));
     CHECK("1'234.0"      == PrintfArgs("%'#.1f", 1234.0));
     CHECK("1'234.00"     == PrintfArgs("%'#.2f", 1234.0));
+}
 
+TEST_CASE("Floats")
+{
     CHECK("1.000000e+00" == FormatArgs("{:e}",    1.0));
     CHECK("1e+00"        == FormatArgs("{:.e}",   1.0));
     CHECK("1e+00"        == FormatArgs("{:.0e}",  1.0));
@@ -844,7 +898,10 @@ TEST_CASE("Floats_1")
     CHECK("1.e+00"       == FormatArgs("{:#.0e}", 1.0));
     CHECK("1.0e+00"      == FormatArgs("{:#.1e}", 1.0));
     CHECK("1.00e+00"     == FormatArgs("{:#.2e}", 1.0));
+}
 
+TEST_CASE("Floats")
+{
     CHECK("1"       == FormatArgs("{:g}", 1.0));
     CHECK("1"       == FormatArgs("{:.g}", 1.0));
     CHECK("1"       == FormatArgs("{:.0g}", 1.0));
@@ -864,7 +921,10 @@ TEST_CASE("Floats_1")
     CHECK("1.e+10"      == FormatArgs("{:#.0g}", 1.0e+10));
     CHECK("1.e+10"      == FormatArgs("{:#.1g}", 1.0e+10));
     CHECK("1.0e+10"     == FormatArgs("{:#.2g}", 1.0e+10));
+}
 
+TEST_CASE("Floats")
+{
     CHECK("0x1.fcac083126e98p+0" == FormatArgs("{:a}", 1.987));
     CHECK("0x2p+0"               == FormatArgs("{:.a}", 1.987));
     CHECK("0x2p+0"               == FormatArgs("{:.0a}", 1.987));
@@ -875,7 +935,10 @@ TEST_CASE("Floats_1")
     CHECK("0x2.p+0"              == FormatArgs("{:#.0a}", 1.987));
     CHECK("0x2.0p+0"             == FormatArgs("{:#.1a}", 1.987));
     CHECK("0x1.fdp+0"            == FormatArgs("{:#.2a}", 1.987));
+}
 
+TEST_CASE("Floats")
+{
     {
         enum { kMaxFloatPrec = 1074 };
         enum { kBufSize = 309 + (309 - 1) / 3 + 1 + kMaxFloatPrec };
@@ -999,7 +1062,7 @@ namespace foo2_ns
 TEST_CASE("Custom_1")
 {
     CHECK("struct Foo '   123'"  == FormatArgs("struct Foo '{:6}'", Foo{123}));
-    CHECK("struct Foo2 '  ---123'" == FormatArgs("struct Foo2 '{:8}'", foo2_ns::Foo2{123}));
+    CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{:8}'", foo2_ns::Foo2{123})); // format-spec is ignored when using operator<< for formatting
     CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{}'", foo2_ns::Foo2{123}));
 
 #if 1
@@ -1247,11 +1310,14 @@ TEST_CASE("FormatArgs_1")
     /**/
 #endif
 
-TEST_CASE("Printf_conformance1")
+TEST_CASE("Printf_conformance")
 {
     /* Ein String ohne alles */
     CHECK_EQUAL_PRINTF("Hallo heimur", 12, "Hallo heimur")
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Einfache Konvertierungen */
     CHECK_EQUAL_PRINTF("Hallo heimur",   12, "%s",       "Hallo heimur")
     CHECK_EQUAL_PRINTF("1024",            4, "%d",       1024)
@@ -1268,10 +1334,16 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("EDCB5433",        8, "%X",       -0x1234abcdu)
     CHECK_EQUAL_PRINTF("x",               1, "%c",       'x')
     CHECK_EQUAL_PRINTF("%",               1, "%%")
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Mit %c kann man auch Nullbytes ausgeben */
     CHECK_EQUAL_PRINTF(std::string("\0", 1),              1, "%c",       '\0')
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Vorzeichen erzwingen (Flag +) */
     CHECK_EQUAL_PRINTF("Hallo heimur",   12, "%+s",      "Hallo heimur")
     CHECK_EQUAL_PRINTF("+1024",           5, "%+d",      1024)
@@ -1287,7 +1359,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("1234ABCD",        8, "%+X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("EDCB5433",        8, "%+X",      -0x1234abcdu)
     CHECK_EQUAL_PRINTF("x",               1, "%+c",      'x')
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Vorzeichenplatzhalter erzwingen (Flag <space>) */
     CHECK_EQUAL_PRINTF("Hallo heimur",   12, "% s",      "Hallo heimur")
     CHECK_EQUAL_PRINTF(" 1024",           5, "% d",      1024)
@@ -1303,7 +1378,11 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("1234ABCD",        8, "% X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("EDCB5433",        8, "% X",      -0x1234abcdu)
     CHECK_EQUAL_PRINTF("x",               1, "% c",      'x')
+}
 
+
+TEST_CASE("Printf_conformance")
+{
     /* Flag + hat Vorrang ueber <space> */
     CHECK_EQUAL_PRINTF("Hallo heimur",   12, "%+ s",      "Hallo heimur")
     CHECK_EQUAL_PRINTF("+1024",           5, "%+ d",      1024)
@@ -1333,7 +1412,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("1234ABCD",        8, "% +X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("EDCB5433",        8, "% +X",      -0x1234abcdu)
     CHECK_EQUAL_PRINTF("x",               1, "% +c",      'x')
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Alternative Form */
     CHECK_EQUAL_PRINTF("0777",            4, "%#o",      0777u)
     CHECK_EQUAL_PRINTF("037777777001",   12, "%#o",      -0777u)
@@ -1347,7 +1429,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("0",               1, "%#x",      0u)
     CHECK_EQUAL_PRINTF("0",               1, "%#X",      0u)
 #endif
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Feldbreite: Kleiner als Ausgabe */
     CHECK_EQUAL_PRINTF("Hallo heimur",   12, "%1s",      "Hallo heimur")
     CHECK_EQUAL_PRINTF("1024",            4, "%1d",      1024)
@@ -1363,7 +1448,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("1234ABCD",        8, "%1X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("EDCB5433",        8, "%1X",      -0x1234abcdu)
     CHECK_EQUAL_PRINTF("x",               1, "%1c",      'x')
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Feldbreite: Groesser als Ausgabe */
     CHECK_EQUAL_PRINTF("               Hallo",  20, "%20s",      "Hallo")
     CHECK_EQUAL_PRINTF("                1024",  20, "%20d",      1024)
@@ -1379,7 +1467,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("            1234ABCD",  20, "%20X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("            EDCB5433",  20, "%20X",      -0x1234abcdu)
     CHECK_EQUAL_PRINTF("                   x",  20, "%20c",      'x')
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Feldbreite: Linksbuendig */
     CHECK_EQUAL_PRINTF("Hallo               ",  20, "%-20s",      "Hallo")
     CHECK_EQUAL_PRINTF("1024                ",  20, "%-20d",      1024)
@@ -1395,7 +1486,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("1234ABCD            ",  20, "%-20X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("EDCB5433            ",  20, "%-20X",      -0x1234abcdu)
     CHECK_EQUAL_PRINTF("x                   ",  20, "%-20c",      'x')
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Feldbreite: Padding mit 0 */
     CHECK_EQUAL_PRINTF("00000000000000001024",  20, "%020d",      1024)
     CHECK_EQUAL_PRINTF("-0000000000000001024",  20, "%020d",      -1024)
@@ -1409,7 +1503,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("000000000000edcb5433",  20, "%020x",      -0x1234abcdu)
     CHECK_EQUAL_PRINTF("0000000000001234ABCD",  20, "%020X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("000000000000EDCB5433",  20, "%020X",      -0x1234abcdu)
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Feldbreite: Padding und alternative Form */
     CHECK_EQUAL_PRINTF("                0777",  20, "%#20o",      0777u)
     CHECK_EQUAL_PRINTF("        037777777001",  20, "%#20o",      -0777u)
@@ -1417,14 +1514,20 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("          0xedcb5433",  20, "%#20x",      -0x1234abcdu)
     CHECK_EQUAL_PRINTF("          0X1234ABCD",  20, "%#20X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("          0XEDCB5433",  20, "%#20X",      -0x1234abcdu)
+}
 
+TEST_CASE("Printf_conformance")
+{
     CHECK_EQUAL_PRINTF("00000000000000000777",  20, "%#020o",     0777u)
     CHECK_EQUAL_PRINTF("00000000037777777001",  20, "%#020o",     -0777u)
     CHECK_EQUAL_PRINTF("0x00000000001234abcd",  20, "%#020x",     0x1234abcdu)
     CHECK_EQUAL_PRINTF("0x0000000000edcb5433",  20, "%#020x",     -0x1234abcdu)
     CHECK_EQUAL_PRINTF("0X00000000001234ABCD",  20, "%#020X",     0x1234abcdu)
     CHECK_EQUAL_PRINTF("0X0000000000EDCB5433",  20, "%#020X",     -0x1234abcdu)
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Feldbreite: - hat Vorrang vor 0 */
     CHECK_EQUAL_PRINTF("Hallo               ",  20, "%0-20s",      "Hallo")
     CHECK_EQUAL_PRINTF("1024                ",  20, "%0-20d",      1024)
@@ -1440,7 +1543,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("1234ABCD            ",  20, "%-020X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("EDCB5433            ",  20, "%-020X",      -0x1234abcdu)
     CHECK_EQUAL_PRINTF("x                   ",  20, "%-020c",      'x')
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Feldbreite: Aus Parameter */
     CHECK_EQUAL_PRINTF("               Hallo",  20, "%*s",      20, "Hallo")
     CHECK_EQUAL_PRINTF("                1024",  20, "%*d",      20, 1024)
@@ -1456,7 +1562,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("            1234ABCD",  20, "%*X",      20, 0x1234abcdu)
     CHECK_EQUAL_PRINTF("            EDCB5433",  20, "%*X",      20, -0x1234abcdu)
     CHECK_EQUAL_PRINTF("                   x",  20, "%*c",      20, 'x')
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Praezision / Mindestanzahl von Ziffern */
     CHECK_EQUAL_PRINTF("Hallo heimur",           12, "%.20s",      "Hallo heimur")
     CHECK_EQUAL_PRINTF("00000000000000001024",   20, "%.20d",      1024)
@@ -1471,7 +1580,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("000000000000edcb5433",   20, "%.20x",      -0x1234abcdu)
     CHECK_EQUAL_PRINTF("0000000000001234ABCD",   20, "%.20X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("000000000000EDCB5433",   20, "%.20X",      -0x1234abcdu)
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Feldbreite und Praezision */
     CHECK_EQUAL_PRINTF("               Hallo",   20, "%20.5s",     "Hallo heimur")
     CHECK_EQUAL_PRINTF("               01024",   20, "%20.5d",      1024)
@@ -1486,7 +1598,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("          00edcb5433",   20, "%20.10x",     -0x1234abcdu)
     CHECK_EQUAL_PRINTF("            1234ABCD",   20, "%20.5X",      0x1234abcdu)
     CHECK_EQUAL_PRINTF("          00EDCB5433",   20, "%20.10X",     -0x1234abcdu)
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Praezision: 0 wird ignoriert */
     CHECK_EQUAL_PRINTF("               Hallo",   20, "%020.5s",    "Hallo heimur")
     CHECK_EQUAL_PRINTF("               01024",   20, "%020.5d",     1024)
@@ -1501,7 +1616,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("          00edcb5433",   20, "%020.10x",    -0x1234abcdu)
     CHECK_EQUAL_PRINTF("            1234ABCD",   20, "%020.5X",     0x1234abcdu)
     CHECK_EQUAL_PRINTF("          00EDCB5433",   20, "%020.10X",    -0x1234abcdu)
+}
 
+TEST_CASE("Printf_conformance")
+{
     /* Praezision 0 */
     CHECK_EQUAL_PRINTF("",                        0, "%.0s",        "Hallo heimur")
     CHECK_EQUAL_PRINTF("                    ",   20, "%20.0s",      "Hallo heimur")
@@ -1529,7 +1647,10 @@ TEST_CASE("Printf_conformance1")
     CHECK_EQUAL_PRINTF("                    ",   20, "%20.x",       0u)
     CHECK_EQUAL_PRINTF("                    ",   20, "%20.X",       0u)
 #endif
+}
 
+TEST_CASE("Printf_conformance")
+{
     /*
      * Praezision und Feldbreite aus Parameter.
      * + hat Vorrang vor <space>, - hat Vorrang vor 0 (das eh ignoriert wird,

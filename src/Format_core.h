@@ -151,16 +151,21 @@ struct Util
 {
     // Note:
     // The string must not be null. This function prints len characters, including '\0's.
-    static FMTXX_API ErrorCode format_string (Writer& w, FormatSpec const& spec, char const* str, size_t len);
+    static FMTXX_API ErrorCode format_string      (Writer& w, FormatSpec const& spec, char const* str, size_t len);
     // Note:
     // This is different from just calling format_string(str, strlen(str)):
     // This function handles nullptr's and if a precision is specified uses strnlen instead of strlen.
-    static FMTXX_API ErrorCode format_string (Writer& w, FormatSpec const& spec, char const* str);
-    static FMTXX_API ErrorCode format_int    (Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext);
-    static FMTXX_API ErrorCode format_bool   (Writer& w, FormatSpec const& spec, bool val);
-    static FMTXX_API ErrorCode format_char   (Writer& w, FormatSpec const& spec, char ch);
-    static FMTXX_API ErrorCode format_pointer(Writer& w, FormatSpec const& spec, void const* pointer);
-    static FMTXX_API ErrorCode format_double (Writer& w, FormatSpec const& spec, double x);
+    static FMTXX_API ErrorCode format_char_pointer(Writer& w, FormatSpec const& spec, char const* str);
+    static FMTXX_API ErrorCode format_int         (Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext);
+    static FMTXX_API ErrorCode format_bool        (Writer& w, FormatSpec const& spec, bool val);
+    static FMTXX_API ErrorCode format_char        (Writer& w, FormatSpec const& spec, char ch);
+    static FMTXX_API ErrorCode format_pointer     (Writer& w, FormatSpec const& spec, void const* pointer);
+    static FMTXX_API ErrorCode format_double      (Writer& w, FormatSpec const& spec, double x);
+
+    static inline ErrorCode format_string(Writer& w, FormatSpec const& spec, cxx::string_view str)
+    {
+        return format_string(w, spec, str.data(), str.size());
+    }
 
     template <typename T>
     static inline ErrorCode format_int(Writer& w, FormatSpec const& spec, T value)
@@ -234,14 +239,14 @@ struct FormatValue<T, typename std::enable_if< TreatAsString<T>::value >::type>
 template <>
 struct FormatValue<char const*> {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, char const* val) const {
-        return Util::format_string(w, spec, val);
+        return Util::format_char_pointer(w, spec, val);
     }
 };
 
 template <>
 struct FormatValue<char*> {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, char* val) const {
-        return Util::format_string(w, spec, val);
+        return Util::format_char_pointer(w, spec, val);
     }
 };
 

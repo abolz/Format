@@ -246,7 +246,7 @@ ErrorCode fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char con
     }
 }
 
-ErrorCode fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* str)
+ErrorCode fmtxx::Util::format_char_pointer(Writer& w, FormatSpec const& spec, char const* str)
 {
     if (str == nullptr)
         return PrintAndPadString(w, spec, "(null)");
@@ -1257,7 +1257,7 @@ static ErrorCode CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& ar
     case Type::pvoid:
         return Util::format_pointer(w, spec, arg.pvoid);
     case Type::pchar:
-        return Util::format_string(w, spec, arg.pchar);
+        return Util::format_char_pointer(w, spec, arg.pchar);
     case Type::char_:
         return Util::format_char(w, spec, arg.char_);
     case Type::bool_:

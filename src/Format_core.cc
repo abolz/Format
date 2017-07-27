@@ -34,18 +34,6 @@
 #include <iterator> // stdext::checked_array_iterator
 #include <limits>
 
-#ifndef __has_cpp_attribute
-#define __has_cpp_attribute(X) 0
-#endif
-
-#if __has_cpp_attribute(clang::fallthrough)
-#  define FALLTHROUGH [[clang::fallthrough]]
-#elif __has_cpp_attribute(fallthrough) || __cplusplus >= 201703 || (_MSC_VER >= 1910 && _HAS_CXX17)
-#  define FALLTHROUGH [[fallthrough]]
-#else
-#  define FALLTHROUGH
-#endif
-
 static_assert(std::numeric_limits<double>::is_iec559 && std::numeric_limits<double>::digits == 53,
     "IEEE-754 double-precision implementation required for formatting floating-point numbers");
 
@@ -400,28 +388,30 @@ ErrorCode fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sex
     char     sign = '\0';
     int      base = 10;
     size_t   nprefix = 0;
+    bool     upper = false;
 
     switch (conv)
     {
     default:
-        conv = 'd';
-        FALLTHROUGH;
     case 'd':
     case 'i':
+        base = 10;
         sign = ComputeSignChar(sext < 0, spec.sign, spec.fill);
         if (sext < 0)
             number = 0 - static_cast<uint64_t>(sext);
-        FALLTHROUGH;
+        break;
     case 'u':
         base = 10;
         break;
     case 'x':
     case 'X':
+        upper = (conv == 'X');
         base = 16;
         nprefix = spec.hash ? 2 : 0;
         break;
     case 'b':
     case 'B':
+        upper = (conv == 'B');
         base = 2;
         nprefix = spec.hash ? 2 : 0;
         break;
@@ -430,8 +420,6 @@ ErrorCode fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sex
         nprefix = (spec.hash && number != 0) ? 1 : 0;
         break;
     }
-
-    bool const upper = ('A' <= conv && conv <= 'Z');
 
     static_assert(kMaxIntPrec >= 64, "at least 64-characters are required for UINT64_MAX in base 2");
 
@@ -1121,48 +1109,56 @@ ErrorCode fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x
     char   conv = spec.conv;
     int    prec = spec.prec;
     size_t nprefix = 0;
+    bool   upper = false;
 
     switch (conv)
     {
     default:
         conv = 's';
-        FALLTHROUGH;
+        options.exponent_char = 'e';
+        break;
     case 's':
     case 'S':
-        options.exponent_char = (conv == 's') ? 'e' : 'E';
+        upper = (conv == 'S');
+        options.exponent_char = upper ? 'E' : 'e';
         break;
     case 'e':
     case 'E':
+        upper = (conv == 'E');
         options.exponent_char = conv;
         if (prec < 0)
             prec = 6;
         break;
     case 'f':
     case 'F':
+        upper = (conv == 'F');
         if (prec < 0)
             prec = 6;
         break;
     case 'g':
     case 'G':
-        options.exponent_char = (conv == 'g') ? 'e' : 'E';
+        upper = (conv == 'G');
+        options.exponent_char = upper ? 'E' : 'e';
         if (prec < 0)
             prec = 6;
         break;
     case 'a':
     case 'A':
-        conv = (conv == 'a') ? 'x' : 'X';
-        options.use_upper_case_digits = (conv == 'X');
+        upper = (conv == 'A');
+        conv = upper ? 'X' : 'x';
+        options.use_upper_case_digits = upper;
         options.min_exponent_digits   = 1;
-        options.exponent_char         = (conv == 'x') ? 'p' : 'P';
+        options.exponent_char         = upper ? 'P' : 'p';
         nprefix = 2;
         break;
     case 'x':
     case 'X':
-        options.use_upper_case_digits = (conv == 'X');
+        upper = (conv == 'X');
+        options.use_upper_case_digits = upper;
         options.normalize             = true;
         options.use_alternative_form  = false;
         options.min_exponent_digits   = 1;
-        options.exponent_char         = (conv == 'x') ? 'p' : 'P';
+        options.exponent_char         = upper ? 'P' : 'p';
         nprefix = spec.hash ? 2 : 0;
         break;
     }
@@ -1174,10 +1170,7 @@ ErrorCode fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x
     char   const sign = ComputeSignChar(neg, spec.sign, spec.fill);
 
     if (d.IsSpecial())
-    {
-        bool const upper = ('A' <= conv && conv <= 'Z');
         return HandleSpecialFloat(d, w, spec, sign, upper);
-    }
 
     if (prec > kMaxFloatPrec)
         prec = kMaxFloatPrec;
@@ -1878,7 +1871,9 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
             // For d, i, o, u, x, and X conversions, if a precision is specified, the 0 flag is ignored
             if (has_precision)
                 spec.zero = false;
-            FALLTHROUGH;
+            spec.conv = *f;
+            ++f;
+            return {};
         case 'f':
         case 'F':
         case 'e':

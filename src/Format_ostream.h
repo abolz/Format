@@ -67,7 +67,7 @@ struct StreamValue<T, void>
         StreamBuf buf;
         std::ostream os{&buf};
         os << val;
-        if (os.bad()) // shouldn't happen here...
+        if (os.bad())
             return ErrorCode::io_error;
         if (os.fail())
             return ErrorCode::conversion_error;

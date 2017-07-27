@@ -110,20 +110,20 @@ ErrorCode fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
 ErrorCode fmtxx::impl::DoFormat(std::FILE* file, cxx::string_view format, Arg const* args, Types types)
 {
     FILEWriter w{file};
-    return fmtxx::impl::DoFormat(w, format, args, types);
+    return ::fmtxx::impl::DoFormat(w, format, args, types);
 }
 
 ErrorCode fmtxx::impl::DoPrintf(std::FILE* file, cxx::string_view format, Arg const* args, Types types)
 {
     FILEWriter w{file};
-    return fmtxx::impl::DoPrintf(w, format, args, types);
+    return ::fmtxx::impl::DoPrintf(w, format, args, types);
 }
 
 int fmtxx::impl::DoFileFormat(std::FILE* file, cxx::string_view format, Arg const* args, Types types)
 {
     FILEWriter w{file};
 
-    if (Failed(fmtxx::impl::DoFormat(w, format, args, types)))
+    if (Failed(::fmtxx::impl::DoFormat(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;
@@ -135,7 +135,7 @@ int fmtxx::impl::DoFilePrintf(std::FILE* file, cxx::string_view format, Arg cons
 {
     FILEWriter w{file};
 
-    if (Failed(fmtxx::impl::DoPrintf(w, format, args, types)))
+    if (Failed(::fmtxx::impl::DoPrintf(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;
@@ -147,7 +147,7 @@ int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, cxx::string_view forma
 {
     ArrayWriter w{buf, bufsize};
 
-    if (Failed(fmtxx::impl::DoFormat(w, format, args, types)))
+    if (Failed(::fmtxx::impl::DoFormat(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;
@@ -160,7 +160,7 @@ int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, cxx::string_view forma
 {
     ArrayWriter w{buf, bufsize};
 
-    if (Failed(fmtxx::impl::DoPrintf(w, format, args, types)))
+    if (Failed(::fmtxx::impl::DoPrintf(w, format, args, types)))
         return -1;
     if (w.size() > INT_MAX)
         return -1;

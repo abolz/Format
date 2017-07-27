@@ -67,6 +67,27 @@ static void Example2()
 //
 //------------------------------------------------------------------------------
 
+static void Example3()
+{
+    std::vector<int> vec = {1, 2, 3, 4, 5};
+
+    fmtxx::format(stdout, "{}\n", fmtxx::pretty(vec));
+        // [1, 2, 3, 4, 5]
+
+    std::map<std::string, int> map = {
+        {"eins", 1},
+        {"zwei", 2},
+        {"drei", 3},
+    };
+
+    fmtxx::format(stdout, "{}\n", fmtxx::pretty(map));
+        // [{"drei", 3}, {"eins", 1}, {"zwei", 2}]
+}
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
 struct VectorBuffer : public fmtxx::Writer
 {
     std::vector<char> vec;
@@ -91,33 +112,15 @@ private:
     }
 };
 
-static void Example3()
+static void Example4()
 {
     VectorBuffer buf;
 
-    fmtxx::format(buf, "{:5}\n", -123);
+    fmtxx::format(buf, "{:5}", -123);
         // buf.vec = {' ', '-', '1', '2', '3'}
-}
 
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
-static void Example4()
-{
-    std::vector<int> vec = {1, 2, 3, 4, 5};
-
-    fmtxx::format(stdout, "{}\n", fmtxx::pretty(vec));
-        // [1, 2, 3, 4, 5]
-
-    std::map<std::string, int> map = {
-        {"eins", 1},
-        {"zwei", 2},
-        {"drei", 3},
-    };
-
-    fmtxx::format(stdout, "{}\n", fmtxx::pretty(map));
-        // [{"drei", 3}, {"eins", 1}, {"zwei", 2}]
+    fmtxx::format(stdout, "{}\n", fmtxx::pretty(buf.vec));
+        // "[ , -, 1, 2, 3]"
 }
 
 //------------------------------------------------------------------------------

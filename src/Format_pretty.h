@@ -166,8 +166,8 @@ struct PP
         if (Failed ec = w.put('['))
             return ec;
 
-        auto I = adl_begin(object);
-        auto E = adl_end(object);
+        auto I = ::fmtxx::impl::adl_begin(object);
+        auto E = ::fmtxx::impl::adl_end(object);
         if (I != E)
         {
             for (;;)
@@ -231,7 +231,7 @@ struct FormatValue<PrettyPrinter<T>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& /*spec*/, PrettyPrinter<T> const& value) const
     {
-        return fmtxx::impl::PP::PrettyPrint(w, value.object);
+        return ::fmtxx::impl::PP::PrettyPrint(w, value.object);
     }
 };
 

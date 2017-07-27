@@ -591,17 +591,21 @@ static int CreateFixedRepresentation(char* buf, int bufsize, int num_digits, int
 
         if (precision > 0)
         {
-            // digits --> digits0.[000][000]
+            int const len       = 2 + precision;
+            int const pad_front = 2 + -decpt;
+            int const pad_back  = len - num_digits - pad_front;
 
-            int const nextra = 2 + (precision - num_digits);
-            // nextra includes the decimal point.
-            std::fill_n(buf + num_digits, nextra, '0');
-            buf[num_digits + 1] = options.decimal_point;
+            auto I = MakeArrayIterator(buf, bufsize);
 
-            // digits0.[000][000] --> 0.[000]digits[000]
-            std::rotate(buf, buf + num_digits, buf + (num_digits + 2 + -decpt));
+            // digits --> 0.[000]digits
+            std::copy_backward(I, I + num_digits, I + (num_digits + pad_front));
+            std::fill_n(I, pad_front, '0');
+            I[1] = options.decimal_point;
 
-            return 2 + precision;
+            // 0.[000]digits --> 0.[000]digits[000]
+            std::fill_n(I + (num_digits + pad_front), pad_back, '0');
+
+            return len;
         }
         else
         {
@@ -634,13 +638,14 @@ static int CreateFixedRepresentation(char* buf, int bufsize, int num_digits, int
     {
         // dig.its[000]
 
-        auto I = MakeArrayIterator(buf, bufsize);
-
         assert(precision >= num_digits - decpt); // >= 1
+
+        auto I = MakeArrayIterator(buf, bufsize);
 
         // digits --> dig.its
         std::copy_backward(I + decpt, I + num_digits, I + (num_digits + 1));
         I[decpt] = options.decimal_point;
+
         // dig.its --> dig.its[000]
         std::fill_n(I + (num_digits + 1), precision - (num_digits - decpt), '0');
 
@@ -1074,11 +1079,9 @@ static int ToECMAScript(char* buf, int bufsize, double d, char decimal_point, ch
 
 } // namespace dtoa
 
-static ErrorCode HandleSpecialFloat(dtoa::Double d, Writer& w, FormatSpec const& spec, char sign, bool upper)
+static ErrorCode HandleSpecialFloat(Writer& w, FormatSpec const& spec, char sign, bool upper, bool is_nan)
 {
-    assert(d.IsSpecial());
-
-    if (d.IsNaN())
+    if (is_nan)
         return PrintAndPadString(w, spec, upper ? "NAN" : "nan");
 
     char  inf_lower[] = " inf";
@@ -1170,7 +1173,7 @@ ErrorCode fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x
     char   const sign = ComputeSignChar(neg, spec.sign, spec.fill);
 
     if (d.IsSpecial())
-        return HandleSpecialFloat(d, w, spec, sign, upper);
+        return HandleSpecialFloat(w, spec, sign, upper, d.IsNaN());
 
     if (prec > kMaxFloatPrec)
         prec = kMaxFloatPrec;

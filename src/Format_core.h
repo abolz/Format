@@ -73,6 +73,8 @@ struct Failed
 
     Failed() = default;
     Failed(ErrorCode ec_) : ec(ec_) {}
+
+    // Test for failure.
     explicit operator bool() const { return ec != ErrorCode{}; }
 
     operator ErrorCode() const { return ec; }
@@ -141,10 +143,8 @@ struct ToCharsResult
     ToCharsResult() = default;
     ToCharsResult(char* next_, ErrorCode ec_) : next(next_), ec(ec_) {}
 
-#if 1
     // Test for successful conversions
     explicit operator bool() const { return ec == ErrorCode{}; }
-#endif
 };
 
 struct Util

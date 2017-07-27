@@ -60,7 +60,7 @@ struct StreamValue<T, void>
 {
     static_assert(IsStreamable<T>::value,
         "Formatting objects of type T is not supported. "
-        "Specialize 'FormatValue' or 'TreatAsString', or implement 'operator<<(std::ostream&, T const&)'.");
+        "Specialize FormatValue<T> or TreatAsString<T>, or implement operator<<(std::ostream&, T const&).");
 
     ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const
     {

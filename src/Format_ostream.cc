@@ -21,9 +21,41 @@
 #include "Format_ostream.h"
 
 #include <cstring>
+#include <algorithm>
 #include <limits>
 
 using namespace fmtxx;
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+fmtxx::impl::StreamBuf::StreamBuf(Writer& w) : w_(w)
+{
+}
+
+fmtxx::impl::StreamBuf::~StreamBuf()
+{
+}
+
+fmtxx::impl::StreamBuf::int_type fmtxx::impl::StreamBuf::overflow(int_type ch)
+{
+    if (traits_type::eq_int_type(ch, traits_type::eof()))
+        return 0;
+    if (Failed(w_.put(traits_type::to_char_type(ch))))
+        return traits_type::eof();
+    return ch;
+}
+
+std::streamsize fmtxx::impl::StreamBuf::xsputn(char const* str, std::streamsize len)
+{
+    assert(len >= 0);
+    if (len == 0)
+        return 0;
+    if (Failed(w_.write(str, static_cast<size_t>(len))))
+        return 0;
+    return len;
+}
 
 //------------------------------------------------------------------------------
 //
@@ -59,19 +91,13 @@ inline ErrorCode StreamWriter::Put(char c)
 
 inline ErrorCode StreamWriter::Write(char const* str, size_t len)
 {
-    auto const kMaxLen = static_cast<size_t>(std::numeric_limits<std::streamsize>::max());
+    assert(len <= static_cast<size_t>(std::numeric_limits<std::streamsize>::max()));
 
-    while (len > 0)
+    auto const k = static_cast<std::streamsize>(len);
+    if (k != os.rdbuf()->sputn(str, k))
     {
-        auto const n = len < kMaxLen ? len : kMaxLen;
-        auto const k = static_cast<std::streamsize>(n);
-        if (k != os.rdbuf()->sputn(str, k))
-        {
-            os.setstate(std::ios_base::badbit);
-            return ErrorCode::io_error;
-        }
-        str += n;
-        len -= n;
+        os.setstate(std::ios_base::badbit);
+        return ErrorCode::io_error;
     }
 
     return {};
@@ -86,13 +112,9 @@ inline ErrorCode StreamWriter::Pad(char c, size_t count)
 
     while (count > 0)
     {
-        auto const n = count < kBlockSize ? count : kBlockSize;
-        auto const k = static_cast<std::streamsize>(n);
-        if (k != os.rdbuf()->sputn(block, k))
-        {
-            os.setstate(std::ios_base::badbit);
-            return ErrorCode::io_error;
-        }
+        auto const n = std::min(count, kBlockSize);
+        if (Failed ec = StreamWriter::Write(block, n))
+            return ec;
         count -= n;
     }
 
@@ -100,10 +122,6 @@ inline ErrorCode StreamWriter::Pad(char c, size_t count)
 }
 
 } // namespace
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
 
 ErrorCode fmtxx::impl::DoFormat(std::ostream& os, cxx::string_view format, Arg const* args, Types types)
 {

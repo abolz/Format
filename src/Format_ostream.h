@@ -35,29 +35,15 @@ class StreamBuf : public std::streambuf
     Writer& w_;
 
 public:
-    explicit StreamBuf(Writer& w) : w_(w) {}
+    FMTXX_API explicit StreamBuf(Writer& w);
+    FMTXX_API ~StreamBuf();
 
 protected:
-    int_type overflow(int_type ch = traits_type::eof()) override
-    {
-        if (traits_type::eq_int_type(ch, traits_type::eof()))
-            return 0;
-        if (Failed(w_.put(traits_type::to_char_type(ch))))
-            return traits_type::eof(); // error
-        return ch;
-    }
-
-    std::streamsize xsputn(char const* str, std::streamsize len) override
-    {
-        assert(len >= 0);
-        if (len == 0)
-            return 0;
-        if (Failed(w_.write(str, static_cast<size_t>(len))))
-            return 0; // error
-        return len;
-    }
+    FMTXX_API int_type overflow(int_type ch = traits_type::eof()) override;
+    FMTXX_API std::streamsize xsputn(char const* str, std::streamsize len) override;
 };
 
+// Test if an insertion operator is defined for objects of type T.
 template <typename T, typename = void>
 struct IsStreamable
     : std::false_type
@@ -75,7 +61,7 @@ struct StreamValue<T, void>
 {
     static_assert(IsStreamable<T>::value,
         "Formatting objects of type T is not supported. "
-        "Specialize 'FormatValue' or 'TreatAsString', or implement 'operator<<(std::ostream&, T const&)'.");
+        "Specialize FormatValue<T> or TreatAsString<T>, or implement operator<<(std::ostream&, T const&).");
 
     // Ignores all FormatSpec fields...
     // Setting the stream flags like width, fill-char etc. is not guarenteed to work since many

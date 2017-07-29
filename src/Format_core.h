@@ -55,6 +55,10 @@
 
 namespace fmtxx {
 
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
 enum struct ErrorCode {
     conversion_error        = 1, // Value could not be converted to string (E.g. trying to format a non-existant date.)
     index_out_of_range      = 2, // Argument index out of range
@@ -150,7 +154,7 @@ struct ToCharsResult
 struct Util
 {
     // Note:
-    // The string must not be null. This function prints len characters, including '\0's.
+    // This function prints len characters, including '\0's.
     static FMTXX_API ErrorCode format_string      (Writer& w, FormatSpec const& spec, char const* str, size_t len);
     // Note:
     // This is different from just calling format_string(str, strlen(str)):
@@ -188,7 +192,10 @@ private:
 // Objects of type T must have member functions data() and size() and their
 // return values must be convertible to 'char const*' and 'size_t' resp.
 template <typename T, typename /*Enable*/ = void>
-struct TreatAsString : std::false_type {};
+struct TreatAsString
+    : std::false_type
+{
+};
 
 template <>
 struct TreatAsString< cxx::string_view >
@@ -199,9 +206,9 @@ struct TreatAsString< cxx::string_view >
 // Dynamically created argument list.
 class FormatArgs;
 
-// Specialize this to format user-defined types.
-template <typename T = void, typename /*Enable*/ = void>
-struct FormatValue;
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
 
 namespace impl {
 
@@ -213,17 +220,6 @@ struct AlwaysVoid { using type = void; };
 
 template <typename ...Ts>
 using Void_t = typename AlwaysVoid<Ts...>::type;
-
-// Fallback formatting function for unknown types.
-// The actual implementation in Format_ostream.h uses operator<< to convert values to strings.
-template <typename T, typename = void>
-struct StreamValue
-{
-    static_assert(AlwaysFalse<T>::value,
-        "Formatting objects of type T is not supported. "
-        "Specialize FormatValue<T> or TreatAsString<T>, or implement operator<<(std::ostream&, T const&) "
-        "and include Format_ostream.h.");
-};
 
 enum struct Type : int {
     none,
@@ -333,145 +329,25 @@ struct IsSafeRValueType : std::integral_constant<
 template <>
 struct IsSafeRValueType<cxx::string_view> : std::true_type {};
 
-struct Arg
+// Fallback formatting function for unknown types.
+// The actual implementation in Format_ostream.h uses operator<< to convert values to strings.
+template <typename T, typename = void>
+struct StreamValue
 {
-    using Func = ErrorCode (*)(Writer& w, FormatSpec const& spec, void const* value);
-
-    template <typename T>
-    static ErrorCode FormatValue_fn(Writer& w, FormatSpec const& spec, void const* value)
-    {
-        return FormatValue<>{}(w, spec, *static_cast<T const*>(value));
-    }
-
-    struct String { char const* data; size_t size; };
-    struct Other { void const* value; Func func; };
-
-    union {
-        String             string;
-        Other              other;
-        void const*        pvoid;
-        char const*        pchar;
-        char               char_;
-        bool               bool_;
-        signed char        schar;
-        signed short       sshort;
-        signed int         sint;
-        signed long long   slonglong;
-        unsigned long long ulonglong;
-        double             double_;
-    };
-
-    template <typename T> Arg(T const& v, Type_t<Type::formatspec>) : pvoid(&v) {}
-    template <typename T> Arg(T const& v, Type_t<Type::string>    ) : string{v.data(), v.size()}  {}
-    template <typename T> Arg(T const& v, Type_t<Type::other>     ) : other{&v, &FormatValue_fn<T>} {}
-    template <typename T> Arg(T const& v, Type_t<Type::pchar>     ) : pchar(v) {}
-    template <typename T> Arg(T const& v, Type_t<Type::pvoid>     ) : pvoid(v) {}
-    template <typename T> Arg(T const& v, Type_t<Type::bool_>     ) : bool_(v) {}
-    template <typename T> Arg(T const& v, Type_t<Type::char_>     ) : char_(v) {}
-    template <typename T> Arg(T const& v, Type_t<Type::schar>     ) : schar(v) {}
-    template <typename T> Arg(T const& v, Type_t<Type::sshort>    ) : sshort(v) {}
-    template <typename T> Arg(T const& v, Type_t<Type::sint>      ) : sint(v) {}
-    template <typename T> Arg(T const& v, Type_t<Type::slonglong> ) : slonglong(v) {}
-    template <typename T> Arg(T const& v, Type_t<Type::ulonglong> ) : ulonglong(v) {}
-    template <typename T> Arg(T const& v, Type_t<Type::double_>   ) : double_(v) {}
-
-    Arg() = default;
-
-    template <typename T>
-    /*implicit*/ Arg(T const& v) : Arg(v, TypeFor<T>{})
-    {
-    }
+    static_assert(AlwaysFalse<T>::value,
+        "Formatting objects of type T is not supported. "
+        "Specialize FormatValue<T> or TreatAsString<T>, or implement operator<<(std::ostream&, T const&) "
+        "and include Format_ostream.h.");
 };
-
-template <size_t N>
-using ArgArray = typename std::conditional< N != 0, Arg[], Arg* >::type;
-
-struct Types
-{
-    using value_type = uint64_t;
-
-    static constexpr int kBitsPerArg = 4; // Should be computed from Type::last...
-    static constexpr int kMaxArgs    = CHAR_BIT * sizeof(value_type) / kBitsPerArg;
-    static constexpr int kMaxTypes   = 1 << kBitsPerArg;
-    static constexpr int kTypeMask   = kMaxTypes - 1;
-
-    static_assert(static_cast<int>(Type::none) == 0, "Internal error: Type::none must be 0");
-    static_assert(static_cast<int>(Type::last) <= kMaxTypes, "Internal error: Invalid value for kBitsPerArg");
-
-    value_type /*const*/ types = 0;
-
-    Types() = default;
-    Types(Types const&) = default;
-
-    template <typename Arg1, typename ...Args>
-    explicit Types(Arg1 const& arg1, Args const&... args) : types(make_types(arg1, args...))
-    {
-    }
-
-    Type operator[](int index) const
-    {
-        return (index >= 0 && index < kMaxArgs) ? get_type(index) : Type::none;
-    }
-
-    Type get_type(int index) const
-    {
-        return static_cast<Type>((types >> (kBitsPerArg * index)) & kTypeMask);
-    }
-
-    void set_type(int index, Type type)
-    {
-        types |= static_cast<value_type>(type) << (kBitsPerArg * index);
-    }
-
-    static value_type make_types() { return 0; }
-
-    template <typename A1, typename ...An>
-    static value_type make_types(A1 const& /*a1*/, An const&... an)
-    {
-        static_assert(1 + sizeof...(An) <= kMaxArgs, "Too many arguments");
-        return (make_types(an...) << kBitsPerArg) | static_cast<value_type>(TypeFor<A1>::value);
-    }
-};
-
-FMTXX_API ErrorCode DoFormat(Writer& w, cxx::string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(Writer& w, cxx::string_view format, Arg const* args, Types types);
-
-FMTXX_API ToCharsResult DoFormatToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types);
-FMTXX_API ToCharsResult DoPrintfToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types);
 
 } // namespace fmtxx::impl
 
-class FormatArgs
-{
-public:
-    static constexpr int kMaxArgs = impl::Types::kMaxArgs;
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
 
-//private:
-    impl::Arg   args_[kMaxArgs];
-    impl::Types types_ = {};
-    int         size_ = 0;
-
-public:
-    int size() const { return size_; }
-    int max_size() const { return kMaxArgs; }
-
-    // Add an argument to this list.
-    // PRE: size() < max_size()
-    template <typename T>
-    void push_back(T&& val)
-    {
-        static_assert(std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<typename std::decay<T>::type>::value,
-            "Adding temporaries of non-built-in types to FormatArgs is not allowed. ");
-
-        assert(size_ < kMaxArgs);
-
-        args_[size_] = static_cast<T&&>(val);
-        types_.set_type(size_, impl::TypeFor<T>::value);
-        ++size_;
-    }
-};
-
-template <typename T, typename>
+// Specialize this to format user-defined types.
+template <typename T = void, typename /*Enable*/ = void>
 struct FormatValue : impl::StreamValue<T>
 {
     static_assert(impl::TypeFor<T>::value == impl::Type::other,
@@ -575,6 +451,156 @@ struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, double val) const {
         return Util::format_double(w, spec, val);
+    }
+};
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+namespace impl {
+
+struct Arg
+{
+    using Func = ErrorCode (*)(Writer& w, FormatSpec const& spec, void const* value);
+
+    template <typename T>
+    static ErrorCode FormatValue_fn(Writer& w, FormatSpec const& spec, void const* value)
+    {
+        return FormatValue<>{}(w, spec, *static_cast<T const*>(value));
+    }
+
+    struct String { char const* data; size_t size; };
+    struct Other { void const* value; Func func; };
+
+    union {
+        String             string;
+        Other              other;
+        void const*        pvoid;
+        char const*        pchar;
+        char               char_;
+        bool               bool_;
+        signed char        schar;
+        signed short       sshort;
+        signed int         sint;
+        signed long long   slonglong;
+        unsigned long long ulonglong;
+        double             double_;
+    };
+
+    template <typename T> Arg(T const& v, Type_t<Type::formatspec>) : pvoid(&v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::string>    ) : string{v.data(), v.size()}  {}
+    template <typename T> Arg(T const& v, Type_t<Type::other>     ) : other{&v, &FormatValue_fn<T>} {}
+    template <typename T> Arg(T const& v, Type_t<Type::pchar>     ) : pchar(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::pvoid>     ) : pvoid(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::bool_>     ) : bool_(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::char_>     ) : char_(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::schar>     ) : schar(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::sshort>    ) : sshort(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::sint>      ) : sint(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::slonglong> ) : slonglong(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::ulonglong> ) : ulonglong(v) {}
+    template <typename T> Arg(T const& v, Type_t<Type::double_>   ) : double_(v) {}
+
+    Arg() = default;
+
+    template <typename T>
+    /*implicit*/ Arg(T const& v) : Arg(v, TypeFor<T>{})
+    {
+    }
+};
+
+template <size_t N>
+using ArgArray = typename std::conditional< N != 0, Arg[], Arg* >::type;
+
+struct Types
+{
+    using value_type = uint64_t;
+
+    static constexpr int kBitsPerArg = 4; // Should be computed from Type::last...
+    static constexpr int kMaxArgs    = CHAR_BIT * sizeof(value_type) / kBitsPerArg;
+    static constexpr int kMaxTypes   = 1 << kBitsPerArg;
+    static constexpr int kTypeMask   = kMaxTypes - 1;
+
+    static_assert(static_cast<int>(Type::none) == 0,
+        "Internal error: Type::none must be 0");
+    static_assert(static_cast<int>(Type::last) <= kMaxTypes,
+        "Internal error: Invalid value for kBitsPerArg");
+
+    value_type /*const*/ types = 0;
+
+    Types() = default;
+    Types(Types const&) = default;
+
+    template <typename Arg1, typename ...Args>
+    explicit Types(Arg1 const& arg1, Args const&... args) : types(make_types(arg1, args...))
+    {
+    }
+
+    Type operator[](int index) const
+    {
+        return (index >= 0 && index < kMaxArgs) ? get_type(index) : Type::none;
+    }
+
+    Type get_type(int index) const
+    {
+        return static_cast<Type>((types >> (kBitsPerArg * index)) & kTypeMask);
+    }
+
+    void set_type(int index, Type type)
+    {
+        types |= static_cast<value_type>(type) << (kBitsPerArg * index);
+    }
+
+    static value_type make_types() { return 0; }
+
+    template <typename A1, typename ...An>
+    static value_type make_types(A1 const& /*a1*/, An const&... an)
+    {
+        static_assert(1 + sizeof...(An) <= kMaxArgs, "Too many arguments");
+        return (make_types(an...) << kBitsPerArg) | static_cast<value_type>(TypeFor<A1>::value);
+    }
+};
+
+FMTXX_API ErrorCode DoFormat(Writer& w, cxx::string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(Writer& w, cxx::string_view format, Arg const* args, Types types);
+
+FMTXX_API ToCharsResult DoFormatToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types);
+FMTXX_API ToCharsResult DoPrintfToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types);
+
+} // namespace fmtxx::impl
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+class FormatArgs
+{
+public:
+    static constexpr int kMaxArgs = impl::Types::kMaxArgs;
+
+//private:
+    impl::Arg   args_[kMaxArgs];
+    impl::Types types_ = {};
+    int         size_ = 0;
+
+public:
+    int size() const { return size_; }
+    int max_size() const { return kMaxArgs; }
+
+    // Add an argument to this list.
+    // PRE: size() < max_size()
+    template <typename T>
+    void push_back(T&& val)
+    {
+        static_assert(std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<typename std::decay<T>::type>::value,
+            "Adding temporaries of non-built-in types to FormatArgs is not allowed. ");
+
+        assert(size_ < kMaxArgs);
+
+        args_[size_] = static_cast<T&&>(val);
+        types_.set_type(size_, impl::TypeFor<T>::value);
+        ++size_;
     }
 };
 

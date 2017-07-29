@@ -55,10 +55,6 @@
 
 namespace fmtxx {
 
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
 enum struct ErrorCode {
     conversion_error        = 1, // Value could not be converted to string (E.g. trying to format a non-existant date.)
     index_out_of_range      = 2, // Argument index out of range
@@ -193,22 +189,15 @@ private:
     }
 };
 
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
+namespace impl {
 
-namespace impl
-{
-    template <typename T>
-    struct DefaultTreatAsString : std::false_type {};
+template <typename T>
+struct DefaultTreatAsString : std::false_type {};
 
-    template <>
-    struct DefaultTreatAsString<cxx::string_view> : std::true_type {};
-}
+template <>
+struct DefaultTreatAsString<cxx::string_view> : std::true_type {};
 
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
+} // namespace fmtxx::impl
 
 // Provides the member constant value equal to true if objects of type T should
 // be treated as strings by the Format library.
@@ -221,10 +210,6 @@ struct TreatAsString : impl::DefaultTreatAsString<T>
 
 // Dynamically created argument list.
 class FormatArgs;
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
 
 namespace impl {
 
@@ -345,10 +330,8 @@ struct IsSafeRValueType : std::integral_constant<
 template <>
 struct IsSafeRValueType<cxx::string_view> : std::true_type {};
 
-// Fallback formatting function for unknown types.
-// The actual implementation in Format_ostream.h uses operator<< to convert values to strings.
-template <typename T, typename = void>
-struct StreamValue
+template <typename T, typename = TypeFor<T>>
+struct DefaultFormatValue
 {
     static_assert(AlwaysFalse<T>::value,
         "Formatting objects of type T is not supported. "
@@ -356,18 +339,8 @@ struct StreamValue
         "and include Format_ostream.h.");
 };
 
-template <typename T, typename = void>
-struct DefaultFormatValue : StreamValue<T>
-{
-    static_assert(TypeFor<T>::value == Type::other,
-        "Internal error: DefaultFormatValue not specialized for all values of Type");
-};
-
-// Implement DefaultFormatValue for all built-in types.
-// This should make 'FormatValue<>{}(w, {}, val)' equivalent to 'format(w, "{}", val)'
-
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::string >::type>
+struct DefaultFormatValue<T, Type_t<Type::string>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const {
         return Util::format_string(w, spec, val.data(), val.size());
@@ -375,7 +348,7 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::pchar >::type>
+struct DefaultFormatValue<T, Type_t<Type::pchar>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, char const* val) const {
         return Util::format_char_pointer(w, spec, val);
@@ -383,7 +356,7 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::pvoid >::type>
+struct DefaultFormatValue<T, Type_t<Type::pvoid>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, void const* val) const {
         return Util::format_pointer(w, spec, val);
@@ -391,7 +364,7 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::bool_ >::type>
+struct DefaultFormatValue<T, Type_t<Type::bool_>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, bool val) const {
         return Util::format_bool(w, spec, val);
@@ -399,7 +372,7 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::char_ >::type>
+struct DefaultFormatValue<T, Type_t<Type::char_>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, char val) const {
         return Util::format_char(w, spec, val);
@@ -407,7 +380,7 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::schar >::type>
+struct DefaultFormatValue<T, Type_t<Type::schar>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, signed char val) const {
         return Util::format_int(w, spec, val);
@@ -415,7 +388,7 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::sshort >::type>
+struct DefaultFormatValue<T, Type_t<Type::sshort>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, signed short val) const {
         return Util::format_int(w, spec, val);
@@ -423,7 +396,7 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::sint >::type>
+struct DefaultFormatValue<T, Type_t<Type::sint>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, signed int val) const {
         return Util::format_int(w, spec, val);
@@ -431,7 +404,7 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::slonglong >::type>
+struct DefaultFormatValue<T, Type_t<Type::slonglong>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, signed long long val) const {
         return Util::format_int(w, spec, val);
@@ -439,7 +412,7 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::ulonglong >::type>
+struct DefaultFormatValue<T, Type_t<Type::ulonglong>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, unsigned long long val) const {
         return Util::format_int(w, spec, val);
@@ -447,7 +420,7 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 template <typename T>
-struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::double_ >::type>
+struct DefaultFormatValue<T, Type_t<Type::double_>>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, double val) const {
         return Util::format_double(w, spec, val);
@@ -455,10 +428,6 @@ struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type:
 };
 
 } // namespace fmtxx::impl
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
 
 template <typename T = void, typename /*Enable*/ = void>
 struct FormatValue : impl::DefaultFormatValue<T>
@@ -473,10 +442,6 @@ struct FormatValue<void>
         return FormatValue<typename std::decay<T>::type>{}(w, spec, val);
     }
 };
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
 
 namespace impl {
 
@@ -542,10 +507,8 @@ struct Types
     static constexpr int kMaxTypes   = 1 << kBitsPerArg;
     static constexpr int kTypeMask   = kMaxTypes - 1;
 
-    static_assert(static_cast<int>(Type::none) == 0,
-        "Internal error: Type::none must be 0");
-    static_assert(static_cast<int>(Type::last) <= kMaxTypes,
-        "Internal error: Invalid value for kBitsPerArg");
+    static_assert(static_cast<int>(Type::none) == 0, "Internal error: Type::none must be 0");
+    static_assert(static_cast<int>(Type::last) <= kMaxTypes, "Internal error: Invalid value for kBitsPerArg");
 
     value_type types = 0;
 
@@ -582,10 +545,6 @@ FMTXX_API ToCharsResult DoFormatToChars(char* first, char* last, cxx::string_vie
 FMTXX_API ToCharsResult DoPrintfToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types);
 
 } // namespace fmtxx::impl
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
 
 class FormatArgs
 {

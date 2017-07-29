@@ -88,14 +88,14 @@ template <typename ...Args>
 inline ErrorCode format(std::ostream& os, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoFormat(os, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoFormat(os, format, arr, impl::Types::make(args...));
 }
 
 template <typename ...Args>
 inline ErrorCode printf(std::ostream& os, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoPrintf(os, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoPrintf(os, format, arr, impl::Types::make(args...));
 }
 
 inline ErrorCode format(std::ostream& os, cxx::string_view format, FormatArgs const& args)

@@ -113,14 +113,14 @@ template <typename ...Args>
 inline ErrorCode format(std::FILE* file, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoFormat(file, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoFormat(file, format, arr, impl::Types::make(args...));
 }
 
 template <typename ...Args>
 inline ErrorCode printf(std::FILE* file, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoPrintf(file, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoPrintf(file, format, arr, impl::Types::make(args...));
 }
 
 inline ErrorCode format(std::FILE* file, cxx::string_view format, FormatArgs const& args)
@@ -137,14 +137,14 @@ template <typename ...Args>
 inline int fformat(std::FILE* file, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoFileFormat(file, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoFileFormat(file, format, arr, impl::Types::make(args...));
 }
 
 template <typename ...Args>
 inline int fprintf(std::FILE* file, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoFilePrintf(file, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoFilePrintf(file, format, arr, impl::Types::make(args...));
 }
 
 inline int fformat(std::FILE* file, cxx::string_view format, FormatArgs const& args)
@@ -161,14 +161,14 @@ template <typename ...Args>
 inline int snformat(char* buf, size_t bufsize, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoArrayFormat(buf, bufsize, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoArrayFormat(buf, bufsize, format, arr, impl::Types::make(args...));
 }
 
 template <typename ...Args>
 inline int snprintf(char* buf, size_t bufsize, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoArrayPrintf(buf, bufsize, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoArrayPrintf(buf, bufsize, format, arr, impl::Types::make(args...));
 }
 
 inline int snformat(char* buf, size_t bufsize, cxx::string_view format, FormatArgs const& args)

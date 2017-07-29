@@ -109,14 +109,14 @@ template <typename ...Args>
 inline ErrorCode format(std::string& str, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoFormat(str, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoFormat(str, format, arr, impl::Types::make(args...));
 }
 
 template <typename ...Args>
 inline ErrorCode printf(std::string& str, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoPrintf(str, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoPrintf(str, format, arr, impl::Types::make(args...));
 }
 
 inline ErrorCode format(std::string& str, cxx::string_view format, FormatArgs const& args)

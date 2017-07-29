@@ -527,38 +527,31 @@ struct Types
     static_assert(static_cast<int>(Type::last) <= kMaxTypes,
         "Internal error: Invalid value for kBitsPerArg");
 
-    value_type /*const*/ types = 0;
-
-    Types() = default;
-    Types(Types const&) = default;
-
-    template <typename Arg1, typename ...Args>
-    explicit Types(Arg1 const& arg1, Args const&... args) : types(make_types(arg1, args...))
-    {
-    }
+    value_type types = 0;
 
     Type operator[](int index) const
     {
-        return (index >= 0 && index < kMaxArgs) ? get_type(index) : Type::none;
-    }
+        if (index < 0 || index >= kMaxArgs)
+            return Type::none;
 
-    Type get_type(int index) const
-    {
         return static_cast<Type>((types >> (kBitsPerArg * index)) & kTypeMask);
     }
 
-    void set_type(int index, Type type)
+    static Types assign(Types t, int index, Type type)
     {
-        types |= static_cast<value_type>(type) << (kBitsPerArg * index);
+        t.types |= static_cast<value_type>(type) << (kBitsPerArg * index);
+        return t;
     }
 
-    static value_type make_types() { return 0; }
-
-    template <typename A1, typename ...An>
-    static value_type make_types(A1 const& /*a1*/, An const&... an)
+    template <typename ...Ts>
+    static Types make(Ts const&...)
     {
-        static_assert(1 + sizeof...(An) <= kMaxArgs, "Too many arguments");
-        return (make_types(an...) << kBitsPerArg) | static_cast<value_type>(TypeFor<A1>::value);
+        Types t;
+        int i = 0;
+        int unused[] = { (t = assign(t, i++, TypeFor<Ts>::value), 0)..., 0 };
+        static_cast<void>(i);
+        static_cast<void>(unused);
+        return t;
     }
 };
 
@@ -598,9 +591,10 @@ public:
 
         assert(size_ < kMaxArgs);
 
-        args_[size_] = static_cast<T&&>(val);
-        types_.set_type(size_, impl::TypeFor<T>::value);
-        ++size_;
+        int const index = size_++;
+
+        args_[index] = static_cast<T&&>(val);
+        types_ = impl::Types::assign(types_, index, impl::TypeFor<T>::value);
     }
 };
 
@@ -608,14 +602,14 @@ template <typename ...Args>
 inline ErrorCode format(Writer& w, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoFormat(w, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoFormat(w, format, arr, impl::Types::make(args...));
 }
 
 template <typename ...Args>
 inline ErrorCode printf(Writer& w, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoPrintf(w, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoPrintf(w, format, arr, impl::Types::make(args...));
 }
 
 inline ErrorCode format(Writer& w, cxx::string_view format, FormatArgs const& args)
@@ -632,14 +626,14 @@ template <typename ...Args>
 inline ToCharsResult format_to_chars(char* first, char* last, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoFormatToChars(first, last, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoFormatToChars(first, last, format, arr, impl::Types::make(args...));
 }
 
 template <typename ...Args>
 inline ToCharsResult printf_to_chars(char* first, char* last, cxx::string_view format, Args const&... args)
 {
     impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoPrintfToChars(first, last, format, arr, impl::Types{args...});
+    return ::fmtxx::impl::DoPrintfToChars(first, last, format, arr, impl::Types::make(args...));
 }
 
 inline ToCharsResult format_to_chars(char* first, char* last, cxx::string_view format, FormatArgs const& args)

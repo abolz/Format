@@ -333,7 +333,7 @@ static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool
         return last;
     }
 
-    assert(!"not implemented"); // internal error
+    assert(false && "not implemented"); // internal error
     return last;
 }
 
@@ -1219,7 +1219,7 @@ ErrorCode fmtxx::Util::format_double(Writer& w, FormatSpec const& spec, double x
         break;
     default:
         buflen = 0;
-        assert(!"internal error");
+        assert(false && "internal error");
         break;
     }
 
@@ -1248,7 +1248,7 @@ static ErrorCode CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& ar
     {
     case Type::none:
     case Type::formatspec:
-        assert(!"internal error");
+        assert(false && "internal error");
         break;
     case Type::other:
         return arg.other.func(w, spec, arg.other.value);
@@ -1275,7 +1275,7 @@ static ErrorCode CallFormatFunc(Writer& w, FormatSpec const& spec, Arg const& ar
     case Type::double_:
         return Util::format_double(w, spec, arg.double_);
     case Type::last:
-        assert(!"internal error");
+        assert(false && "internal error");
         break;
     }
 

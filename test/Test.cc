@@ -1232,14 +1232,23 @@ TEST_CASE("FormatArgs_1")
     //fmtxx::format(stdout, "", args, 1);           // should not compile
 }
 
-////static void alpha_delta_227529() {}
-////struct S { int i; void func() {} };
+//static void alpha_delta_227529() {}
+//struct S { int i; void func() {} };
+//namespace fmtxx { template <> struct TreatAsString<S> : std::true_type {}; }
 //static void ShouldNotCompile()
 //{
 //    //fmtxx::format(stdout, "", alpha_delta_227529);
 //    //fmtxx::format(stdout, "", &S::func);
 //    //fmtxx::format(stdout, "", &S::i);
-//    fmtxx::format(stdout, "", (int*)nullptr);
+//    //fmtxx::format(stdout, "", (int*)nullptr);
+//    //fmtxx::format(stdout, "", S{});
+//
+//    fmtxx::ArrayWriter w{nullptr, 0};
+//    //fmtxx::FormatValue<>{}(w, {}, alpha_delta_227529);
+//    //fmtxx::FormatValue<>{}(w, {}, &S::func);
+//    //fmtxx::FormatValue<>{}(w, {}, &S::i);
+//    //fmtxx::FormatValue<>{}(w, {}, (int*)nullptr);
+//    //fmtxx::FormatValue<>{}(w, {}, S{});
 //}
 
 //------------------------------------------------------------------------------

@@ -42,27 +42,27 @@ on the TODO-list.*
 ### Format_core.h
 
 ```c++
-namespace cxx {
-
-// A minimal replacement for std::string_view.
-// For compatibility.
-class string_view;
-
-} // namespace cxx
+namespace cxx
+{
+    // A minimal replacement for std::string_view. For compatibility.
+    class string_view;
+}
 
 namespace fmtxx {
 
+// Error codes returned by the formatting functions.
+// A value-initialized ErrorCode indicates success.
 enum struct ErrorCode {
-    success = 0,
-    conversion_error,
-    index_out_of_range,
-    invalid_argument,
-    invalid_format_string,
-    io_error,
-    not_supported,
-    value_out_of_range,
+    conversion_error        = 1, // Value could not be converted to string
+    index_out_of_range      = 2, // Argument index out of range
+    invalid_argument        = 3,
+    invalid_format_string   = 4,
+    io_error                = 5, // Writer failed
+    not_supported           = 6, // Conversion not supported
+    value_out_of_range      = 7, // Value of argument out of range
 };
 
+// Alignment options.
 enum struct Align : unsigned char {
     use_default,
     left,
@@ -71,6 +71,8 @@ enum struct Align : unsigned char {
     pad_after_sign,
 };
 
+// Options for specifying if and how a sign for positive numbers (integral or
+// floating-point) should be formatted.
 enum struct Sign : unsigned char {
     use_default, // => minus
     minus,       // => '-' if negative, nothing otherwise
@@ -116,27 +118,25 @@ private:
     virtual ErrorCode Pad(char c, size_t count) = 0;
 };
 
+// Returned by the format_to_chars/printf_to_chars function (below).
+// Like std::to_chars.
+struct ToCharsResult
+{
+    char* next;
+    ErrorCode ec = ErrorCode{};
+
+    ToCharsResult();
+    ToCharsResult(char* next, ErrorCode ec);
+
+    explicit operator bool() const; // Test for successful conversions
+};
+
 // Determine whether objects of type T should be handled as strings.
 //
 // May be specialized for user-defined types to provide more efficient string
 // formatting.
 template <typename T>
 struct TreatAsString : std::false_type {};
-
-// Dynamically created argument list.
-//
-// May be passed (as the only argument) to the formatting functions instead of
-// the variadic arguments.
-class FormatArgs {
-public:
-    int size() const;
-    int max_size() const;
-
-    // Add arguments to this list.
-    // PRE: max_size() - size() >= sizeof...(Ts)
-    template <typename ...Ts>
-    void push_back(Ts&&... values);
-};
 
 // Specialize this to enable formatting of user-defined types.
 // Or include "Format_ostream.h" if objects of type T can be formatted using
@@ -149,6 +149,21 @@ struct FormatValue {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& value) const;
 };
 
+// Dynamically created argument list.
+//
+// May be passed (as the only argument) to the formatting functions instead of
+// the variadic arguments.
+class FormatArgs {
+public:
+    int size() const;
+    int max_size() const;
+
+    // Add an argument to this list.
+    // PRE: size() < max_size()
+    template <typename T>
+    void push_back(T&& value);
+};
+
 // The format-method uses a python-style format string (see below).
 template <typename ...Args>
 ErrorCode format(Writer& w, cxx::string_view format, Args const&... args);
@@ -156,6 +171,23 @@ ErrorCode format(Writer& w, cxx::string_view format, Args const&... args);
 // The printf-method uses a printf-style format string.
 template <typename ...Args>
 ErrorCode printf(Writer& w, cxx::string_view format, Args const&... args);
+
+// Formatting function with an interface like std::to_chars, using python-style
+// format strings.
+//
+// On success, returns a ToCharsResult such that 'ec' equals value-initialized
+// ErrorCode and 'next' is the one-past-the-end pointer of the characters
+// written.
+//
+// On error, returns a value of type ToCharsResult holding the error code
+// in 'ec' and a copy of the value 'last' in 'next', and leaves the contents
+// of the range '[first, last)' in unspecified state.
+template <typename ...Args>
+ToCharsResult format_to_chars(char* first, char* last, cxx::string_view format, Args const&... args);
+
+// Same as 'format_to_chars' but uses a printf-style format string.
+template <typename ...Args>
+ToCharsResult printf_to_chars(char* first, char* last, cxx::string_view format, Args const&... args);
 
 } // namespace fmtxx
 ```
@@ -237,15 +269,20 @@ int snprintf(char (&buf)[N], cxx::string_view format, Args const&... args);
 
 ### Format_string.h
 
-Support for printing (to) `std::string`s and printing `std::string_view`s
-(if available).
+Support for formatting `std::string[_view]`s and for writing to `std::string`s.
 
 ```c++
 namespace fmtxx {
 
-struct StringFormatResult {
+struct StringFormatResult
+{
     std::string str;
-    ErrorCode res = ErrorCode::success;
+    ErrorCode ec = ErrorCode{};
+
+    StringFormatResult();
+    StringFormatResult(std::string str, ErrorCode ec);
+
+    explicit operator bool() const; // Test for successful conversion
 };
 
 template <typename ...Args>
@@ -295,6 +332,15 @@ template <typename T>
 /*unspecified*/ pretty(T const& object);
 
 } // namespace fmtxx
+```
+
+For example:
+
+```c++
+std::map<std::string, int> m {{"eins", 1}, {"zwei", 2}};
+
+format(stdout, "{}", pretty(m));
+    // "[{"eins", 1}, {"zwei", 2}]"
 ```
 
 ### Format.h

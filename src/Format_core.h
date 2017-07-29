@@ -167,6 +167,12 @@ struct Util
     static FMTXX_API ErrorCode format_double      (Writer& w, FormatSpec const& spec, double x);
 
     template <typename T>
+    static inline ErrorCode format_string(Writer& w, FormatSpec const& spec, T const& value)
+    {
+        return format_string(w, spec, value.data(), value.size());
+    }
+
+    template <typename T>
     static inline ErrorCode format_int(Writer& w, FormatSpec const& spec, T value)
     {
         static_assert(std::is_integral<T>::value, "T must be an integral type");
@@ -187,19 +193,29 @@ private:
     }
 };
 
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+namespace impl
+{
+    template <typename T>
+    struct DefaultTreatAsString : std::false_type {};
+
+    template <>
+    struct DefaultTreatAsString<cxx::string_view> : std::true_type {};
+}
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
 // Provides the member constant value equal to true if objects of type T should
 // be treated as strings by the Format library.
 // Objects of type T must have member functions data() and size() and their
 // return values must be convertible to 'char const*' and 'size_t' resp.
 template <typename T, typename /*Enable*/ = void>
-struct TreatAsString
-    : std::false_type
-{
-};
-
-template <>
-struct TreatAsString< cxx::string_view >
-    : std::true_type
+struct TreatAsString : impl::DefaultTreatAsString<T>
 {
 };
 
@@ -340,18 +356,113 @@ struct StreamValue
         "and include Format_ostream.h.");
 };
 
+template <typename T, typename = void>
+struct DefaultFormatValue : StreamValue<T>
+{
+    static_assert(TypeFor<T>::value == Type::other,
+        "Internal error: DefaultFormatValue not specialized for all values of Type");
+};
+
+// Implement DefaultFormatValue for all built-in types.
+// This should make 'FormatValue<>{}(w, {}, val)' equivalent to 'format(w, "{}", val)'
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::string >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const {
+        return Util::format_string(w, spec, val.data(), val.size());
+    }
+};
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::pchar >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, char const* val) const {
+        return Util::format_char_pointer(w, spec, val);
+    }
+};
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::pvoid >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, void const* val) const {
+        return Util::format_pointer(w, spec, val);
+    }
+};
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::bool_ >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, bool val) const {
+        return Util::format_bool(w, spec, val);
+    }
+};
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::char_ >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, char val) const {
+        return Util::format_char(w, spec, val);
+    }
+};
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::schar >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed char val) const {
+        return Util::format_int(w, spec, val);
+    }
+};
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::sshort >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed short val) const {
+        return Util::format_int(w, spec, val);
+    }
+};
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::sint >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed int val) const {
+        return Util::format_int(w, spec, val);
+    }
+};
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::slonglong >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed long long val) const {
+        return Util::format_int(w, spec, val);
+    }
+};
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::ulonglong >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, unsigned long long val) const {
+        return Util::format_int(w, spec, val);
+    }
+};
+
+template <typename T>
+struct DefaultFormatValue<T, typename std::enable_if< TypeFor<T>::value == Type::double_ >::type>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, double val) const {
+        return Util::format_double(w, spec, val);
+    }
+};
+
 } // namespace fmtxx::impl
 
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
 
-// Specialize this to format user-defined types.
 template <typename T = void, typename /*Enable*/ = void>
-struct FormatValue : impl::StreamValue<T>
+struct FormatValue : impl::DefaultFormatValue<T>
 {
-    static_assert(impl::TypeFor<T>::value == impl::Type::other,
-        "Internal error: FormatValue not specialized for all values of Type");
 };
 
 template <>
@@ -360,97 +471,6 @@ struct FormatValue<void>
     template <typename T>
     ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const {
         return FormatValue<typename std::decay<T>::type>{}(w, spec, val);
-    }
-};
-
-// Implement FormatValue for all built-in types.
-// This should make 'FormatValue<>{}(w, {}, val)' equivalent to 'format(w, "{}", val)'
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::string >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const {
-        return Util::format_string(w, spec, val.data(), val.size());
-    }
-};
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::pchar >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, char const* val) const {
-        return Util::format_char_pointer(w, spec, val);
-    }
-};
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::pvoid >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, void const* val) const {
-        return Util::format_pointer(w, spec, val);
-    }
-};
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::bool_ >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, bool val) const {
-        return Util::format_bool(w, spec, val);
-    }
-};
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::char_ >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, char val) const {
-        return Util::format_char(w, spec, val);
-    }
-};
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::schar >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed char val) const {
-        return Util::format_int(w, spec, val);
-    }
-};
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::sshort >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed short val) const {
-        return Util::format_int(w, spec, val);
-    }
-};
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::sint >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed int val) const {
-        return Util::format_int(w, spec, val);
-    }
-};
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::slonglong >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, signed long long val) const {
-        return Util::format_int(w, spec, val);
-    }
-};
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::ulonglong >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, unsigned long long val) const {
-        return Util::format_int(w, spec, val);
-    }
-};
-
-template <typename T>
-struct FormatValue<T, typename std::enable_if< impl::TypeFor<T>::value == impl::Type::double_ >::type>
-{
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, double val) const {
-        return Util::format_double(w, spec, val);
     }
 };
 

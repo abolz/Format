@@ -53,38 +53,40 @@
 
 namespace fmtxx {
 
-template <typename Alloc>
-struct TreatAsString< std::basic_string<char, std::char_traits<char>, Alloc> >
-    : std::true_type
-{
-};
-
-#if FMTXX_HAS_STD_STRING_VIEW
-template <>
-struct TreatAsString< std::string_view >
-    : std::true_type
-{
-};
-#endif
-
-#if FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
-template <>
-struct TreatAsString< std::experimental::string_view >
-    : std::true_type
-{
-};
-#endif
-
 namespace impl {
 
+template <typename Alloc>
+struct DefaultTreatAsString<std::basic_string<char, std::char_traits<char>, Alloc>>
+    : std::true_type
+{
+};
+
 #if FMTXX_HAS_STD_STRING_VIEW
 template <>
-struct IsSafeRValueType<std::string_view> : std::true_type {};
+struct DefaultTreatAsString<std::string_view>
+    : std::true_type
+{
+};
+
+template <>
+struct IsSafeRValueType<std::string_view>
+    : std::true_type
+{
+};
 #endif
 
 #if FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
 template <>
-struct IsSafeRValueType<std::experimental::string_view> : std::true_type {};
+struct DefaultTreatAsString<std::experimental::string_view>
+    : std::true_type
+{
+};
+
+template <>
+struct IsSafeRValueType<std::experimental::string_view>
+    : std::true_type
+{
+};
 #endif
 
 FMTXX_API ErrorCode DoFormat(std::string& str, cxx::string_view format, Arg const* args, Types types);

@@ -366,7 +366,7 @@ struct IsSafeRValueType<cxx::string_view>
 {
 };
 
-template <typename T, typename = TypeFor<T>>
+template <typename T, Type Val = TypeFor<T>::value>
 struct DefaultFormatValue
 {
     static_assert(
@@ -377,7 +377,7 @@ struct DefaultFormatValue
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::string>>
+struct DefaultFormatValue<T, Type::string>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const {
         return Util::format_string(w, spec, val.data(), val.size());
@@ -385,7 +385,7 @@ struct DefaultFormatValue<T, Type_t<Type::string>>
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::pchar>>
+struct DefaultFormatValue<T, Type::pchar>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, char const* val) const {
         return Util::format_char_pointer(w, spec, val);
@@ -393,7 +393,7 @@ struct DefaultFormatValue<T, Type_t<Type::pchar>>
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::pvoid>>
+struct DefaultFormatValue<T, Type::pvoid>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, void const* val) const {
         return Util::format_pointer(w, spec, val);
@@ -401,7 +401,7 @@ struct DefaultFormatValue<T, Type_t<Type::pvoid>>
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::bool_>>
+struct DefaultFormatValue<T, Type::bool_>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, bool val) const {
         return Util::format_bool(w, spec, val);
@@ -409,7 +409,7 @@ struct DefaultFormatValue<T, Type_t<Type::bool_>>
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::char_>>
+struct DefaultFormatValue<T, Type::char_>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, char val) const {
         return Util::format_char(w, spec, val);
@@ -417,7 +417,7 @@ struct DefaultFormatValue<T, Type_t<Type::char_>>
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::schar>>
+struct DefaultFormatValue<T, Type::schar>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, signed char val) const {
         return Util::format_int(w, spec, val);
@@ -425,7 +425,7 @@ struct DefaultFormatValue<T, Type_t<Type::schar>>
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::sshort>>
+struct DefaultFormatValue<T, Type::sshort>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, signed short val) const {
         return Util::format_int(w, spec, val);
@@ -433,7 +433,7 @@ struct DefaultFormatValue<T, Type_t<Type::sshort>>
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::sint>>
+struct DefaultFormatValue<T, Type::sint>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, signed int val) const {
         return Util::format_int(w, spec, val);
@@ -441,7 +441,7 @@ struct DefaultFormatValue<T, Type_t<Type::sint>>
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::slonglong>>
+struct DefaultFormatValue<T, Type::slonglong>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, signed long long val) const {
         return Util::format_int(w, spec, val);
@@ -449,7 +449,7 @@ struct DefaultFormatValue<T, Type_t<Type::slonglong>>
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::ulonglong>>
+struct DefaultFormatValue<T, Type::ulonglong>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, unsigned long long val) const {
         return Util::format_int(w, spec, val);
@@ -457,7 +457,7 @@ struct DefaultFormatValue<T, Type_t<Type::ulonglong>>
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::double_>>
+struct DefaultFormatValue<T, Type::double_>
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, double val) const {
         return Util::format_double(w, spec, val);

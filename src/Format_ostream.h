@@ -57,7 +57,7 @@ struct IsStreamable<T, Void_t< decltype(std::declval<std::ostream&>() << std::de
 };
 
 template <typename T>
-struct DefaultFormatValue<T, Type_t<Type::other>>
+struct DefaultFormatValue<T, Type::other>
 {
     static_assert(IsStreamable<T>::value,
         "Formatting objects of type T is not supported. "

@@ -34,11 +34,21 @@
 #include <iterator> // stdext::checked_array_iterator
 #include <limits>
 
-static_assert(std::numeric_limits<double>::is_iec559 && std::numeric_limits<double>::digits == 53,
+static_assert(
+    std::numeric_limits<double>::is_iec559
+        && std::numeric_limits<double>::digits == 53,
     "IEEE-754 double-precision implementation required for formatting floating-point numbers");
 
 using namespace fmtxx;
 using namespace fmtxx::impl;
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+fmtxx::Writer::~Writer() noexcept
+{
+}
 
 //------------------------------------------------------------------------------
 //
@@ -49,27 +59,11 @@ static constexpr int kMaxIntPrec = 300;
 // Maximum supported floating point precision.
 static constexpr int kMaxFloatPrec = 1074;
 
-// Precision required for denorm_min (= [751 digits] 10^-323) when using %f
-static_assert(kMaxFloatPrec >= 751 + 323, "invalid configuration");
+static_assert(kMaxIntPrec >= 64,
+    "A minimum precision of 64 is required to print UINT64_MAX in base 2");
 
-static constexpr char const* kUpperDigits = "0123456789ABCDEF";
-static constexpr char const* kLowerDigits = "0123456789abcdef";
-
-static constexpr char const* kDecDigits100 =
-    "00010203040506070809"
-    "10111213141516171819"
-    "20212223242526272829"
-    "30313233343536373839"
-    "40414243444546474849"
-    "50515253545556575859"
-    "60616263646566676869"
-    "70717273747576777879"
-    "80818283848586878889"
-    "90919293949596979899";
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
+static_assert(kMaxFloatPrec >= 1074,
+    "A minimum precision of 1074 is required to print denorm_min (= [751 digits] 10^-323) when using %f");
 
 template <typename T>
 static void UnusedParameter(T&&) {}
@@ -88,18 +82,6 @@ static RanIt MakeArrayIterator(RanIt first, intptr_t /*n*/)
 }
 #endif
 
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
-fmtxx::Writer::~Writer() noexcept
-{
-}
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
 static char ComputeSignChar(bool neg, Sign sign, char fill)
 {
     if (neg)
@@ -112,15 +94,16 @@ static char ComputeSignChar(bool neg, Sign sign, char fill)
     return '\0';
 }
 
-namespace
+namespace {
+
+struct Padding
 {
-    struct Padding
-    {
-        size_t left       = 0;
-        size_t after_sign = 0;
-        size_t right      = 0;
-    };
-}
+    size_t left       = 0;
+    size_t after_sign = 0;
+    size_t right      = 0;
+};
+
+} // namespace
 
 static Padding ComputePadding(size_t len, Align align, int width)
 {
@@ -287,6 +270,18 @@ static ErrorCode PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign,
     return {};
 }
 
+static constexpr char const* kDecDigits100 =
+    "00010203040506070809"
+    "10111213141516171819"
+    "20212223242526272829"
+    "30313233343536373839"
+    "40414243444546474849"
+    "50515253545556575859"
+    "60616263646566676869"
+    "70717273747576777879"
+    "80818283848586878889"
+    "90919293949596979899";
+
 static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
 {
     while (n >= 100)
@@ -310,6 +305,9 @@ static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
 
     return last;
 }
+
+static constexpr char const* kUpperDigits = "0123456789ABCDEF";
+static constexpr char const* kLowerDigits = "0123456789abcdef";
 
 static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool capitals)
 {
@@ -421,8 +419,6 @@ ErrorCode fmtxx::Util::format_int(Writer& w, FormatSpec const& spec, int64_t sex
         break;
     }
 
-    static_assert(kMaxIntPrec >= 64, "at least 64-characters are required for UINT64_MAX in base 2");
-
     constexpr int kMaxSeps = (kMaxIntPrec - 1) / 3;
     constexpr int kBufSize = kMaxIntPrec + kMaxSeps;
 
@@ -518,6 +514,8 @@ ErrorCode fmtxx::Util::format_pointer(Writer& w, FormatSpec const& spec, void co
 
 namespace dtoa {
 
+namespace {
+
 struct Double
 {
     static constexpr uint64_t kSignMask        = 0x8000000000000000;
@@ -578,6 +576,8 @@ struct Options {
     char exponent_char               = 'e';   //   E G A J
     bool emit_positive_exponent_sign = true;  //   E G A
 };
+
+} // namespace
 
 static int CreateFixedRepresentation(char* buf, int bufsize, int num_digits, int decpt, int precision, Options const& options)
 {

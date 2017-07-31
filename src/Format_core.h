@@ -192,10 +192,16 @@ private:
 namespace impl {
 
 template <typename T>
-struct DefaultTreatAsString : std::false_type {};
+struct DefaultTreatAsString
+    : std::false_type
+{
+};
 
 template <>
-struct DefaultTreatAsString<cxx::string_view> : std::true_type {};
+struct DefaultTreatAsString<cxx::string_view>
+    : std::true_type
+{
+};
 
 } // namespace fmtxx::impl
 
@@ -214,10 +220,16 @@ class FormatArgs;
 namespace impl {
 
 template <typename>
-struct AlwaysFalse : std::false_type {};
+struct AlwaysFalse
+    : std::false_type
+{
+};
 
 template <typename ...>
-struct AlwaysVoid { using type = void; };
+struct AlwaysVoid
+{
+    using type = void;
+};
 
 template <typename ...Ts>
 using Void_t = typename AlwaysVoid<Ts...>::type;
@@ -277,11 +289,28 @@ struct SelectType_checked : Type_t<Val>
 template <typename T>
 struct SelectType_checked<T, Type::other> : Type_t<Type::other>
 {
-    static_assert(!std::is_function<T>::value,
-        "Formatting function types is not supported");
-    static_assert(!std::is_pointer<T>::value && !std::is_member_pointer<T>::value,
-        "Formatting non-void pointer types is not allowed. A cast to void* or intptr_t is required.");
-    static_assert(!std::is_same<FormatArgs, T>::value,
+    // FIXME?!?!
+    //
+    // The next three assertions are not really required. These types could be
+    // supported (and indeed are supported by std::ostream - more or less) by
+    // providing a specicialization of FormatValue<T>.
+    //
+    // But this does not work in the current implementation: At the where
+    // FormatValue<T> is instantiated, these conditions have already been
+    // checked.
+
+    static_assert(
+        !std::is_function<T>::value,
+        "Formatting function types is not supported.");         // ostream: as void* (or stream manipulator)
+    static_assert(
+        !std::is_pointer<T>::value,
+        "Formatting non-void pointer types is not supported."); // ostream: as void*
+    static_assert(
+        !std::is_member_pointer<T>::value,
+        "Formatting member pointer types is not supported.");   // ostream: as bool...
+
+    static_assert(
+        !std::is_same<FormatArgs, T>::value,
         "Formatting variadic FormatArgs in combination with other arguments "
         "is (currently) not supported. The only valid syntax for FormatArgs is "
         "as a single argument to the formatting functions.");
@@ -289,7 +318,10 @@ struct SelectType_checked<T, Type::other> : Type_t<Type::other>
 
 // Test if a specialization TreatAsString<T> is valid.
 template <typename T, typename = void>
-struct MayTreatAsString : std::false_type {};
+struct MayTreatAsString
+    : std::false_type
+{
+};
 
 template <typename T>
 struct MayTreatAsString<T, Void_t< decltype(std::declval<T const&>().data(), std::declval<T const&>().size()) >>
@@ -304,7 +336,8 @@ struct MayTreatAsString<T, Void_t< decltype(std::declval<T const&>().data(), std
 template <typename T>
 struct SelectType_checked<T, Type::string> : Type_t<Type::string>
 {
-    static_assert(MayTreatAsString<T>::value,
+    static_assert(
+        MayTreatAsString<T>::value,
         "TreatAsString is specialized for T, but the specialization is invalid. "
         "Note: T must provide member functions data() and size() and their return types must be "
         "convertible to 'char const*' and 'size_t' resp. Implement FormatValue<T> instead.");
@@ -328,12 +361,16 @@ struct IsSafeRValueType : std::integral_constant<
 };
 
 template <>
-struct IsSafeRValueType<cxx::string_view> : std::true_type {};
+struct IsSafeRValueType<cxx::string_view>
+    : std::true_type
+{
+};
 
 template <typename T, typename = TypeFor<T>>
 struct DefaultFormatValue
 {
-    static_assert(AlwaysFalse<T>::value,
+    static_assert(
+        AlwaysFalse<T>::value,
         "Formatting objects of type T is not supported. "
         "Specialize FormatValue<T> or TreatAsString<T>, or implement operator<<(std::ostream&, T const&) "
         "and include Format_ostream.h.");
@@ -430,7 +467,8 @@ struct DefaultFormatValue<T, Type_t<Type::double_>>
 } // namespace fmtxx::impl
 
 template <typename T = void, typename /*Enable*/ = void>
-struct FormatValue : impl::DefaultFormatValue<T>
+struct FormatValue
+    : impl::DefaultFormatValue<T>
 {
 };
 
@@ -565,7 +603,9 @@ public:
     template <typename T>
     void push_back(T&& val)
     {
-        static_assert(std::is_lvalue_reference<T>::value || impl::IsSafeRValueType<typename std::decay<T>::type>::value,
+        static_assert(
+            std::is_lvalue_reference<T>::value
+                || impl::IsSafeRValueType<typename std::decay<T>::type>::value,
             "Adding temporaries of non-built-in types to FormatArgs is not allowed. ");
 
         assert(size_ < kMaxArgs);

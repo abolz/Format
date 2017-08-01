@@ -1001,6 +1001,15 @@ TEST_CASE("Dynamic_1")
     CHECK(".......123" == FormatArgs("{0*1}", 123, spec));
     CHECK("......-123" == FormatArgs("{0*1}", -123, spec));
 
+    CHECK("       123" == FormatArgs("{0:{1}}", 123, 10));
+    CHECK("       123" == FormatArgs("{1:{}}", 10, 123));
+    CHECK("      0123" == FormatArgs("{:{}.{}}", 10, 4, 123));
+    CHECK("      0123" == FormatArgs("{0:{2}.{1}}", 123, 4, 10));
+    CHECK("123......." == FormatArgs("{0:.<{1}}", 123, 10));
+    CHECK("123......." == FormatArgs("{1:.<{}}", 10, 123));
+    CHECK("0123......" == FormatArgs("{:.<{}.{}}", 10, 4, 123));
+    CHECK("0123......" == FormatArgs("{0:.<{2}.{1}}", 123, 4, 10));
+
     CHECK("  3.14" == PrintfArgs("%*.*f", 6, 2, 3.1415));
     CHECK("  3.14" == PrintfArgs("%6.*f", 2, 3.1415));
     CHECK("3.14  " == PrintfArgs("%-6.*f", 2, 3.1415));
@@ -1233,15 +1242,23 @@ TEST_CASE("FormatArgs_1")
 }
 
 //static void alpha_delta_227529() {}
-//struct S { int i; void func() {} };
+//struct Base1 { int a1; void func1() {} };
+//struct Base2 { int a2; void func2() {} };
+//struct S : Base1, Base2 { int i; void func() {} };
 //namespace fmtxx { template <> struct TreatAsString<S> : std::true_type {}; }
 //static void ShouldNotCompile()
 //{
+//    //std::cout << alpha_delta_227529;
+//    //std::cout << &S::func;
+//    //std::cout << &S::i;
+//    //std::cout << (int*)nullptr;
+//
 //    //fmtxx::format(stdout, "", alpha_delta_227529);
 //    //fmtxx::format(stdout, "", &S::func);
 //    //fmtxx::format(stdout, "", &S::i);
 //    //fmtxx::format(stdout, "", (int*)nullptr);
 //    //fmtxx::format(stdout, "", S{});
+//    fmtxx::format(stdout, "", std::hex);
 //
 //    fmtxx::ArrayWriter w{nullptr, 0};
 //    //fmtxx::FormatValue<>{}(w, {}, alpha_delta_227529);

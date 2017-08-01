@@ -1351,7 +1351,8 @@ static ErrorCode ParseLBrace(int& value, cxx::string_view::const_iterator& f, cx
 {
     assert(f != end && *f == '{'); // internal error
 
-    ++f;
+    ++f; // skip '{'
+
     if (f == end)
         return ErrorCode::invalid_format_string;
 
@@ -1362,14 +1363,16 @@ static ErrorCode ParseLBrace(int& value, cxx::string_view::const_iterator& f, cx
             return ErrorCode::invalid_format_string;
         if (f == end)
             return ErrorCode::invalid_format_string;
-        if (*f != '}')
-            return ErrorCode::invalid_format_string;
-        ++f;
     }
     else
     {
         index = nextarg++;
     }
+
+    if (*f != '}')
+        return ErrorCode::invalid_format_string;
+
+    ++f; // skip '}'
 
     return GetIntArg(value, index, args, types);
 }

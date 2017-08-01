@@ -560,8 +560,7 @@ struct Types
 
     static Types assign(Types t, int index, Type type)
     {
-        t.types |= static_cast<value_type>(type) << (kBitsPerArg * index);
-        return t;
+        return Types{t.types | static_cast<value_type>(type) << (kBitsPerArg * index)};
     }
 
     template <typename ...Ts>
@@ -569,7 +568,7 @@ struct Types
     {
         Types t;
         int i = 0;
-        int unused[] = { (t = assign(t, i++, TypeFor<Ts>::value), 0)..., 0 };
+        int unused[] = {0, (t = assign(t, i++, TypeFor<Ts>::value))...};
         static_cast<void>(i);
         static_cast<void>(unused);
         return t;

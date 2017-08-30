@@ -51,11 +51,11 @@ ErrorCode fmtxx::StringWriter::Pad(char c, size_t count)
 ErrorCode fmtxx::impl::DoFormat(std::string& str, cxx::string_view format, Arg const* args, Types types)
 {
     StringWriter w{str};
-    return fmtxx::impl::DoFormat(w, format, args, types);
+    return ::fmtxx::impl::DoFormat(w, format, args, types);
 }
 
 ErrorCode fmtxx::impl::DoPrintf(std::string& str, cxx::string_view format, Arg const* args, Types types)
 {
     StringWriter w{str};
-    return fmtxx::impl::DoPrintf(w, format, args, types);
+    return ::fmtxx::impl::DoPrintf(w, format, args, types);
 }

@@ -20,8 +20,8 @@
 
 #include "Format_ostream.h"
 
-#include <cstring>
 #include <algorithm>
+#include <cstring>
 #include <limits>
 
 using namespace fmtxx;
@@ -129,7 +129,7 @@ ErrorCode fmtxx::impl::DoFormat(std::ostream& os, cxx::string_view format, Arg c
     if (ok)
     {
         StreamWriter w{os};
-        return fmtxx::impl::DoFormat(w, format, args, types);
+        return ::fmtxx::impl::DoFormat(w, format, args, types);
     }
 
     return ErrorCode::io_error;
@@ -141,7 +141,7 @@ ErrorCode fmtxx::impl::DoPrintf(std::ostream& os, cxx::string_view format, Arg c
     if (ok)
     {
         StreamWriter w{os};
-        return fmtxx::impl::DoPrintf(w, format, args, types);
+        return ::fmtxx::impl::DoPrintf(w, format, args, types);
     }
 
     return ErrorCode::io_error;

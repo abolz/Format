@@ -21,10 +21,16 @@
 #ifndef FMTXX_FORMAT_PRETTY_H
 #define FMTXX_FORMAT_PRETTY_H 1
 
+#define FMTXX_FORMAT_PRETTY_STD_ITERATOR 0
+
 #include "Format_core.h"
 
-#include <iterator>     // begin, end
-#include <utility>      // declval, forward, get<pair>, tuple_size<pair>
+#if FMTXX_FORMAT_PRETTY_STD_ITERATOR
+#include <iterator>         // begin, end
+#else
+#include <initializer_list> // begin<init-list>, end<init-list>
+#endif
+#include <utility>          // declval, forward, get<pair>, tuple_size<pair>
 
 namespace fmtxx {
 
@@ -35,15 +41,16 @@ namespace fmtxx {
 template <typename T>
 struct PrettyPrinter
 {
-    T const& object;
-
-    explicit PrettyPrinter(T const& object) : object(object) {}
+    T object;
 };
 
 template <typename T>
-inline PrettyPrinter<T> pretty(T const& object)
+inline PrettyPrinter<T> pretty(T&& object)
 {
-    return PrettyPrinter<T>(object);
+    // NB:
+    // Forward lvalue-references, copy rvalue-references.
+
+    return PrettyPrinter<T>{std::forward<T>(object)};
 }
 
 //------------------------------------------------------------------------------
@@ -58,16 +65,21 @@ namespace adl
     using std::end;
 
     template <typename T>
-    auto adl_begin(T&& t) -> decltype(( begin(std::forward<T>(t)) )) // <- SFINAE
+    auto adl_begin(T&& val) -> decltype(( begin(std::forward<T>(val)) )) // <- SFINAE
     {
-        return begin(std::forward<T>(t));
+        return begin(std::forward<T>(val));
     }
 
     template <typename T>
-    auto adl_end(T&& t) -> decltype(( end(std::forward<T>(t)) )) // <- SFINAE
+    auto adl_end(T&& val) -> decltype(( end(std::forward<T>(val)) )) // <- SFINAE
     {
-        return end(std::forward<T>(t));
+        return end(std::forward<T>(val));
     }
+
+#if !FMTXX_FORMAT_PRETTY_STD_ITERATOR
+    template <typename T, size_t Size> T* adl_begin(T (&val)[Size]) { return val; }
+    template <typename T, size_t Size> T* adl_end  (T (&val)[Size]) { return val + Size; }
+#endif
 }
 
 using adl::adl_begin;
@@ -95,14 +107,40 @@ struct IsTuple
 };
 
 template <typename T>
-struct IsTuple<T, Void_t< decltype(std::get<0>(std::declval<T>())) >>
+struct IsTuple<T, Void_t< typename std::tuple_size<T>::type >>
     : std::true_type
 {
 };
 
 struct PP
 {
-    static ErrorCode PrintString(Writer& w, cxx::string_view val)
+    struct AsString {};
+    struct AsContainer {};
+    struct AsTuple {};
+    struct AsOther {};
+
+    //
+    // Determine how to print objects of type T.
+    //
+    //  1. Is a string?     => Print as string (quoted)
+    //      (includes C-strings)
+    //  2. Is a container?  => Recursively print as array "[x, y, z]"
+    //  3. Is a tuple?      => Recursively print as tuple "{x, y, z}"
+    //  4. Otherwise:       => Use FormatValue<T>
+    //
+    template <typename T>
+    using PrintAs =
+        typename std::conditional<
+            TreatAsString<typename std::decay<T>::type>::value,
+            AsString,
+            typename std::conditional<
+                IsContainer<T>::value, // NOTE: No decay<T> here!
+                AsContainer,
+                typename std::conditional< IsTuple<typename std::decay<T>::type>::value, AsTuple, AsOther >::type
+            >::type
+        >::type;
+
+    static ErrorCode Print(Writer& w, FormatSpec const& /*spec*/, cxx::string_view val, AsString)
     {
         if (Failed ec = w.put('"'))
             return ec;
@@ -115,70 +153,24 @@ struct PP
     }
 
     template <typename T>
-    static ErrorCode PrintTuple(Writer& /*w*/, T const& /*object*/, std::integral_constant<size_t, 0>)
+    static ErrorCode Print(Writer& w, FormatSpec const& spec, T const& val, AsContainer)
     {
-        return {};
-    }
+        auto const sep = spec.style.empty() ? ", " : spec.style;
 
-    template <typename T>
-    static ErrorCode PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, 1>)
-    {
-        return PrettyPrint(w, std::get<std::tuple_size<T>::value - 1>(object));
-    }
-
-    template <typename T, size_t N>
-    static ErrorCode PrintTuple(Writer& w, T const& object, std::integral_constant<size_t, N>)
-    {
-        if (Failed ec = PrettyPrint(w, std::get<std::tuple_size<T>::value - N>(object)))
-            return ec;
-        if (Failed ec = w.put(','))
-            return ec;
-        if (Failed ec = w.put(' '))
-            return ec;
-        if (Failed ec = PrintTuple(w, object, std::integral_constant<size_t, N - 1>()))
-            return ec;
-
-        return {};
-    }
-
-    template <typename T>
-    static ErrorCode DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::true_type)
-    {
-        if (Failed ec = w.put('{'))
-            return ec;
-        if (Failed ec = PrintTuple(w, object, typename std::tuple_size<T>::type()))
-            return ec;
-        if (Failed ec = w.put('}'))
-            return ec;
-
-        return {};
-    }
-
-    template <typename T>
-    static ErrorCode DispatchTuple(Writer& w, T const& object, /*IsTuple*/ std::false_type)
-    {
-        return FormatValue<>{}(w, FormatSpec{}, object);
-    }
-
-    template <typename T>
-    static ErrorCode DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::true_type)
-    {
         if (Failed ec = w.put('['))
             return ec;
 
-        auto I = ::fmtxx::impl::adl_begin(object);
-        auto E = ::fmtxx::impl::adl_end(object);
+        auto I = ::fmtxx::impl::adl_begin(val);
+        auto E = ::fmtxx::impl::adl_end(val);
         if (I != E)
         {
             for (;;)
             {
-                if (Failed ec = PrettyPrint(w, *I))
+                if (Failed ec = PrettyPrint(w, spec, *I))
                     return ec;
                 if (++I == E)
                     break;
-                if (Failed ec = w.put(','))
-                    return ec;
-                if (Failed ec = w.put(' '))
+                if (Failed ec = w.write(sep.data(), sep.size()))
                     return ec;
             }
         }
@@ -190,37 +182,69 @@ struct PP
     }
 
     template <typename T>
-    static ErrorCode DispatchContainer(Writer& w, T const& object, /*IsContainer*/ std::false_type)
+    static ErrorCode PrintTuple(Writer& /*w*/, FormatSpec const& /*spec*/, T const& /*val*/, std::integral_constant<size_t, 0>)
     {
-        return DispatchTuple(w, object, typename IsTuple<T>::type{});
+        return {};
     }
 
     template <typename T>
-    static ErrorCode DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::true_type)
+    static ErrorCode PrintTuple(Writer& w, FormatSpec const& spec, T const& val, std::integral_constant<size_t, 1>)
     {
-        return PrintString(w, cxx::string_view{object.data(), object.size()});
+        using std::get; // Use ADL!
+
+        return PrettyPrint(w, spec, get<std::tuple_size<T>::value - 1>(val));
+    }
+
+    template <typename T, size_t N>
+    static ErrorCode PrintTuple(Writer& w, FormatSpec const& spec, T const& val, std::integral_constant<size_t, N>)
+    {
+        using std::get; // Use ADL!
+
+        auto const sep = spec.style.empty() ? ", " : spec.style;
+
+        if (Failed ec = PrettyPrint(w, spec, get<std::tuple_size<T>::value - N>(val)))
+            return ec;
+        if (Failed ec = w.write(sep.data(), sep.size()))
+            return ec;
+        if (Failed ec = PrintTuple(w, spec, val, std::integral_constant<size_t, N - 1>()))
+            return ec;
+
+        return {};
     }
 
     template <typename T>
-    static ErrorCode DispatchString(Writer& w, T const& object, /*TreatAsString*/ std::false_type)
+    static ErrorCode Print(Writer& w, FormatSpec const& spec, T const& val, AsTuple)
     {
-        return DispatchContainer(w, object, typename IsContainer<T>::type{});
+        if (Failed ec = w.put('{'))
+            return ec;
+        if (Failed ec = PrintTuple(w, spec, val, typename std::tuple_size<T>::type()))
+            return ec;
+        if (Failed ec = w.put('}'))
+            return ec;
+
+        return {};
     }
 
     template <typename T>
-    static ErrorCode PrettyPrint(Writer& w, T const& object)
+    static ErrorCode Print(Writer& w, FormatSpec const& spec, T const& val, AsOther)
     {
-        return DispatchString(w, object, typename TreatAsString<T>::type{});
+        return FormatValue<>{}(w, spec, val);
     }
 
-    static ErrorCode PrettyPrint(Writer& w, char const* val)
+    template <typename T>
+    static ErrorCode PrettyPrint(Writer& w, FormatSpec const& spec, T const& val)
     {
-        return PrintString(w, val != nullptr ? val : "(null)");
+        return Print(w, spec, val, PrintAs<T const&>{}); // NOTE: T const&, the reference is important!
     }
 
-    static ErrorCode PrettyPrint(Writer& w, char* val)
+    static ErrorCode PrettyPrint(Writer& w, FormatSpec const& spec, char const* const& val)
     {
-        return PrintString(w, val != nullptr ? val : "(null)");
+        return Print(w, spec, val != nullptr ? val : "(null)", AsString{});
+    }
+
+    static ErrorCode PrettyPrint(Writer& w, FormatSpec const& spec, char* const& val)
+    {
+        return Print(w, spec, val != nullptr ? val : "(null)", AsString{});
     }
 };
 
@@ -229,9 +253,9 @@ struct PP
 template <typename T>
 struct FormatValue<PrettyPrinter<T>>
 {
-    ErrorCode operator()(Writer& w, FormatSpec const& /*spec*/, PrettyPrinter<T> const& value) const
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, PrettyPrinter<T> const& value) const
     {
-        return ::fmtxx::impl::PP::PrettyPrint(w, value.object);
+        return ::fmtxx::impl::PP::PrettyPrint(w, spec, value.object);
     }
 };
 

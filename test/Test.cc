@@ -142,6 +142,7 @@ struct StreamFormatter
    }
 };
 
+#if 0
 struct MemoryFormatter
 {
    template <typename ...Args>
@@ -160,6 +161,7 @@ struct MemoryFormatter
        return { std::string(w.data(), w.size()), ec };
    }
 };
+#endif
 
 template <typename Formatter>
 struct FormatFn
@@ -209,11 +211,13 @@ static std::string FormatArgsTemplate(cxx::string_view format, Args const&... ar
         REQUIRE(res.ec == x.ec);
         REQUIRE(res.str == x.str);
     }
+#if 0
     {
         auto const x = Fn< MemoryFormatter >::apply(format, args...);
         REQUIRE(res.ec == x.ec);
         REQUIRE(res.str == x.str);
     }
+#endif
 
     return res.str;
 }

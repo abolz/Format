@@ -1,3 +1,23 @@
+//------------------------------------------------------------------------------
+#if 0
+#include "../src/Format_stdio.h"
+#include "../src/Format_pretty.h"
+#include <iterator>
+#include <array>
+static void test_pretty_000()
+{
+    struct XXX {};
+    //std::array<int,3> arr = {1,2,3};
+    int arr[] = {1,2,3};
+    int x = 0;
+    fmtxx::format(stdout, "{}", fmtxx::pretty(arr));
+    fmtxx::format(stdout, "{}", fmtxx::pretty(123));
+    fmtxx::format(stdout, "{}", fmtxx::pretty(x));
+    fmtxx::format(stdout, "{}", fmtxx::pretty(XXX{}));
+}
+#endif
+//------------------------------------------------------------------------------
+
 #include "../src/Format.h"
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
@@ -1156,11 +1176,19 @@ TEST_CASE("Vector_1")
 
 TEST_CASE("FormatPretty_1")
 {
-    std::map<int, std::string> map = {
+    using Map = std::map<int, std::string>;
+
+    Map map = {
         {0, "null"},
         {1, "eins"},
         {2, "zwei"},
     };
+
+    static_assert(fmtxx::impl::IsContainer<Map          >::value, "");
+    static_assert(fmtxx::impl::IsContainer<Map const&   >::value, "");
+    static_assert(fmtxx::impl::IsContainer<Map&         >::value, "");
+    static_assert(fmtxx::impl::IsContainer<Map const&&  >::value, "");
+    static_assert(fmtxx::impl::IsContainer<Map&&        >::value, "");
 
     char buf[1000];
     auto const len = fmtxx::snformat(buf, "  {}  ", fmtxx::pretty(map));
@@ -1169,6 +1197,9 @@ TEST_CASE("FormatPretty_1")
     char arr1[] = "hello";
     CHECK("\"hello\"" == FormatArgs("{}", fmtxx::pretty(arr1)));
     CHECK("(nil)" == FormatArgs("{}", fmtxx::pretty(nullptr)));
+
+    int arr2[] = {1,2,3};
+    CHECK("[1-2-3]" == FormatArgs("{!-}", fmtxx::pretty(arr2)));
 }
 
 TEST_CASE("FormatPretty_2")
@@ -1190,6 +1221,8 @@ TEST_CASE("FormatPretty_2")
 TEST_CASE("FormatPretty_3")
 {
     std::tuple<int, double, std::string> tup {123, 1.23, "123"};
+
+    //static_assert(fmtxx::impl::IsTuple<decltype(tup)>::value, "Error!");
 
     std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(tup)).str;
     CHECK(R"(  {123, 1.23, "123"}  )" == s);

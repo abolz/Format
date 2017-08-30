@@ -92,9 +92,9 @@ struct IsContainer
 };
 
 template <typename T>
-struct IsContainer<T, Void_t< decltype(adl_begin(std::declval<T>()) == adl_end(std::declval<T>())) >>
+struct IsContainer<T, Void_t< decltype(::fmtxx::impl::adl_begin(std::declval<T>()) == ::fmtxx::impl::adl_end(std::declval<T>())) >>
     : std::is_convertible<
-        decltype(adl_begin(std::declval<T>()) == adl_end(std::declval<T>())),
+        decltype(::fmtxx::impl::adl_begin(std::declval<T>()) == ::fmtxx::impl::adl_end(std::declval<T>())),
         bool
       >
 {

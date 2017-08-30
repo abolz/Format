@@ -3,349 +3,25 @@
 [![Build Status](https://travis-ci.org/abolz/Format.svg?branch=master)](https://travis-ci.org/abolz/Format)
 [![Build status](https://ci.appveyor.com/api/projects/status/un21yf9tlrfn7ebh/branch/master?svg=true)](https://ci.appveyor.com/project/abolz/format/branch/master)
 
-String formatting library.
+String formatting library (C++11)
 
-Uses a format-specification syntax similar to Python's
-[str.format](https://docs.python.org/3/library/string.html#formatstrings) or
-C's [printf](http://en.cppreference.com/w/cpp/io/c/fprintf).
-By default, it can format strings, numbers (integral and floating point types)
-and all types which have a `std::ostream` insertion operator. The
-[double-conversion](https://github.com/google/double-conversion) library is
-used for fast binary-to-decimal conversions.
+Uses a format-specification syntax similar to Python's [str.format](https://docs.python.org/3/library/string.html#formatstrings)
+or C's [printf](http://en.cppreference.com/w/cpp/io/c/fprintf). By default, it
+can format strings, numbers (integral and floating point types) and all types
+which have a `std::ostream` insertion operator. The [double-conversion](https://github.com/google/double-conversion)
+library is used for fast binary-to-decimal conversions.
 
 ## {fmt}
 
-This library started in an attempt to reduce compile times of the excellent
-[{fmt}](http://fmtlib.net/latest/index.html) library by
-[Victor Zverovich](https://github.com/vitaut), which provides more
-features than this library, is stable and more thoroughly tested and documented,
-compiles with older compilers, provides a header-only mode, provides formatting
-of wide-character strings and is used in a large number of real-world projects.
-
-And most importantly, [here](http://fmtlib.net/Text%20Formatting.html) is a
-proposal to include the fmt-library into the standard library:
-[C++ formatting library proposal (discussion group)](https://groups.google.com/a/isocpp.org/forum/#!topic/std-proposals/4wOU-1_3D0A)
-
-**Before you continue reading, try [this](https://github.com/fmtlib/fmt).**
-
-If, however, you need faster compile times, don't care about header-only,
-don't care about wide-character strings, or need faster floating-point
-formatting, this library might be an option.
-
-*Note: Compile times using the fmt-library have decreased in the latest releases
-and will continue to decrease in future releases.
-[Faster floating-point formatting](https://github.com/fmtlib/fmt/issues/147) is
-on the TODO-list.*
+**XXX**: Rewrite
 
 ## API
 
-### Format_core.h
+**XXX**: Rewrite
 
-```c++
-namespace cxx
-{
-    // A minimal replacement for std::string_view. For compatibility.
-    class string_view;
-}
+## Formatting user-defined data types
 
-namespace fmtxx {
-
-// Error codes returned by the formatting functions.
-// A value-initialized ErrorCode indicates success.
-enum struct ErrorCode {
-    conversion_error        = 1, // Value could not be converted to string
-    index_out_of_range      = 2, // Argument index out of range
-    invalid_argument        = 3,
-    invalid_format_string   = 4,
-    io_error                = 5, // Writer failed
-    not_supported           = 6, // Conversion not supported
-    value_out_of_range      = 7, // Value of argument out of range
-};
-
-// Alignment options.
-enum struct Align : unsigned char {
-    use_default,
-    left,
-    right,
-    center,
-    pad_after_sign,
-};
-
-// Options for specifying if and how a sign for positive numbers (integral or
-// floating-point) should be formatted.
-enum struct Sign : unsigned char {
-    use_default, // => minus
-    minus,       // => '-' if negative, nothing otherwise
-    plus,        // => '-' if negative, '+' otherwise
-    space,       // => '-' if negative, fill-char otherwise
-};
-
-// Contains the fields of the format-specification (see below).
-struct FormatSpec {
-    cxx::string_view style;
-    int   width = 0;
-    int   prec  = -1;
-    char  fill  = ' ';
-    Align align = Align::use_default;
-    Sign  sign  = Sign::use_default;
-    bool  hash  = false;
-    bool  zero  = false;
-    char  tsep  = '\0';
-    char  conv  = '\0';
-};
-
-// Base class for formatting buffers. Can be implemented to provide formatting
-// into arbitrary buffers or streams.
-class Writer {
-protected:
-    virtual ~Writer();
-
-    // Write a character to the output stream.
-    ErrorCode put(char c);
-
-    // Write a character to the output stream iff it is not the null-character.
-    ErrorCode put_nonnull(char c);
-
-    // Insert a range of characters into the output stream.
-    ErrorCode write(char const* str, size_t len);
-
-    // Insert a character multiple times into the output stream.
-    ErrorCode pad(char c, size_t count);
-
-private:
-    virtual ErrorCode Put(char c) = 0;
-    virtual ErrorCode Write(char const* str, size_t len) = 0;
-    virtual ErrorCode Pad(char c, size_t count) = 0;
-};
-
-// Returned by the format_to_chars/printf_to_chars function (below).
-// Like std::to_chars.
-struct ToCharsResult
-{
-    char* next;
-    ErrorCode ec = ErrorCode{};
-
-    ToCharsResult();
-    ToCharsResult(char* next, ErrorCode ec);
-
-    explicit operator bool() const; // Test for successful conversions
-};
-
-// Determine whether objects of type T should be handled as strings.
-//
-// May be specialized for user-defined types to provide more efficient string
-// formatting.
-template <typename T>
-struct TreatAsString : std::false_type {};
-
-// Specialize this to enable formatting of user-defined types.
-// Or include "Format_ostream.h" if objects of type T can be formatted using
-// operator<<(std::ostream, T const&).
-//
-// The second template parameter may be used to conditionally enable partial
-// specializations.
-template <typename T, typename /*Enable*/ = void>
-struct FormatValue {
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& value) const;
-};
-
-// Dynamically created argument list.
-//
-// May be passed (as the only argument) to the formatting functions instead of
-// the variadic arguments.
-class FormatArgs {
-public:
-    int size() const;
-    int max_size() const;
-
-    // Add an argument to this list.
-    // PRE: size() < max_size()
-    template <typename T>
-    void push_back(T&& value);
-};
-
-// The format-method uses a python-style format string (see below).
-template <typename ...Args>
-ErrorCode format(Writer& w, cxx::string_view format, Args const&... args);
-
-// The printf-method uses a printf-style format string.
-template <typename ...Args>
-ErrorCode printf(Writer& w, cxx::string_view format, Args const&... args);
-
-// Formatting function with an interface like std::to_chars, using python-style
-// format strings.
-//
-// On success, returns a ToCharsResult such that 'ec' equals value-initialized
-// ErrorCode and 'next' is the one-past-the-end pointer of the characters
-// written.
-//
-// On error, returns a value of type ToCharsResult holding the error code
-// in 'ec' and a copy of the value 'last' in 'next', and leaves the contents
-// of the range '[first, last)' in unspecified state.
-template <typename ...Args>
-ToCharsResult format_to_chars(char* first, char* last, cxx::string_view format, Args const&... args);
-
-// Same as 'format_to_chars' but uses a printf-style format string.
-template <typename ...Args>
-ToCharsResult printf_to_chars(char* first, char* last, cxx::string_view format, Args const&... args);
-
-} // namespace fmtxx
-```
-
-**NOTE**: The formatting functions currently only accept at most 16 arguments.
-
-### Format_stdio.h
-
-```c++
-// Write to std::FILE's, keeping track of the number of characters
-// (successfully) transmitted.
-class FILEWriter : public Writer {
-public:
-    explicit FILEWriter(std::FILE* v);
-
-    // Returns the FILE stream.
-    std::FILE* file() const;
-
-    // Returns the number of bytes successfully transmitted (since construction).
-    size_t size() const;
-};
-
-// Write to a user allocated buffer.
-// If the buffer overflows, keep track of the number of characters that would
-// have been written if the buffer were large enough. This is for compatibility
-// with snprintf.
-class ArrayWriter : public Writer {
-public:
-    ArrayWriter(char* buffer, size_t buffer_size);
-
-    template <size_t N>
-    explicit ArrayWriter(char (&buf)[N]);
-
-    // Returns a pointer to the string.
-    // The string is null-terminated if finish() has been called.
-    char* data() const;
-
-    // Returns the buffer capacity.
-    size_t capacity() const;
-
-    // Returns the length of the string.
-    size_t size() const;
-
-    // Returns true if the buffer was too small.
-    bool overflow() const;
-
-    // Returns the string.
-    cxx::string_view view() const;
-
-    // Null-terminate the buffer.
-    // Returns the length of the string not including the null-character.
-    size_t finish() noexcept;
-};
-
-template <typename ...Args>
-ErrorCode format(std::FILE* file, cxx::string_view format, Args const&... args);
-
-template <typename ...Args>
-ErrorCode printf(std::FILE* file, cxx::string_view format, Args const&... args);
-
-template <typename ...Args>
-int fformat(std::FILE* file, cxx::string_view format, Args const&... args);
-
-template <typename ...Args>
-int fprintf(std::FILE* file, cxx::string_view format, Args const&... args);
-
-template <typename ...Args>
-int snformat(char* buf, size_t bufsize, cxx::string_view format, Args const&... args);
-
-template <typename ...Args>
-int snprintf(char* buf, size_t bufsize, cxx::string_view format, Args const&... args);
-
-template <size_t N, typename ...Args>
-int snformat(char (&buf)[N], cxx::string_view format, Args const&... args);
-
-template <size_t N, typename ...Args>
-int snprintf(char (&buf)[N], cxx::string_view format, Args const&... args);
-```
-
-### Format_string.h
-
-Support for formatting `std::string[_view]`s and for writing to `std::string`s.
-
-```c++
-namespace fmtxx {
-
-struct StringFormatResult
-{
-    std::string str;
-    ErrorCode ec = ErrorCode{};
-
-    StringFormatResult();
-    StringFormatResult(std::string str, ErrorCode ec);
-
-    explicit operator bool() const; // Test for successful conversion
-};
-
-template <typename ...Args>
-ErrorCode format(std::string& str, cxx::string_view format, Args const&... args);
-
-template <typename ...Args>
-ErrorCode printf(std::string& str, cxx::string_view format, Args const&... args);
-
-template <typename ...Args>
-StringFormatResult string_format(cxx::string_view format, Args const&... args);
-
-template <typename ...Args>
-StringFormatResult string_printf(cxx::string_view format, Args const&... args);
-
-} // namespace fmtxx
-```
-
-### Format_ostream.h
-
-Including this header provides support for formatting user-defined types for
-which `operator<<(std::ostream&, T)` is defined.
-
-```c++
-namespace fmtxx {
-
-template <typename ...Args>
-ErrorCode format(std::ostream& os, cxx::string_view format, Args const&... args);
-
-template <typename ...Args>
-ErrorCode printf(std::ostream& os, cxx::string_view format, Args const&... args);
-
-} // namespace fmtxx
-```
-
-### Format_system_error.h
-
-Provides support for printing `std::error_code`s and `std::error_condition`s.
-
-### Format_pretty.h
-
-Provides support for pretty-printing arbitrary containers and tuples.
-
-```c++
-namespace fmtxx {
-
-template <typename T>
-/*unspecified*/ pretty(T const& object);
-
-} // namespace fmtxx
-```
-
-For example:
-
-```c++
-std::map<std::string, int> m {{"eins", 1}, {"zwei", 2}};
-
-format(stdout, "{}", pretty(m));
-    // "[{"eins", 1}, {"zwei", 2}]"
-```
-
-### Format.h
-
-Simply includes all the headers above.
+**XXX**: Rewrite
 
 ## Format String Syntax
 
@@ -462,11 +138,11 @@ Simply includes all the headers above.
 
     Note: Precision is applied before padding.
 
-    **NOTE**: The maximum supported precision is `INT_MAX`.
+    **Note**: The maximum supported precision is `INT_MAX`.
 
-    **NOTE**: For integral types the maximum supported precision is 300.
+    **Note**: For integral types the maximum supported precision is 300.
 
-    **NOTE**: For floating-point types the maximum supported precision is 1074.
+    **Note**: For floating-point types the maximum supported precision is 1074.
 
 * `conv`
 

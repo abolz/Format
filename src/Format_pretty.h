@@ -53,26 +53,10 @@ inline PrettyPrinter<T> pretty(T&& object)
 
 namespace impl {
 
-namespace adl
-{
-    using std::begin;
-    using std::end;
+namespace type_traits {
 
-    template <typename T>
-    auto adl_begin(T&& val) -> decltype(( begin(std::forward<T>(val)) )) // <- SFINAE
-    {
-        return begin(std::forward<T>(val));
-    }
-
-    template <typename T>
-    auto adl_end(T&& val) -> decltype(( end(std::forward<T>(val)) )) // <- SFINAE
-    {
-        return end(std::forward<T>(val));
-    }
-}
-
-using adl::adl_begin;
-using adl::adl_end;
+using std::begin;
+using std::end;
 
 template <typename T, typename = void>
 struct IsContainer
@@ -81,9 +65,9 @@ struct IsContainer
 };
 
 template <typename T>
-struct IsContainer<T, Void_t< decltype(::fmtxx::impl::adl_begin(std::declval<T>()) == ::fmtxx::impl::adl_end(std::declval<T>())) >>
+struct IsContainer<T, Void_t< decltype(begin(std::declval<T>()) == end(std::declval<T>())) >>
     : std::is_convertible<
-        decltype(::fmtxx::impl::adl_begin(std::declval<T>()) == ::fmtxx::impl::adl_end(std::declval<T>())),
+        decltype(begin(std::declval<T>()) == end(std::declval<T>())),
         bool
       >
 {
@@ -100,6 +84,8 @@ struct IsTuple<T, Void_t< typename std::tuple_size<T>::type >>
     : std::true_type
 {
 };
+
+} // namespace type_traits
 
 struct PP
 {
@@ -123,9 +109,13 @@ struct PP
             TreatAsString<typename std::decay<T>::type>::value,
             AsString,
             typename std::conditional<
-                IsContainer<T>::value, // NOTE: No decay<T> here!
+                type_traits::IsContainer<T>::value, // NOTE: No decay<T> here!
                 AsContainer,
-                typename std::conditional< IsTuple<typename std::decay<T>::type>::value, AsTuple, AsOther >::type
+                typename std::conditional<
+                    type_traits::IsTuple<typename std::decay<T>::type>::value,
+                    AsTuple,
+                    AsOther
+                >::type
             >::type
         >::type;
 
@@ -144,13 +134,16 @@ struct PP
     template <typename T>
     static ErrorCode Print(Writer& w, FormatSpec const& spec, T const& val, AsContainer)
     {
+        using std::begin; // using ADL!
+        using std::end;   // using ADL!
+
         auto const sep = spec.style.empty() ? ", " : spec.style;
 
         if (Failed ec = w.put('['))
             return ec;
 
-        auto I = ::fmtxx::impl::adl_begin(val);
-        auto E = ::fmtxx::impl::adl_end(val);
+        auto I = begin(val);
+        auto E = end(val);
         if (I != E)
         {
             for (;;)
@@ -179,7 +172,7 @@ struct PP
     template <typename T>
     static ErrorCode PrintTuple(Writer& w, FormatSpec const& spec, T const& val, std::integral_constant<size_t, 1>)
     {
-        using std::get; // Use ADL!
+        using std::get; // using ADL!
 
         return PrettyPrint(w, spec, get<std::tuple_size<T>::value - 1>(val));
     }
@@ -187,7 +180,7 @@ struct PP
     template <typename T, size_t N>
     static ErrorCode PrintTuple(Writer& w, FormatSpec const& spec, T const& val, std::integral_constant<size_t, N>)
     {
-        using std::get; // Use ADL!
+        using std::get; // using ADL!
 
         auto const sep = spec.style.empty() ? ", " : spec.style;
 
@@ -223,7 +216,7 @@ struct PP
     template <typename T>
     static ErrorCode PrettyPrint(Writer& w, FormatSpec const& spec, T const& val)
     {
-        return Print(w, spec, val, PrintAs<T const&>{}); // NOTE: T const&, the reference is important!
+        return Print(w, spec, val, PrintAs<T const&>{}); // NOTE: T const&, the reference is important for begin/end!
     }
 
     static ErrorCode PrettyPrint(Writer& w, FormatSpec const& spec, char const* const& val)

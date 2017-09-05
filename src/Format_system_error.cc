@@ -42,6 +42,8 @@ std::string FormatErrorCategory::message(int ec) const
 {
     switch (static_cast<ErrorCode>(ec))
     {
+    case ErrorCode::success:
+        return "success";
     case ErrorCode::conversion_error:
         return "conversion error";
     case ErrorCode::index_out_of_range:

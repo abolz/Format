@@ -30,17 +30,70 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <cstring>
 #include <iterator> // stdext::checked_array_iterator
 #include <limits>
 
-static_assert(
-    std::numeric_limits<double>::is_iec559
-        && std::numeric_limits<double>::digits == 53,
-    "IEEE-754 double-precision implementation required for formatting floating-point numbers");
-
 using namespace fmtxx;
 using namespace fmtxx::impl;
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+static_assert(std::numeric_limits<double>::is_iec559 && std::numeric_limits<double>::digits == 53,
+    "IEEE-754 double-precision implementation required for formatting floating-point numbers");
+
+// Maximum supported integer precision (= minimum number of digits).
+static constexpr int kMaxIntPrec = 300;
+// Maximum supported floating point precision.
+static constexpr int kMaxFloatPrec = 1074;
+
+static_assert(kMaxIntPrec >= 64,
+    "A minimum precision of 64 is required to print UINT64_MAX in base 2");
+static_assert(kMaxFloatPrec >= 1074,
+    "A minimum precision of 1074 is required to print denorm_min (= [751 digits] 10^-323) when using %f");
+
+static constexpr char const* kDecDigits100 =
+    "00010203040506070809"
+    "10111213141516171819"
+    "20212223242526272829"
+    "30313233343536373839"
+    "40414243444546474849"
+    "50515253545556575859"
+    "60616263646566676869"
+    "70717273747576777879"
+    "80818283848586878889"
+    "90919293949596979899";
+
+static constexpr char const* kUpperDigits = "0123456789ABCDEF";
+static constexpr char const* kLowerDigits = "0123456789abcdef";
+
+//------------------------------------------------------------------------------
+//
+//------------------------------------------------------------------------------
+
+template <typename T>
+static void UnusedParameter(T&&)
+{
+}
+
+#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
+
+template <typename RanIt>
+static stdext::checked_array_iterator<RanIt> MakeArrayIterator(RanIt buffer, intptr_t buffer_size, intptr_t position = 0)
+{
+    return stdext::make_checked_array_iterator(buffer, buffer_size, position);
+}
+
+#else
+
+template <typename RanIt>
+static RanIt MakeArrayIterator(RanIt buffer, intptr_t /*buffer_size*/, intptr_t position = 0)
+{
+    return buffer + position;
+}
+
+#endif
 
 //------------------------------------------------------------------------------
 //
@@ -75,7 +128,7 @@ ErrorCode fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
     size_t const kBlockSize = 32;
 
     char block[kBlockSize];
-    std::memset(block, static_cast<unsigned char>(c), kBlockSize);
+    std::fill_n(MakeArrayIterator(block, kBlockSize), kBlockSize, c);
 
     while (count > 0)
     {
@@ -110,7 +163,7 @@ ErrorCode fmtxx::ArrayWriter::Put(char c) noexcept
 ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
 {
     if (size_ < bufsize_)
-        std::memcpy(buf_ + size_, ptr, std::min(len, bufsize_ - size_));
+        std::copy_n(ptr, std::min(len, bufsize_ - size_), MakeArrayIterator(buf_, static_cast<intptr_t>(bufsize_), static_cast<intptr_t>(size_)));
 
     size_ += len;
     return {};
@@ -119,7 +172,7 @@ ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
 ErrorCode fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
 {
     if (size_ < bufsize_)
-        std::memset(buf_ + size_, static_cast<unsigned char>(c), std::min(count, bufsize_ - size_));
+        std::fill_n(MakeArrayIterator(buf_, static_cast<intptr_t>(bufsize_), static_cast<intptr_t>(size_)), std::min(count, bufsize_ - size_), c);
 
     size_ += count;
     return {};
@@ -128,34 +181,6 @@ ErrorCode fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
-
-// Maximum supported integer precision (= minimum number of digits).
-static constexpr int kMaxIntPrec = 300;
-// Maximum supported floating point precision.
-static constexpr int kMaxFloatPrec = 1074;
-
-static_assert(kMaxIntPrec >= 64,
-    "A minimum precision of 64 is required to print UINT64_MAX in base 2");
-
-static_assert(kMaxFloatPrec >= 1074,
-    "A minimum precision of 1074 is required to print denorm_min (= [751 digits] 10^-323) when using %f");
-
-template <typename T>
-static void UnusedParameter(T&&) {}
-
-#if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
-template <typename RanIt>
-static stdext::checked_array_iterator<RanIt> MakeArrayIterator(RanIt first, intptr_t n)
-{
-    return stdext::make_checked_array_iterator(first, n);
-}
-#else
-template <typename RanIt>
-static RanIt MakeArrayIterator(RanIt first, intptr_t /*n*/)
-{
-    return first;
-}
-#endif
 
 static char ComputeSignChar(bool neg, Sign sign, char fill)
 {
@@ -234,7 +259,7 @@ static ErrorCode PrintAndPadString(Writer& w, FormatSpec const& spec, cxx::strin
 }
 
 template <typename F>
-static ErrorCode ForEachEscaped(char const* str, size_t len, F func)
+static ErrorCode ForEachQuoted(char const* str, size_t len, F func)
 {
     for (size_t i = 0; i < len; ++i)
     {
@@ -262,14 +287,14 @@ static ErrorCode WriteQuoted(Writer& w, char const* str, size_t len, size_t quot
     if (len == quoted_len)
         return w.write(str, len);
 
-    return ForEachEscaped(str, len, [&](char c) { return w.put(c); });
+    return ForEachQuoted(str, len, [&](char c) { return w.put(c); });
 }
 
 static ErrorCode PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t quoted_len = 0;
 
-    ForEachEscaped(str, len, [&](char) -> ErrorCode {
+    ForEachQuoted(str, len, [&](char) -> ErrorCode {
         ++quoted_len;
         return {};
     });
@@ -345,18 +370,6 @@ static ErrorCode PrintAndPadNumber(Writer& w, FormatSpec const& spec, char sign,
     return {};
 }
 
-static constexpr char const* kDecDigits100 =
-    "00010203040506070809"
-    "10111213141516171819"
-    "20212223242526272829"
-    "30313233343536373839"
-    "40414243444546474849"
-    "50515253545556575859"
-    "60616263646566676869"
-    "70717273747576777879"
-    "80818283848586878889"
-    "90919293949596979899";
-
 static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
 {
     while (n >= 100)
@@ -380,9 +393,6 @@ static char* DecIntToAsciiBackwards(char* last/*[-20]*/, uint64_t n)
 
     return last;
 }
-
-static constexpr char const* kUpperDigits = "0123456789ABCDEF";
-static constexpr char const* kLowerDigits = "0123456789abcdef";
 
 static char* IntToAsciiBackwards(char* last/*[-64]*/, uint64_t n, int base, bool capitals)
 {
@@ -2098,20 +2108,30 @@ inline ErrorCode ToCharsWriter::Put(char c) noexcept
 
 inline ErrorCode ToCharsWriter::Write(char const* ptr, size_t len) noexcept
 {
+    //
+    // XXX:
+    // Write as much as possible?!?!
+    //
+
     if (static_cast<size_t>(last - next) < len)
         return ErrorCode::io_error;
 
-    std::memcpy(next, ptr, len);
+    std::copy_n(ptr, len, MakeArrayIterator(next, last - next));
     next += len;
     return {};
 }
 
 inline ErrorCode ToCharsWriter::Pad(char c, size_t count) noexcept
 {
+    //
+    // XXX:
+    // Write as much as possible?!?!
+    //
+
     if (static_cast<size_t>(last - next) < count)
         return ErrorCode::io_error;
 
-    std::memset(next, static_cast<unsigned char>(c), count);
+    std::fill_n(MakeArrayIterator(next, last - next), count, c);
     next += count;
     return {};
 }

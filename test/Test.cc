@@ -1,23 +1,3 @@
-//------------------------------------------------------------------------------
-#if 0
-#include "../src/Format_stdio.h"
-#include "../src/Format_pretty.h"
-#include <iterator>
-#include <array>
-static void test_pretty_000()
-{
-    struct XXX {};
-    //std::array<int,3> arr = {1,2,3};
-    int arr[] = {1,2,3};
-    int x = 0;
-    fmtxx::format(stdout, "{}", fmtxx::pretty(arr));
-    fmtxx::format(stdout, "{}", fmtxx::pretty(123));
-    fmtxx::format(stdout, "{}", fmtxx::pretty(x));
-    fmtxx::format(stdout, "{}", fmtxx::pretty(XXX{}));
-}
-#endif
-//------------------------------------------------------------------------------
-
 #include "../src/Format.h"
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
@@ -1188,11 +1168,11 @@ TEST_CASE("FormatPretty_1")
         {2, "zwei"},
     };
 
-    static_assert(fmtxx::impl::IsContainer<Map          >::value, "");
-    static_assert(fmtxx::impl::IsContainer<Map const&   >::value, "");
-    static_assert(fmtxx::impl::IsContainer<Map&         >::value, "");
-    static_assert(fmtxx::impl::IsContainer<Map const&&  >::value, "");
-    static_assert(fmtxx::impl::IsContainer<Map&&        >::value, "");
+    static_assert(fmtxx::impl::type_traits::IsContainer<Map          >::value, "");
+    static_assert(fmtxx::impl::type_traits::IsContainer<Map const&   >::value, "");
+    static_assert(fmtxx::impl::type_traits::IsContainer<Map&         >::value, "");
+    static_assert(fmtxx::impl::type_traits::IsContainer<Map const&&  >::value, "");
+    static_assert(fmtxx::impl::type_traits::IsContainer<Map&&        >::value, "");
 
     char buf[1000];
     auto const len = fmtxx::snformat(buf, "  {}  ", fmtxx::pretty(map));

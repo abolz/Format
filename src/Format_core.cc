@@ -321,13 +321,18 @@ static ErrorCode PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char
     return {};
 }
 
+static bool IsASCIIPrintable(char ch)
+{
+    return 0x20 <= ch && ch <= 0x7E;
+}
+
 template <typename F>
 static ErrorCode ForEachEscaped(char const* str, size_t len, F func)
 {
     for (size_t i = 0; i < len; ++i)
     {
         char const ch = str[i];
-        if (0x20 <= ch && ch <= 0x7E) // ASCII printable??
+        if (IsASCIIPrintable(ch))
         {
             if (Failed ec = func(ch)) return ec;
         }
@@ -335,17 +340,10 @@ static ErrorCode ForEachEscaped(char const* str, size_t len, F func)
         {
             unsigned char uch = static_cast<unsigned char>(ch);
 
-#if 1
-            if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func(kUpperDigits[(uch >> 6) & 0x7])) return ec;
-            if (Failed ec = func(kUpperDigits[(uch >> 3) & 0x7])) return ec;
-            if (Failed ec = func(kUpperDigits[(uch >> 0) & 0x7])) return ec;
-#else
             if (Failed ec = func('\\')) return ec;
             if (Failed ec = func('x')) return ec;
             if (Failed ec = func(kUpperDigits[(uch >> 4) & 0xF])) return ec;
             if (Failed ec = func(kUpperDigits[(uch >> 0) & 0xF])) return ec;
-#endif
         }
     }
 

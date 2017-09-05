@@ -303,23 +303,21 @@ public:
     // Returns the length of the string.
     /*constexpr*/ intptr_t ssize() const noexcept
     {
+        assert(size_ <= INTPTR_MAX);
         return static_cast<intptr_t>(size_);
-        //assert(ssize_ >= 0);
-        //return ssize_;
     }
 
     // Returns the length of the string.
     /*constexpr*/ size_t length() const noexcept
     {
-        return size_;
+        return size();
     }
 
+    // XXX
     // Returns the length of the string.
     /*constexpr*/ intptr_t slength() const noexcept
     {
-        return static_cast<intptr_t>(size_);
-        //assert(ssize_ >= 0);
-        //return ssize_;
+        return ssize();
     }
 
     // Returns whether the string is empty.
@@ -355,12 +353,12 @@ public:
         return data_[n];
     }
 
-    bool Equal_to_(string_view other) const noexcept
+    bool _equal_to(string_view other) const noexcept
     {
         return size() == other.size() && 0 == Compare(data(), other.data(), size());
     }
 
-    bool Less_than_(string_view other) const noexcept
+    bool _less_than(string_view other) const noexcept
     {
         int const c = Compare(data(), other.data(), Min(size(), other.size()));
         return c < 0 || (c == 0 && size() < other.size());
@@ -581,7 +579,7 @@ inline size_t string_view::find_last_not_of(string_view chars, size_t from) cons
 
 inline bool operator==(string_view s1, string_view s2) noexcept
 {
-    return s1.Equal_to_(s2);
+    return s1._equal_to(s2);
 }
 
 inline bool operator!=(string_view s1, string_view s2) noexcept
@@ -591,7 +589,7 @@ inline bool operator!=(string_view s1, string_view s2) noexcept
 
 inline bool operator<(string_view s1, string_view s2) noexcept
 {
-    return s1.Less_than_(s2);
+    return s1._less_than(s2);
 }
 
 inline bool operator<=(string_view s1, string_view s2) noexcept

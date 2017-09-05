@@ -163,7 +163,10 @@ ErrorCode fmtxx::ArrayWriter::Put(char c) noexcept
 ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
 {
     if (size_ < bufsize_)
-        std::copy_n(ptr, std::min(len, bufsize_ - size_), MakeArrayIterator(buf_, static_cast<intptr_t>(bufsize_), static_cast<intptr_t>(size_)));
+    {
+        auto I = MakeArrayIterator(buf_, static_cast<intptr_t>(bufsize_), static_cast<intptr_t>(size_));
+        std::copy_n(ptr, std::min(len, bufsize_ - size_), I);
+    }
 
     size_ += len;
     return {};
@@ -172,7 +175,10 @@ ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
 ErrorCode fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
 {
     if (size_ < bufsize_)
-        std::fill_n(MakeArrayIterator(buf_, static_cast<intptr_t>(bufsize_), static_cast<intptr_t>(size_)), std::min(count, bufsize_ - size_), c);
+    {
+        auto I = MakeArrayIterator(buf_, static_cast<intptr_t>(bufsize_), static_cast<intptr_t>(size_));
+        std::fill_n(I, std::min(count, bufsize_ - size_), c);
+    }
 
     size_ += count;
     return {};

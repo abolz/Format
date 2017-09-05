@@ -57,6 +57,7 @@
 namespace fmtxx {
 
 enum struct ErrorCode {
+    success                 = 0,
     conversion_error        = 1, // Value could not be converted to string (E.g. trying to format a non-existant date.)
     index_out_of_range      = 2, // Argument index out of range
     invalid_argument        = 3,
@@ -613,8 +614,12 @@ struct Types
     static constexpr int kMaxTypes   = 1 << kBitsPerArg;
     static constexpr int kTypeMask   = kMaxTypes - 1;
 
-    static_assert(static_cast<int>(Type::none) == 0, "Internal error: Type::none must be 0");
-    static_assert(static_cast<int>(Type::last) <= kMaxTypes, "Internal error: Invalid value for kBitsPerArg");
+    static_assert(static_cast<int>(Type::none) == 0,
+        "Internal error: Type::none must be 0");
+    static_assert(static_cast<int>(Type::last) <= kMaxTypes,
+        "Internal error: Value of kBitsPerArg too small");
+    static_assert(static_cast<int>(Type::last) > (1 << (kBitsPerArg - 1)),
+        "Internal error: Value of kBitsPerArg too large");
 
     value_type types = 0;
 

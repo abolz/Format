@@ -21,16 +21,10 @@
 #ifndef FMTXX_FORMAT_PRETTY_H
 #define FMTXX_FORMAT_PRETTY_H 1
 
-#define FMTXX_FORMAT_PRETTY_STD_ITERATOR 0
-
 #include "Format_core.h"
 
-#if FMTXX_FORMAT_PRETTY_STD_ITERATOR
-#include <iterator>         // begin, end
-#else
-#include <initializer_list> // begin<init-list>, end<init-list>
-#endif
-#include <utility>          // declval, forward, get<pair>, tuple_size<pair>
+#include <iterator> // begin, end
+#include <utility>  // declval, forward, get<pair>, tuple_size<pair>
 
 namespace fmtxx {
 
@@ -75,11 +69,6 @@ namespace adl
     {
         return end(std::forward<T>(val));
     }
-
-#if !FMTXX_FORMAT_PRETTY_STD_ITERATOR
-    template <typename T, size_t Size> T* adl_begin(T (&val)[Size]) { return val; }
-    template <typename T, size_t Size> T* adl_end  (T (&val)[Size]) { return val + Size; }
-#endif
 }
 
 using adl::adl_begin;

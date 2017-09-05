@@ -315,6 +315,68 @@ static ErrorCode PrintAndPadQuotedString(Writer& w, FormatSpec const& spec, char
     return {};
 }
 
+template <typename F>
+static ErrorCode ForEachEscaped(char const* str, size_t len, F func)
+{
+    for (size_t i = 0; i < len; ++i)
+    {
+        char const ch = str[i];
+        if (0x20 <= ch && ch <= 0x7E) // ASCII printable??
+        {
+            if (Failed ec = func(ch)) return ec;
+        }
+        else
+        {
+            unsigned char uch = static_cast<unsigned char>(ch);
+
+#if 1
+            if (Failed ec = func('\\')) return ec;
+            if (Failed ec = func(kUpperDigits[(uch >> 6) & 0x7])) return ec;
+            if (Failed ec = func(kUpperDigits[(uch >> 3) & 0x7])) return ec;
+            if (Failed ec = func(kUpperDigits[(uch >> 0) & 0x7])) return ec;
+#else
+            if (Failed ec = func('\\')) return ec;
+            if (Failed ec = func('x')) return ec;
+            if (Failed ec = func(kUpperDigits[(uch >> 4) & 0xF])) return ec;
+            if (Failed ec = func(kUpperDigits[(uch >> 0) & 0xF])) return ec;
+#endif
+        }
+    }
+
+    return {};
+}
+
+static ErrorCode WriteEscaped(Writer& w, char const* str, size_t len, size_t escaped_len)
+{
+    if (len == 0)
+        return {};
+    if (len == escaped_len)
+        return w.write(str, len);
+
+    return ForEachEscaped(str, len, [&](char c) { return w.put(c); });
+}
+
+static ErrorCode PrintAndPadEscapedString(Writer& w, FormatSpec const& spec, char const* str, size_t len)
+{
+    size_t escaped_len = 0;
+
+    ForEachEscaped(str, len, [&](char) -> ErrorCode {
+        ++escaped_len;
+        return {};
+    });
+
+    auto const pad = ComputePadding(escaped_len, spec.align, spec.width);
+
+    if (Failed ec = w.pad(spec.fill, pad.left))
+        return ec;
+    if (Failed ec = WriteEscaped(w, str, len, escaped_len))
+        return ec;
+    if (Failed ec = w.pad(spec.fill, pad.right))
+        return ec;
+
+    return {};
+}
+
 ErrorCode fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char const* str, size_t len)
 {
     size_t const n = (spec.prec >= 0)
@@ -326,6 +388,8 @@ ErrorCode fmtxx::Util::format_string(Writer& w, FormatSpec const& spec, char con
         return PrintAndPadString(w, spec, str, n);
     case 'q':
         return PrintAndPadQuotedString(w, spec, str, n);
+    case 'x':
+        return PrintAndPadEscapedString(w, spec, str, n);
     }
 }
 
@@ -345,6 +409,8 @@ ErrorCode fmtxx::Util::format_char_pointer(Writer& w, FormatSpec const& spec, ch
         return PrintAndPadString(w, spec, str, len);
     case 'q':
         return PrintAndPadQuotedString(w, spec, str, len);
+    case 'x':
+        return PrintAndPadEscapedString(w, spec, str, len);
     }
 }
 

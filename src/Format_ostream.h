@@ -43,6 +43,8 @@ protected:
     FMTXX_API std::streamsize xsputn(char const* str, std::streamsize len) override;
 };
 
+namespace type_traits {
+
 // Test if an insertion operator is defined for objects of type T.
 template <typename T, typename = void>
 struct IsStreamable
@@ -56,10 +58,12 @@ struct IsStreamable<T, Void_t< decltype(std::declval<std::ostream&>() << std::de
 {
 };
 
+} // namespace type_traits
+
 template <typename T>
 struct DefaultFormatValue<T, Type::other>
 {
-    static_assert(IsStreamable<T>::value,
+    static_assert(type_traits::IsStreamable<T>::value,
         "Formatting objects of type T is not supported. "
         "Specialize FormatValue<T> or TreatAsString<T>, or implement operator<<(std::ostream&, T const&).");
 

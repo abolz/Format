@@ -21,7 +21,6 @@
 #include "Format_ostream.h"
 
 #include <algorithm>
-#include <cstring>
 #include <limits>
 
 using namespace fmtxx;
@@ -108,7 +107,7 @@ inline ErrorCode StreamWriter::Pad(char c, size_t count)
     size_t const kBlockSize = 32;
 
     char block[kBlockSize];
-    std::memset(block, static_cast<unsigned char>(c), kBlockSize);
+    std::fill_n(block, kBlockSize, c);
 
     while (count > 0)
     {

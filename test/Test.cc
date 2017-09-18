@@ -260,6 +260,18 @@ TEST_CASE("FormatStringChecks_Format")
     CHECK(fmtxx::ErrorCode{}                          == fmtxx::format(w, "{:.2147483647}", 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:.2147483648}", 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:.", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:<", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:f<", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:{", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:{2147483648", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:{2147483647", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:{2147483647{", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{*2147483648", 0));
+    CHECK(fmtxx::ErrorCode::index_out_of_range        == fmtxx::format(w, "{*2147483647", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:10.{2147483648", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:10.{2147483647", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:10.{2147483647{", 0));
+    CHECK(fmtxx::ErrorCode::index_out_of_range        == fmtxx::format(w, "{:10.{2147483647}}", 0));
 }
 
 TEST_CASE("General_Format")
@@ -718,6 +730,9 @@ TEST_CASE("Floats")
     CHECK("1p+0"   == FormatArgs("{:.0x}",  1.2));
     CHECK("1P+0"   == FormatArgs("{:.0X}",  1.2));
 
+    CHECK("0" == FormatArgs("{:.f}", 0.0625));
+    CHECK("0" == FormatArgs("{:.f}", 0.0625));
+
     CHECK("1.234568"         == FormatArgs("{:'f}", 1.23456789));
     CHECK("12.345679"        == FormatArgs("{:'f}", 12.3456789));
     CHECK("123.456789"       == FormatArgs("{:'f}", 123.456789));
@@ -752,6 +767,8 @@ TEST_CASE("Floats")
     CHECK("0"                    == FormatArgs("{:s}", 0.0));
     CHECK("10"                   == FormatArgs("{:s}", 10.0));
     CHECK("10"                   == FormatArgs("{:S}", 10.0));
+    CHECK("0.0625"               == FormatArgs("{:s}", 0.0625));
+    CHECK("0.0625"               == FormatArgs("{:S}", 0.0625));
     CHECK("-0"                   == FormatArgs("{:s}", -0.0));
     CHECK("0p+0"                 == FormatArgs("{:x}", 0.0));
     CHECK("0P+0"                 == FormatArgs("{:X}", 0.0));
@@ -838,7 +855,7 @@ TEST_CASE("Floats")
     CHECK("0x1.00p+0" == FormatArgs("{:.2a}",   1.0));
 }
 
-TEST_CASE("Floats")
+TEST_CASE("Floats - inf")
 {
     double InvVal = std::numeric_limits<double>::infinity();
     CHECK("inf"    == FormatArgs("{:s}", InvVal));
@@ -875,7 +892,7 @@ TEST_CASE("Floats")
     CHECK(".INF.." == FormatArgs("{:.< 06S}", InvVal));
 }
 
-TEST_CASE("Floats")
+TEST_CASE("Floats - nan")
 {
     double NanVal = std::numeric_limits<double>::quiet_NaN();
     CHECK("nan" == FormatArgs("{:s}", NanVal));
@@ -1060,6 +1077,17 @@ TEST_CASE("Dynamic_1")
     CHECK("3.14  " == PrintfArgs("%1$*2$.*3$f", 3.1415, -6, 2));
     CHECK("3.14"   == PrintfArgs("%1$.*2$f", 3.1415, 2));
     CHECK("3.14"   == PrintfArgs("%1.*2$f", 3.1415, 2));
+
+    CHECK("  3.14" == PrintfArgs("%*.*f", (signed char)6, 2, 3.1415));
+    CHECK("  3.14" == PrintfArgs("%*.*f", (signed short)6, 2, 3.1415));
+    CHECK("  3.14" == PrintfArgs("%*.*f", (signed int)6, 2, 3.1415));
+    CHECK("  3.14" == PrintfArgs("%*.*f", (signed long)6, 2, 3.1415));
+    CHECK("  3.14" == PrintfArgs("%*.*f", (signed long long)6, 2, 3.1415));
+    CHECK("  3.14" == PrintfArgs("%*.*f", (unsigned char)6, 2, 3.1415));
+    CHECK("  3.14" == PrintfArgs("%*.*f", (unsigned short)6, 2, 3.1415));
+    CHECK("  3.14" == PrintfArgs("%*.*f", (unsigned int)6, 2, 3.1415));
+    CHECK("  3.14" == PrintfArgs("%*.*f", (unsigned long)6, 2, 3.1415));
+    CHECK("  3.14" == PrintfArgs("%*.*f", (unsigned long long)6, 2, 3.1415));
 }
 
 struct Foo {

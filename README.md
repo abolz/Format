@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/abolz/Format.svg?branch=master)](https://travis-ci.org/abolz/Format)
 [![Build status](https://ci.appveyor.com/api/projects/status/un21yf9tlrfn7ebh/branch/master?svg=true)](https://ci.appveyor.com/project/abolz/format/branch/master)
+[![codecov](https://codecov.io/gh/abolz/Format/branch/master/graph/badge.svg)](https://codecov.io/gh/abolz/Format)
 
 String formatting library (C++11)
 

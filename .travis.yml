@@ -119,8 +119,10 @@ matrix:
       after_success:
         - lcov --directory . --capture --output-file coverage.info
         - lcov --extract coverage.info "$PWD/src/*" --output-file coverage.info
+        - lcov --remove coverage.info "$PWD/src/__double_conversion.h" --output-file coverage.info
+        - lcov --remove coverage.info "$PWD/src/cxx_string_view.h" --output-file coverage.info
         - lcov --list coverage.info
-        - bash <(curl -s https://codecov.io/bash)
+        - bash <(curl -s https://codecov.io/bash) -X gcov
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha11/premake-5.0.0-alpha11-linux.tar.gz" -O premake5.tar.gz; fi

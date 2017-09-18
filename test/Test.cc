@@ -299,6 +299,10 @@ TEST_CASE("Strings")
 
     CHECK("x" == FormatArgs("{}", 'x'));
     CHECK("x" == FormatArgs("{:.0}", 'x'));
+    CHECK("x" == FormatArgs("{:s}", 'x')); // 120 0x78
+    CHECK("78" == FormatArgs("{:x}", 'x'));
+    CHECK("120" == FormatArgs("{:d}", 'x'));
+    CHECK("170" == FormatArgs("{:o}", 'x'));
 
     CHECK("     xxx" == FormatArgs("{:8}", "xxx"));
     CHECK("     xxx" == FormatArgs("{:>8}", "xxx"));
@@ -696,6 +700,24 @@ TEST_CASE("Floats")
     CHECK("1.200000E+00" == FormatArgs("{:E}",  1.2));
     CHECK("1.2"          == FormatArgs("{:g}",  1.2));
 
+    CHECK("100"    == FormatArgs("{:.f}",  100.0));
+    CHECK("1e+00"  == FormatArgs("{:.e}",  1.2));
+    CHECK("1E+00"  == FormatArgs("{:.E}",  1.2));
+    CHECK("1"      == FormatArgs("{:.g}",  1.2));
+    CHECK("0x1p+0" == FormatArgs("{:.a}",  1.2));
+    CHECK("0X1P+0" == FormatArgs("{:.A}",  1.2));
+    CHECK("1p+0"   == FormatArgs("{:.x}",  1.2));
+    CHECK("1P+0"   == FormatArgs("{:.X}",  1.2));
+
+    CHECK("100"    == FormatArgs("{:.0f}",  100.0));
+    CHECK("1e+00"  == FormatArgs("{:.0e}",  1.2));
+    CHECK("1E+00"  == FormatArgs("{:.0E}",  1.2));
+    CHECK("1"      == FormatArgs("{:.0g}",  1.2));
+    CHECK("0x1p+0" == FormatArgs("{:.0a}",  1.2));
+    CHECK("0X1P+0" == FormatArgs("{:.0A}",  1.2));
+    CHECK("1p+0"   == FormatArgs("{:.0x}",  1.2));
+    CHECK("1P+0"   == FormatArgs("{:.0X}",  1.2));
+
     CHECK("1.234568"         == FormatArgs("{:'f}", 1.23456789));
     CHECK("12.345679"        == FormatArgs("{:'f}", 12.3456789));
     CHECK("123.456789"       == FormatArgs("{:'f}", 123.456789));
@@ -975,10 +997,18 @@ TEST_CASE("Pointers_1")
 {
 #if UINTPTR_MAX == UINT64_MAX
     CHECK("0x0000000001020304"   == FormatArgs("{}", (void*)0x01020304));
+    CHECK("0x0000000001020304"   == FormatArgs("{:s}", (void*)0x01020304));
+    CHECK("0X0000000001020304"   == FormatArgs("{:S}", (void*)0x01020304));
+    CHECK("0x0000000001020304"   == FormatArgs("{:p}", (void*)0x01020304));
+    CHECK("0X0000000001020304"   == FormatArgs("{:P}", (void*)0x01020304));
     CHECK("18446744073709551615" == FormatArgs("{:d}", (void*)-1));
     CHECK("18446744073709551615" == FormatArgs("{:u}", (void*)-1));
 #elif UINTPTR_MAX == UINT32_MAX
     CHECK("0x01020304" == FormatArgs("{}", (void*)0x01020304));
+    CHECK("0x01020304" == FormatArgs("{:s}", (void*)0x01020304));
+    CHECK("0X01020304" == FormatArgs("{:S}", (void*)0x01020304));
+    CHECK("0x01020304" == FormatArgs("{:p}", (void*)0x01020304));
+    CHECK("0X01020304" == FormatArgs("{:P}", (void*)0x01020304));
     CHECK("4294967295" == FormatArgs("{:d}", (void*)-1));
     CHECK("4294967295" == FormatArgs("{:u}", (void*)-1));
 #endif
@@ -1078,6 +1108,14 @@ namespace foo2_ns
         stream.fill('-');
         return stream << value.value;
     }
+
+    struct Foo3 {
+        char c;
+    };
+
+    inline std::ostream& operator<<(std::ostream& stream, Foo3 const& value) {
+        return stream << value.c;
+    }
 }
 
 TEST_CASE("Custom_1")
@@ -1085,6 +1123,8 @@ TEST_CASE("Custom_1")
     CHECK("struct Foo '   123'"  == FormatArgs("struct Foo '{:6}'", Foo{123}));
     CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{:8}'", foo2_ns::Foo2{123})); // format-spec is ignored when using operator<< for formatting
     CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{}'", foo2_ns::Foo2{123}));
+
+    CHECK("Foo3 = x" == FormatArgs("Foo3 = {}", foo2_ns::Foo3{'x'}));
 
 #if 1
     std::map<std::string, int> map = {{"eins", 1}, {"zwei", 2}, {"dr}ei", 3}};
@@ -1720,4 +1760,16 @@ TEST_CASE("Printf_conformance")
     CHECK_EQUAL_PRINTF("00edcb5433          ",   20, "%+ -0*.*x",    20, 10,  -0x1234abcdu)
     CHECK_EQUAL_PRINTF("1234ABCD            ",   20, "% -+0*.*X",    20,  5,  0x1234abcdu)
     CHECK_EQUAL_PRINTF("00EDCB5433          ",   20, "% -+0*.*X",    20, 10,  -0x1234abcdu)
+}
+
+TEST_CASE("bool")
+{
+    CHECK("true"    == FormatArgs("{}", true));
+    CHECK("false"   == FormatArgs("{}", false));
+    CHECK("true"    == FormatArgs("{:s}", true));
+    CHECK("false"   == FormatArgs("{:s}", false));
+    CHECK("yes"     == FormatArgs("{:y}", true));
+    CHECK("no"      == FormatArgs("{:y}", false));
+    CHECK("on"      == FormatArgs("{:o}", true));
+    CHECK("off"     == FormatArgs("{:o}", false));
 }

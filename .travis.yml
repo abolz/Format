@@ -101,6 +101,25 @@ matrix:
         - COMPILER=clang++
         - CONFIGURATION=debug
         - CXXFLAGS="-std=c++14 -stdlib=libc++"
+    - os: linux
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+            - lcov
+      compiler: gcc
+      env:
+        - COMPILER=g++-6
+        - CONFIGURATION=debug
+        - CXXFLAGS="-std=c++11 -O0 -fprofile-arcs -ftest-coverage --coverage"
+        - GCOV=true
+      after_success:
+        - lcov --directory . --capture --output-file coverage.info
+        - lcov --extract coverage.info "$PWD/src/*" --output-file coverage.info
+        - lcov --list coverage.info
+        - bash <(curl -s https://codecov.io/bash)
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget "https://github.com/premake/premake-core/releases/download/v5.0.0-alpha11/premake-5.0.0-alpha11-linux.tar.gz" -O premake5.tar.gz; fi

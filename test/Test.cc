@@ -221,6 +221,7 @@ static std::string PrintfArgs(cxx::string_view format, Args const&... args)
 TEST_CASE("FormatStringChecks_Format")
 {
     fmtxx::ArrayWriter w{nullptr, 0};
+    fmtxx::FormatSpec spec;
 
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{", 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, cxx::string_view("{*}", 1), 0, 0));
@@ -272,6 +273,39 @@ TEST_CASE("FormatStringChecks_Format")
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:10.{2147483647", 0));
     CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{:10.{2147483647{", 0));
     CHECK(fmtxx::ErrorCode::index_out_of_range        == fmtxx::format(w, "{:10.{2147483647}}", 0));
+    CHECK(fmtxx::ErrorCode::value_out_of_range        == fmtxx::format(w, "{:{}}", 2147483648u, 0));
+    CHECK(fmtxx::ErrorCode::value_out_of_range        == fmtxx::format(w, "{:{}}", 2147483648ull, 0));
+    CHECK(fmtxx::ErrorCode::value_out_of_range        == fmtxx::format(w, "{:{}}", 2147483648ll, 0));
+    CHECK(fmtxx::ErrorCode::value_out_of_range        == fmtxx::format(w, "{:{}}", -2147483649ll, 0));
+    CHECK(fmtxx::ErrorCode::invalid_argument          == fmtxx::format(w, "{:{}}", 'x', 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{!"));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{!s"));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{!style"));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{!["));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{![style"));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{![style]"));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::format(w, "{*", spec, 0));
+    CHECK(fmtxx::ErrorCode::invalid_argument          == fmtxx::format(w, "{}", spec));
+
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::printf(w, "%*", 2147483648u, 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::printf(w, "%*1", 2147483648u, 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::printf(w, "%*0", 2147483648u, 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::printf(w, "%*1x", 2147483648u, 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::printf(w, "%10.*2147483648$s", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::printf(w, "%10.*0$s", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::printf(w, "%10.*2147483647&s", 0));
+    CHECK(fmtxx::ErrorCode::index_out_of_range        == fmtxx::printf(w, "%10.*2147483647$", 0));
+    CHECK(fmtxx::ErrorCode::index_out_of_range        == fmtxx::printf(w, "%10.*2147483647$s", 0));
+    CHECK(fmtxx::ErrorCode::value_out_of_range        == fmtxx::printf(w, "%*s", 2147483648u, 0));
+    CHECK(fmtxx::ErrorCode::value_out_of_range        == fmtxx::printf(w, "%*s", 2147483648ull, 0));
+    CHECK(fmtxx::ErrorCode::value_out_of_range        == fmtxx::printf(w, "%*s", 2147483648ll, 0));
+    CHECK(fmtxx::ErrorCode::value_out_of_range        == fmtxx::printf(w, "%*s", -2147483649ll, 0));
+    CHECK(fmtxx::ErrorCode::invalid_argument          == fmtxx::printf(w, "%*s", 'x', 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::printf(w, "%2147483648", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::printf(w, "%0", 0));
+    CHECK(fmtxx::ErrorCode::invalid_format_string     == fmtxx::printf(w, "%*0$s", 0));
+    CHECK(fmtxx::ErrorCode::index_out_of_range        == fmtxx::printf(w, "%*100$s", 0));
+    CHECK(fmtxx::ErrorCode::invalid_argument          == fmtxx::printf(w, "%1s", spec));
 }
 
 TEST_CASE("General_Format")
@@ -731,7 +765,7 @@ TEST_CASE("Floats")
     CHECK("1P+0"   == FormatArgs("{:.0X}",  1.2));
 
     CHECK("0" == FormatArgs("{:.f}", 0.0625));
-    CHECK("0" == FormatArgs("{:.f}", 0.0625));
+    CHECK("0." == FormatArgs("{:#.f}", 0.0625));
 
     CHECK("1.234568"         == FormatArgs("{:'f}", 1.23456789));
     CHECK("12.345679"        == FormatArgs("{:'f}", 12.3456789));
@@ -798,16 +832,22 @@ TEST_CASE("Floats")
 
 TEST_CASE("Floats")
 {
-    CHECK("1p-1022"   == FormatArgs("{:x}", std::numeric_limits<double>::min()));
-    CHECK("1p-1074"   == FormatArgs("{:x}", std::numeric_limits<double>::denorm_min()));
-    CHECK("1P-1074"   == FormatArgs("{:X}", std::numeric_limits<double>::denorm_min()));
-    CHECK("0x1p-1022" == FormatArgs("{:#x}", std::numeric_limits<double>::min()));
-    CHECK("0x1p-1074" == FormatArgs("{:#x}", std::numeric_limits<double>::denorm_min()));
-    CHECK("0X1P-1074" == FormatArgs("{:#X}", std::numeric_limits<double>::denorm_min()));
+    CHECK("1p-1022"                 == FormatArgs("{:x}", std::numeric_limits<double>::min()));
+    CHECK("1p-1074"                 == FormatArgs("{:x}", std::numeric_limits<double>::denorm_min()));
+    CHECK("1P-1074"                 == FormatArgs("{:X}", std::numeric_limits<double>::denorm_min()));
+    CHECK("0x1p-1022"               == FormatArgs("{:#x}", std::numeric_limits<double>::min()));
+    CHECK("0x1p-1074"               == FormatArgs("{:#x}", std::numeric_limits<double>::denorm_min()));
+    CHECK("0X1P-1074"               == FormatArgs("{:#X}", std::numeric_limits<double>::denorm_min()));
+    CHECK("0x1p-1022"               == FormatArgs("{:a}", std::numeric_limits<double>::min()));
+    CHECK("0x0.0000000000001p-1022" == FormatArgs("{:a}", std::numeric_limits<double>::denorm_min()));
+    CHECK("0X0.0000000000001P-1022" == FormatArgs("{:A}", std::numeric_limits<double>::denorm_min()));
 }
 
 TEST_CASE("Floats")
 {
+    // Requires BignumDtoa:
+    CHECK("3.5844466002796428e+298" == FormatArgs("{:s}", 3.5844466002796428e+298));
+
     CHECK("1.7976931348623157e+308"  == FormatArgs("{:s}",  std::numeric_limits<double>::max()));
     CHECK("1.7976931348623157E+308"  == FormatArgs("{:S}",  std::numeric_limits<double>::max()));
     CHECK("-1.7976931348623157e+308" == FormatArgs("{:s}", -std::numeric_limits<double>::max()));
@@ -1142,6 +1182,8 @@ namespace foo2_ns
     };
 
     inline std::ostream& operator<<(std::ostream& stream, Foo3 const& value) {
+        stream.width(6);
+        stream.fill('-');
         return stream << value.c;
     }
 }
@@ -1152,7 +1194,7 @@ TEST_CASE("Custom_1")
     CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{:8}'", foo2_ns::Foo2{123})); // format-spec is ignored when using operator<< for formatting
     CHECK("struct Foo2 '---123'" == FormatArgs("struct Foo2 '{}'", foo2_ns::Foo2{123}));
 
-    CHECK("Foo3 = x" == FormatArgs("Foo3 = {}", foo2_ns::Foo3{'x'}));
+    CHECK("Foo3 = -----x" == FormatArgs("Foo3 = {}", foo2_ns::Foo3{'x'}));
 
 #if 1
     std::map<std::string, int> map = {{"eins", 1}, {"zwei", 2}, {"dr}ei", 3}};
@@ -1164,6 +1206,7 @@ TEST_CASE("Custom_1")
     CHECK("1, 2" == FormatArgs("{0!{eins}}, {0!{zwei}}", map));
     CHECK("1, 2" == FormatArgs("{0!'eins'}, {0!'zwei'}", map));
     CHECK("1, 2, 3" == FormatArgs("{0!'eins'}, {0!'zwei'}, {0!'dr}ei'}", map));
+    CHECK("1, 2, 3" == FormatArgs("{0!\"eins\"}, {0!(zwei)}, {0![dr}ei]}", map));
 #endif
 }
 

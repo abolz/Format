@@ -114,6 +114,7 @@ matrix:
         - COMPILER=g++-6
         - CONFIGURATION=debug
         - CXXFLAGS="-std=c++11 -O0 -fprofile-arcs -ftest-coverage --coverage"
+        - LINKFLAGS="--coverage"
         - GCOV=true
       after_success:
         - lcov --directory . --capture --output-file coverage.info
@@ -127,7 +128,7 @@ before_install:
   - tar -xvf premake5.tar.gz
 
 install:
-  - ./premake5 --cxxflags="$CXXFLAGS" gmake
+  - ./premake5 --cxxflags="$CXXFLAGS" --linkflags="$LINKFLAGS" gmake
 
 script:
   - export CXX=$COMPILER

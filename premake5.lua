@@ -5,6 +5,11 @@ newoption {
     description = "Additional build options",
 }
 
+newoption {
+    trigger = "linkflags",
+    description = "Additional linker options",
+}
+
 --------------------------------------------------------------------------------
 solution "Format"
     configurations { "release", "debug" }
@@ -34,8 +39,8 @@ solution "Format"
 
     configuration { "release" }
         defines { "NDEBUG" }
-        symbols "On"
-        optimize "Full"
+        symbols "Off"
+        optimize "On"
             -- On ==> -O2
             -- Full ==> -O3
 
@@ -89,6 +94,13 @@ solution "Format"
         configuration { "gmake" }
             buildoptions {
                 "-std=c++11",
+            }
+    end
+
+    if _OPTIONS["linkflags"] then
+        configuration {}
+            linkoptions {
+                _OPTIONS["linkflags"],
             }
     end
 

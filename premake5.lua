@@ -71,6 +71,7 @@ solution "Format"
 
     configuration { "vs*" }
         buildoptions {
+            "/utf-8",
             -- "/std:c++latest",
             "/EHsc",
             -- "/arch:AVX2",

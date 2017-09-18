@@ -361,7 +361,7 @@ TEST_CASE("Strings")
     CHECK("    (null)" == PrintfArgs("%10.3s", (char const*)0));
 }
 
-TEST_CASE("Strings")
+TEST_CASE("Strings quoted")
 {
     std::string spad = std::string(128, ' ');
     CHECK(spad.c_str() == FormatArgs("{:128}", ' '));
@@ -375,6 +375,14 @@ TEST_CASE("Strings")
 
     char arr1[] = "hello";
     CHECK("hello" == FormatArgs("{}", arr1));
+}
+
+TEST_CASE("Strings hex escaped")
+{
+    // U+1F60D  SMILING FACE WITH HEART-SHAPED EYES
+
+    CHECK(u8"😍" == FormatArgs("{}", u8"😍"));
+    CHECK(R"(hello \xF0\x9F\x98\x8D)" == FormatArgs("{:x}", u8"hello 😍"));
 }
 
 TEST_CASE("Ints")

@@ -2317,7 +2317,6 @@ int fmtxx::impl::DoArrayFormat(char* buf, size_t bufsize, cxx::string_view forma
     if (w.size() > INT_MAX)
         return -1;
 
-    w.finish();
     return static_cast<int>(w.size());
 }
 
@@ -2330,6 +2329,5 @@ int fmtxx::impl::DoArrayPrintf(char* buf, size_t bufsize, cxx::string_view forma
     if (w.size() > INT_MAX)
         return -1;
 
-    w.finish();
     return static_cast<int>(w.size());
 }

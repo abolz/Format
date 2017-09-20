@@ -194,6 +194,10 @@ public:
     template <size_t N>
     explicit ArrayWriter(char (&buf)[N]) : ArrayWriter(buf, N) {}
 
+    ~ArrayWriter() { // null-terminate on destruction
+        finish();
+    }
+
     // Returns a pointer to the string.
     // The string is null-terminated if finish() has been called.
     char* data() const { return buf_; }

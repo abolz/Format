@@ -28,6 +28,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <string>
 #include <type_traits>
 
 #ifdef _MSC_VER
@@ -139,20 +140,6 @@ private:
     virtual ErrorCode Pad(char c, size_t count) = 0;
 };
 
-// Returned by the format_to_chars/printf_to_chars function (below).
-// Like std::to_chars.
-struct ToCharsResult
-{
-    char*     next = nullptr;
-    ErrorCode ec   = ErrorCode{};
-
-    ToCharsResult() = default;
-    ToCharsResult(char* next_, ErrorCode ec_) : next(next_), ec(ec_) {}
-
-    // Test for successful conversions
-    explicit operator bool() const { return ec == ErrorCode{}; }
-};
-
 // Write to std::FILE's, keeping track of the number of characters (successfully) transmitted.
 class FMTXX_VISIBILITY_DEFAULT FILEWriter : public Writer
 {
@@ -224,6 +211,33 @@ private:
     FMTXX_API ErrorCode Pad(char c, size_t count) noexcept override;
 };
 
+// Returned by the format_to_chars/printf_to_chars function (below).
+// Like std::to_chars.
+struct ToCharsResult
+{
+    char*     next = nullptr;
+    ErrorCode ec   = ErrorCode{};
+
+    ToCharsResult() = default;
+    ToCharsResult(char* next_, ErrorCode ec_) : next(next_), ec(ec_) {}
+
+    // Test for successful conversions
+    explicit operator bool() const { return ec == ErrorCode{}; }
+};
+
+// Returned by the string_format/string_printf functions (below).
+struct StringFormatResult
+{
+    std::string str;
+    ErrorCode ec = ErrorCode{};
+
+    StringFormatResult() = default;
+    StringFormatResult(std::string str_, ErrorCode ec_) : str(std::move(str_)), ec(ec_) {}
+
+    // Test for successful conversion
+    explicit operator bool() const { return ec == ErrorCode{}; }
+};
+
 struct Util
 {
     // Note:
@@ -280,6 +294,12 @@ struct DefaultTreatAsString
 
 template <>
 struct DefaultTreatAsString<cxx::string_view>
+    : std::true_type
+{
+};
+
+template <typename Alloc>
+struct DefaultTreatAsString<std::basic_string<char, std::char_traits<char>, Alloc>>
     : std::true_type
 {
 };
@@ -669,10 +689,12 @@ struct MakeTypes<T, Ts...>
         = static_cast<Types::value_type>(TypeFor<T>::value) | (MakeTypes<Ts...>::value << Types::kBitsPerArg);
 };
 
-FMTXX_API ErrorCode DoFormat(Writer&    w,    cxx::string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(Writer&    w,    cxx::string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoFormat(std::FILE* file, cxx::string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(std::FILE* file, cxx::string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(Writer&      w,    cxx::string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(Writer&      w,    cxx::string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(std::FILE*   file, cxx::string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(std::FILE*   file, cxx::string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoFormat(std::string& str,  cxx::string_view format, Arg const* args, Types types);
+FMTXX_API ErrorCode DoPrintf(std::string& str,  cxx::string_view format, Arg const* args, Types types);
 
 FMTXX_API ToCharsResult DoFormatToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types);
 FMTXX_API ToCharsResult DoPrintfToChars(char* first, char* last, cxx::string_view format, Arg const* args, Types types);
@@ -730,6 +752,18 @@ template <typename ...Args>
 ErrorCode printf(std::FILE* file, cxx::string_view format, ArgPack<Args...> const& args)
 {
     return ::fmtxx::impl::DoPrintf(file, format, args.array(), args.types());
+}
+
+template <typename ...Args>
+ErrorCode format(std::string& str, cxx::string_view format, ArgPack<Args...> const& args)
+{
+    return ::fmtxx::impl::DoFormat(str, format, args.array(), args.types());
+}
+
+template <typename ...Args>
+ErrorCode printf(std::string& str, cxx::string_view format, ArgPack<Args...> const& args)
+{
+    return ::fmtxx::impl::DoPrintf(str, format, args.array(), args.types());
 }
 
 template <typename ...Args>
@@ -794,6 +828,34 @@ template <typename ...Args>
 ErrorCode printf(std::FILE* file, cxx::string_view format, Args const&... args)
 {
     return ::fmtxx::printf(file, format, ArgPack<Args...>(args...));
+}
+
+template <typename ...Args>
+ErrorCode format(std::string& str, cxx::string_view format, Args const&... args)
+{
+    return ::fmtxx::format(str, format, ArgPack<Args...>(args...));
+}
+
+template <typename ...Args>
+ErrorCode printf(std::string& str, cxx::string_view format, Args const&... args)
+{
+    return ::fmtxx::printf(str, format, ArgPack<Args...>(args...));
+}
+
+template <typename ...Args>
+StringFormatResult string_format(cxx::string_view format, Args const&... args)
+{
+    StringFormatResult r;
+    r.ec = ::fmtxx::format(r.str, format, args...);
+    return r;
+}
+
+template <typename ...Args>
+StringFormatResult string_printf(cxx::string_view format, Args const&... args)
+{
+    StringFormatResult r;
+    r.ec = ::fmtxx::printf(r.str, format, args...);
+    return r;
 }
 
 template <typename ...Args>

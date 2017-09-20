@@ -2208,6 +2208,53 @@ ErrorCode fmtxx::impl::DoPrintf(std::FILE* file, cxx::string_view format, Arg co
 
 namespace {
 
+class StringWriter : public Writer
+{
+public:
+    std::string& str;
+
+    explicit StringWriter(std::string& s) : str(s) {}
+
+private:
+    FMTXX_API ErrorCode Put(char c) override;
+    FMTXX_API ErrorCode Write(char const* ptr, size_t len) override;
+    FMTXX_API ErrorCode Pad(char c, size_t count) override;
+};
+
+inline ErrorCode StringWriter::Put(char c)
+{
+    str.push_back(c);
+    return {};
+}
+
+inline ErrorCode StringWriter::Write(char const* ptr, size_t len)
+{
+    str.append(ptr, len);
+    return {};
+}
+
+inline ErrorCode StringWriter::Pad(char c, size_t count)
+{
+    str.append(count, c);
+    return {};
+}
+
+} // namespace
+
+ErrorCode fmtxx::impl::DoFormat(std::string& str, cxx::string_view format, Arg const* args, Types types)
+{
+    StringWriter w{str};
+    return ::fmtxx::impl::DoFormat(w, format, args, types);
+}
+
+ErrorCode fmtxx::impl::DoPrintf(std::string& str, cxx::string_view format, Arg const* args, Types types)
+{
+    StringWriter w{str};
+    return ::fmtxx::impl::DoPrintf(w, format, args, types);
+}
+
+namespace {
+
 class ToCharsWriter : public Writer
 {
 public:

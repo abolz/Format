@@ -108,27 +108,27 @@ private:
 };
 
 template <typename ...Args>
-inline ErrorCode format(std::string& str, cxx::string_view format, Args const&... args)
+ErrorCode format(std::string& str, cxx::string_view format, ArgPack<Args...> const& args)
 {
-    impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoFormat(str, format, arr, impl::Types::make(args...));
+    return ::fmtxx::impl::DoFormat(str, format, args.array(), args.types());
 }
 
 template <typename ...Args>
-inline ErrorCode printf(std::string& str, cxx::string_view format, Args const&... args)
+ErrorCode printf(std::string& str, cxx::string_view format, ArgPack<Args...> const& args)
 {
-    impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoPrintf(str, format, arr, impl::Types::make(args...));
+    return ::fmtxx::impl::DoPrintf(str, format, args.array(), args.types());
 }
 
-inline ErrorCode format(std::string& str, cxx::string_view format, FormatArgs const& args)
+template <typename ...Args>
+ErrorCode format(std::string& str, cxx::string_view format, Args const&... args)
 {
-    return ::fmtxx::impl::DoFormat(str, format, args.args_, args.types_);
+    return ::fmtxx::format(str, format, ArgPack<Args...>(args...));
 }
 
-inline ErrorCode printf(std::string& str, cxx::string_view format, FormatArgs const& args)
+template <typename ...Args>
+ErrorCode printf(std::string& str, cxx::string_view format, Args const&... args)
 {
-    return ::fmtxx::impl::DoPrintf(str, format, args.args_, args.types_);
+    return ::fmtxx::printf(str, format, ArgPack<Args...>(args...));
 }
 
 struct StringFormatResult
@@ -144,7 +144,7 @@ struct StringFormatResult
 };
 
 template <typename ...Args>
-inline StringFormatResult string_format(cxx::string_view format, Args const&... args)
+StringFormatResult string_format(cxx::string_view format, Args const&... args)
 {
     StringFormatResult r;
     r.ec = ::fmtxx::format(r.str, format, args...);
@@ -152,7 +152,7 @@ inline StringFormatResult string_format(cxx::string_view format, Args const&... 
 }
 
 template <typename ...Args>
-inline StringFormatResult string_printf(cxx::string_view format, Args const&... args)
+StringFormatResult string_printf(cxx::string_view format, Args const&... args)
 {
     StringFormatResult r;
     r.ec = ::fmtxx::printf(r.str, format, args...);

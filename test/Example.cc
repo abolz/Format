@@ -127,32 +127,10 @@ static void Example4()
 //
 //------------------------------------------------------------------------------
 
-static void Example5()
-{
-    fmtxx::FormatArgs args;
-
-    const std::string str_world = "world";
-
-    args.push_back(42);
-    args.push_back("hello");
-    args.push_back(str_world);
-        // NOTE:
-        // This does not compile:
-        // args.push_back(std::string("world"));
-
-    fmtxx::format(stdout, "{} {} {}\n", args);
-        // "42 hello world"
-}
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
 int main()
 {
     Example1();
     Example2();
     Example3();
     Example4();
-    Example5();
 }

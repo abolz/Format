@@ -1357,6 +1357,7 @@ TEST_CASE("ArrayWriter_1")
 
 //------------------------------------------------------------------------------
 
+#if 0
 TEST_CASE("FormatArgs_1")
 {
     fmtxx::FormatArgs args;
@@ -1376,6 +1377,7 @@ TEST_CASE("FormatArgs_1")
     //fmtxx::format(stdout, "", 1, args);           // should not compile
     //fmtxx::format(stdout, "", args, 1);           // should not compile
 }
+#endif
 
 //static void alpha_delta_227529() {}
 //struct Base1 { int a1; void func1() {} };

@@ -40,7 +40,9 @@ using namespace fmtxx::impl;
 //
 //------------------------------------------------------------------------------
 
-static_assert(std::numeric_limits<double>::is_iec559 && std::numeric_limits<double>::digits == 53,
+static_assert(
+    std::numeric_limits<double>::is_iec559
+        && std::numeric_limits<double>::digits == 53,
     "IEEE-754 double-precision implementation required for formatting floating-point numbers");
 
 // Maximum supported integer precision (= minimum number of digits).
@@ -72,8 +74,27 @@ static constexpr char const* kLowerDigits = "0123456789abcdef";
 //
 //------------------------------------------------------------------------------
 
+// EXPECT and EXPECT_NOT must evaluate their arguments X exactly once!
+#if 0
+
+static /*[[noreturn]]*/ void AssertionFailed(char const* file, unsigned line, char const* what)
+{
+    std::fprintf(stderr, "%s(%d) : Assertion failed: %s\n", file, line, what);
+    std::abort();
+}
+
+#define EXPECT(X)     ((X) ? (true) : (AssertionFailed(__FILE__, __LINE__, "Expected: '" #X "'"), false))
+#define EXPECT_NOT(X) ((X) ? (AssertionFailed(__FILE__, __LINE__, "Not expected: '" #X "'"), true) : (false))
+
+#else
+
+#define EXPECT(X)     (X)
+#define EXPECT_NOT(X) (X)
+
+#endif
+
 template <typename T>
-static void UnusedParameter(T&&)
+static void MaybeUnused(T&&)
 {
 }
 
@@ -128,7 +149,7 @@ ErrorCode fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
     size_t const kBlockSize = 32;
 
     char block[kBlockSize];
-    std::fill_n(MakeArrayIterator(block, kBlockSize), kBlockSize, c);
+    std::fill_n(block, kBlockSize, c);
 
     while (count > 0)
     {
@@ -1035,7 +1056,7 @@ static int CountLeadingZeros64(uint64_t n)
 static void GenerateHexDigits(double v, int precision, bool normalize, bool upper, char* buffer, int buffer_size, int* num_digits, int* binary_exponent)
 {
     assert(buffer_size >= 52/4 + 1);
-    UnusedParameter(buffer_size);
+    MaybeUnused(buffer_size);
 
     char const* const xdigits = upper ? kUpperDigits : kLowerDigits;
 
@@ -1392,7 +1413,7 @@ static void FixNegativeFieldWidth(FormatSpec& spec)
 {
     if (spec.width < 0)
     {
-        spec.width = (spec.width == INT_MIN) ? INT_MAX /*[recover]*/ : -spec.width;
+        spec.width = EXPECT_NOT(spec.width == INT_MIN) ? INT_MAX /*[recover]*/ : -spec.width;
         spec.align = Align::left;
     }
 }
@@ -1450,7 +1471,7 @@ static bool ParseInt(int& value, cxx::string_view::const_iterator& f, cxx::strin
     {
         if ((f - f0) + 1 > std::numeric_limits<int>::digits10)
         {
-            if (x > INT_MAX / 10 || (*f - '0') > INT_MAX - 10 * x)
+            if EXPECT_NOT(x > INT_MAX / 10 || (*f - '0') > INT_MAX - 10 * x)
             {
                 while (++f != end && IsDigit(*f)) {}
                 return false;
@@ -1469,6 +1490,7 @@ static ErrorCode GetIntArg(int& value, int index, Arg const* args, Types types)
     switch (types[index])
     {
     case Type::none:
+        static_cast<void>(EXPECT_NOT("index out of range"));
         return ErrorCode::index_out_of_range;
 
     case Type::schar:
@@ -1484,20 +1506,21 @@ static ErrorCode GetIntArg(int& value, int index, Arg const* args, Types types)
         return {};
 
     case Type::slonglong:
-        if (args[index].slonglong > INT_MAX)
+        if EXPECT_NOT(args[index].slonglong > INT_MAX)
             return ErrorCode::value_out_of_range;
-        if (args[index].slonglong < INT_MIN)
+        if EXPECT_NOT(args[index].slonglong < INT_MIN)
             return ErrorCode::value_out_of_range;
         value = static_cast<int>(args[index].slonglong);
         return {};
 
     case Type::ulonglong:
-        if (args[index].ulonglong > INT_MAX)
+        if EXPECT_NOT(args[index].ulonglong > INT_MAX)
             return ErrorCode::value_out_of_range;
         value = static_cast<int>(args[index].ulonglong);
         return {};
 
     default:
+        static_cast<void>(EXPECT_NOT("invalid integer argument"));
         return ErrorCode::invalid_argument;
     }
 }
@@ -1508,15 +1531,16 @@ static ErrorCode ParseLBrace(int& value, cxx::string_view::const_iterator& f, cx
 
     ++f; // skip '{'
 
-    if (f == end)
+    if EXPECT_NOT(f == end)
         return ErrorCode::invalid_format_string;
 
     int index;
     if (IsDigit(*f))
     {
-        if (!ParseInt(index, f, end))
+        bool ok = ParseInt(index, f, end);
+        if EXPECT_NOT(!ok)
             return ErrorCode::invalid_format_string;
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
     }
     else
@@ -1524,7 +1548,7 @@ static ErrorCode ParseLBrace(int& value, cxx::string_view::const_iterator& f, cx
         index = nextarg++;
     }
 
-    if (*f != '}')
+    if EXPECT_NOT(*f != '}')
         return ErrorCode::invalid_format_string;
 
     ++f; // skip '}'
@@ -1537,13 +1561,14 @@ static ErrorCode ParseFormatSpecArg(FormatSpec& spec, cxx::string_view::const_it
     assert(f != end && *f == '*');
 
     ++f;
-    if (f == end)
+    if EXPECT_NOT(f == end)
         return ErrorCode::invalid_format_string;
 
     int index;
     if (IsDigit(*f))
     {
-        if (!ParseInt(index, f, end))
+        bool ok = ParseInt(index, f, end);
+        if EXPECT_NOT(!ok)
             return ErrorCode::invalid_format_string;
     }
     else
@@ -1551,9 +1576,9 @@ static ErrorCode ParseFormatSpecArg(FormatSpec& spec, cxx::string_view::const_it
         index = nextarg++;
     }
 
-    if (types[index] == Type::none)
+    if EXPECT_NOT(types[index] == Type::none)
         return ErrorCode::index_out_of_range;
-    if (types[index] != Type::formatspec)
+    if EXPECT_NOT(types[index] != Type::formatspec)
         return ErrorCode::invalid_argument;
 
     spec = *static_cast<FormatSpec const*>(args[index].pvoid);
@@ -1587,20 +1612,20 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, cxx::string_view::const_itera
     assert(f != end && *f == ':');
 
     ++f;
-    if (f == end)
+    if EXPECT_NOT(f == end)
         return ErrorCode::invalid_format_string;
 
     if (f + 1 != end && ParseAlign(spec, *(f + 1)))
     {
         spec.fill = *f;
         f += 2;
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
     }
     else if (ParseAlign(spec, *f))
     {
         ++f;
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
     }
 
@@ -1645,18 +1670,24 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, cxx::string_view::const_itera
         case '7':
         case '8':
         case '9':
-            if (!ParseInt(spec.width, f, end))
-                return ErrorCode::invalid_format_string;
+            {
+                bool ok = ParseInt(spec.width, f, end);
+                if EXPECT_NOT(!ok)
+                    return ErrorCode::invalid_format_string;
+            }
             break;
         case '{':
-            if (Failed ec = ParseLBrace(spec.width, f, end, nextarg, args, types))
-                return ec;
-            FixNegativeFieldWidth(spec);
+            {
+                Failed ec = ParseLBrace(spec.width, f, end, nextarg, args, types);
+                if EXPECT_NOT(ec)
+                    return ec;
+                FixNegativeFieldWidth(spec);
+            }
             break;
 // Precision
         case '.':
             ++f;
-            if (f == end)
+            if EXPECT_NOT(f == end)
                 return ErrorCode::invalid_format_string;
             switch (*f)
             {
@@ -1670,12 +1701,18 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, cxx::string_view::const_itera
             case '7':
             case '8':
             case '9':
-                if (!ParseInt(spec.prec, f, end))
-                    return ErrorCode::invalid_format_string;
+                {
+                    bool ok = ParseInt(spec.prec, f, end);
+                    if EXPECT_NOT(!ok)
+                        return ErrorCode::invalid_format_string;
+                }
                 break;
             case '{':
-                if (Failed ec = ParseLBrace(spec.prec, f, end, nextarg, args, types))
-                    return ec;
+                {
+                    Failed ec = ParseLBrace(spec.prec, f, end, nextarg, args, types);
+                    if EXPECT_NOT(ec)
+                        return ec;
+                }
                 break;
             default:
                 spec.prec = 0;
@@ -1692,7 +1729,7 @@ static ErrorCode ParseFormatSpec(FormatSpec& spec, cxx::string_view::const_itera
             return {};
         }
 
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
     }
 }
@@ -1702,7 +1739,7 @@ static ErrorCode ParseStyle(FormatSpec& spec, cxx::string_view::const_iterator& 
     assert(f != end && *f == '!');
 
     ++f;
-    if (f == end)
+    if EXPECT_NOT(f == end)
         return ErrorCode::invalid_format_string;
 
     char delim;
@@ -1735,7 +1772,7 @@ static ErrorCode ParseStyle(FormatSpec& spec, cxx::string_view::const_iterator& 
 
     auto const f0 = f;
 
-    if (f0 == end)
+    if EXPECT_NOT(f0 == end)
         return ErrorCode::invalid_format_string;
 
     f = std::find(f, end, delim == '\0' ? '}' : delim);
@@ -1744,7 +1781,7 @@ static ErrorCode ParseStyle(FormatSpec& spec, cxx::string_view::const_iterator& 
 
     if (delim != '\0')
     {
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
         ++f; // skip delim
     }
@@ -1758,29 +1795,32 @@ static ErrorCode ParseReplacementField(FormatSpec& spec, cxx::string_view::const
 
     if (*f == '*')
     {
-        if (Failed ec = ParseFormatSpecArg(spec, f, end, nextarg, args, types))
+        Failed ec = ParseFormatSpecArg(spec, f, end, nextarg, args, types);
+        if EXPECT_NOT(ec)
             return ec;
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
     }
 
     if (*f == ':')
     {
-        if (Failed ec = ParseFormatSpec(spec, f, end, nextarg, args, types))
+        Failed ec = ParseFormatSpec(spec, f, end, nextarg, args, types);
+        if EXPECT_NOT(ec)
             return ec;
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
     }
 
     if (*f == '!')
     {
-        if (Failed ec = ParseStyle(spec, f, end))
+        Failed ec = ParseStyle(spec, f, end);
+        if EXPECT_NOT(ec)
             return ec;
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
     }
 
-    if (*f != '}')
+    if EXPECT_NOT(*f != '}')
         return ErrorCode::invalid_format_string;
 
     ++f;
@@ -1813,7 +1853,7 @@ ErrorCode fmtxx::impl::DoFormat(Writer& w, cxx::string_view format, Arg const* a
         auto const prev = f;
         ++f; // skip '{' or '}'
 
-        if (f == end) // "missing '}' or stray '}'"
+        if EXPECT_NOT(f == end) // "missing '}' or stray '}'"
             return ErrorCode::invalid_format_string;
 
         if (*prev == *f) // '{{' or '}}'
@@ -1823,23 +1863,24 @@ ErrorCode fmtxx::impl::DoFormat(Writer& w, cxx::string_view format, Arg const* a
             continue;
         }
 
-        if (*prev == '}')
+        if EXPECT_NOT(*prev == '}')
             return ErrorCode::invalid_format_string;
 
         int arg_index = -1;
         if (IsDigit(*f))
         {
-            if (!ParseInt(arg_index, f, end))
+            bool ok = ParseInt(arg_index, f, end);
+            if EXPECT_NOT(!ok)
                 return ErrorCode::invalid_format_string;
-
-            if (f == end)
+            if EXPECT_NOT(f == end)
                 return ErrorCode::invalid_format_string;
         }
 
         FormatSpec spec;
         if (*f != '}')
         {
-            if (Failed ec = ParseReplacementField(spec, f, end, nextarg, args, types))
+            Failed ec = ParseReplacementField(spec, f, end, nextarg, args, types);
+            if EXPECT_NOT(ec)
                 return ec;
         }
         else
@@ -1854,9 +1895,9 @@ ErrorCode fmtxx::impl::DoFormat(Writer& w, cxx::string_view format, Arg const* a
 
         auto const arg_type = types[arg_index];
 
-        if (arg_type == Type::none)
+        if EXPECT_NOT(arg_type == Type::none)
             return ErrorCode::index_out_of_range;
-        if (arg_type == Type::formatspec)
+        if EXPECT_NOT(arg_type == Type::formatspec)
             return ErrorCode::invalid_argument;
 
         if (Failed ec = CallFormatFunc(w, spec, args[arg_index], arg_type))
@@ -1871,22 +1912,23 @@ static ErrorCode ParseAsterisk(int& value, cxx::string_view::const_iterator& f, 
     assert(f != end && *f == '*'); // internal error
 
     ++f;
-    if (f == end)
+    if EXPECT_NOT(f == end)
         return ErrorCode::invalid_format_string;
 
     int index;
     if (IsDigit(*f))
     {
-        if (!ParseInt(index, f, end))
+        bool ok = ParseInt(index, f, end);
+        if EXPECT_NOT(!ok)
             return ErrorCode::invalid_format_string;
 
         index -= 1; // Positional arguments are 1-based.
 
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
-        if (index < 0)
+        if EXPECT_NOT(index < 0)
             return ErrorCode::invalid_format_string;
-        if (*f != '$')
+        if EXPECT_NOT(*f != '$')
             return ErrorCode::invalid_format_string;
         ++f;
     }
@@ -1956,10 +1998,12 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
         case '9':
             {
                 int n;
-                if (!ParseInt(n, f, end))
+
+                bool ok = ParseInt(n, f, end);
+                if EXPECT_NOT(!ok)
                     return ErrorCode::invalid_format_string;
 
-                if (f == end)
+                if EXPECT_NOT(f == end)
                     return ErrorCode::invalid_format_string;
 
                 // If this number ends with a '$' its actually a positional argument
@@ -1976,15 +2020,18 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
             }
             break;
         case '*':
-            if (Failed ec = ParseAsterisk(spec.width, f, end, nextarg, args, types))
-                return ec;
-            FixNegativeFieldWidth(spec);
+            {
+                Failed ec = ParseAsterisk(spec.width, f, end, nextarg, args, types);
+                if EXPECT_NOT(ec)
+                    return ec;
+                FixNegativeFieldWidth(spec);
+            }
             break;
 // Precision
         case '.':
             has_precision = true;
             ++f;
-            if (f == end)
+            if EXPECT_NOT(f == end)
                 return ErrorCode::invalid_format_string;
             switch (*f)
             {
@@ -1998,12 +2045,18 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
             case '7':
             case '8':
             case '9':
-                if (!ParseInt(spec.prec, f, end))
-                    return ErrorCode::invalid_format_string;
+                {
+                    bool ok = ParseInt(spec.prec, f, end);
+                    if EXPECT_NOT(!ok)
+                        return ErrorCode::invalid_format_string;
+                }
                 break;
             case '*':
-                if (Failed ec = ParseAsterisk(spec.prec, f, end, nextarg, args, types))
-                    return ec;
+                {
+                    Failed ec = ParseAsterisk(spec.prec, f, end, nextarg, args, types);
+                    if EXPECT_NOT(ec)
+                        return ec;
+                }
                 break;
             default:
                 spec.prec = 0;
@@ -2056,17 +2109,19 @@ static ErrorCode ParsePrintfSpec(int& arg_index, FormatSpec& spec, cxx::string_v
             // The number of characters written so far is stored into the integer
             // indicated by the int * (or variant) pointer argument.
             // No argument is converted.
+            static_cast<void>(EXPECT_NOT("'n' conversion not supported"));
             return ErrorCode::not_supported;
         case 'm':
             // (Glibc extension.) Print output of strerror(errno).
             // No argument is required.
+            static_cast<void>(EXPECT_NOT("'m' conversion not supported"));
             return ErrorCode::not_supported;
         default:
-            // unknown conversion
+            static_cast<void>(EXPECT_NOT("unknown conversion"));
             return ErrorCode::invalid_format_string;
         }
 
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
     }
 }
@@ -2094,7 +2149,7 @@ ErrorCode fmtxx::impl::DoPrintf(Writer& w, cxx::string_view format, Arg const* a
             break;
 
         ++f; // skip '%'
-        if (f == end)
+        if EXPECT_NOT(f == end)
             return ErrorCode::invalid_format_string;
 
         if (*f == '%') // '%%'
@@ -2109,7 +2164,8 @@ ErrorCode fmtxx::impl::DoPrintf(Writer& w, cxx::string_view format, Arg const* a
         FormatSpec spec;
         if (*f != 's') // %s is like {}
         {
-            if (Failed ec = ParsePrintfSpec(arg_index, spec, f, end, nextarg, args, types))
+            Failed ec = ParsePrintfSpec(arg_index, spec, f, end, nextarg, args, types);
+            if EXPECT_NOT(ec)
                 return ec;
         }
         else
@@ -2126,9 +2182,9 @@ ErrorCode fmtxx::impl::DoPrintf(Writer& w, cxx::string_view format, Arg const* a
 
         auto const arg_type = types[arg_index];
 
-        if (arg_type == Type::none)
+        if EXPECT_NOT(arg_type == Type::none)
             return ErrorCode::index_out_of_range;
-        if (arg_type == Type::formatspec)
+        if EXPECT_NOT(arg_type == Type::formatspec)
             return ErrorCode::invalid_argument;
 
         if (Failed ec = CallFormatFunc(w, spec, args[arg_index], arg_type))

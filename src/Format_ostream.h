@@ -89,27 +89,27 @@ FMTXX_API ErrorCode DoPrintf(std::ostream& os, cxx::string_view format, Arg cons
 } // namespace fmtxx::impl
 
 template <typename ...Args>
-inline ErrorCode format(std::ostream& os, cxx::string_view format, Args const&... args)
+ErrorCode format(std::ostream& os, cxx::string_view format, ArgPack<Args...> const& args)
 {
-    impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoFormat(os, format, arr, impl::Types::make(args...));
+    return ::fmtxx::impl::DoFormat(os, format, args.array(), args.types());
 }
 
 template <typename ...Args>
-inline ErrorCode printf(std::ostream& os, cxx::string_view format, Args const&... args)
+ErrorCode printf(std::ostream& os, cxx::string_view format, ArgPack<Args...> const& args)
 {
-    impl::ArgArray<sizeof...(Args)> arr = {args...};
-    return ::fmtxx::impl::DoPrintf(os, format, arr, impl::Types::make(args...));
+    return ::fmtxx::impl::DoPrintf(os, format, args.array(), args.types());
 }
 
-inline ErrorCode format(std::ostream& os, cxx::string_view format, FormatArgs const& args)
+template <typename ...Args>
+ErrorCode format(std::ostream& os, cxx::string_view format, Args const&... args)
 {
-    return ::fmtxx::impl::DoFormat(os, format, args.args_, args.types_);
+    return ::fmtxx::format(os, format, ArgPack<Args...>(args...));
 }
 
-inline ErrorCode printf(std::ostream& os, cxx::string_view format, FormatArgs const& args)
+template <typename ...Args>
+ErrorCode printf(std::ostream& os, cxx::string_view format, Args const&... args)
 {
-    return ::fmtxx::impl::DoPrintf(os, format, args.args_, args.types_);
+    return ::fmtxx::printf(os, format, ArgPack<Args...>(args...));
 }
 
 } // namespace fmtxx

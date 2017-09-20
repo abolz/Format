@@ -23,33 +23,7 @@
 
 #include "Format_core.h"
 
-#ifndef FMTXX_HAS_INCLUDE
-#if defined(__has_include)
-#define FMTXX_HAS_INCLUDE(X) __has_include(X)
-#else
-#define FMTXX_HAS_INCLUDE(X) 0
-#endif
-#endif
-
-#ifndef FMTXX_HAS_STD_STRING_VIEW
-#if (__cplusplus >= 201703 && FMTXX_HAS_INCLUDE(<string_view>)) || (_MSC_VER >= 1910 && _HAS_CXX17)
-#define FMTXX_HAS_STD_STRING_VIEW 1
-#endif
-#endif
-
-#ifndef FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
-#if __cplusplus > 201103 && FMTXX_HAS_INCLUDE(<experimental/string_view>)
-#define FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW 1
-#endif
-#endif
-
 #include <string>
-#if FMTXX_HAS_STD_STRING_VIEW
-#include <string_view>
-#endif
-#if FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
-#include <experimental/string_view>
-#endif
 
 namespace fmtxx {
 
@@ -60,34 +34,6 @@ struct DefaultTreatAsString<std::basic_string<char, std::char_traits<char>, Allo
     : std::true_type
 {
 };
-
-#if FMTXX_HAS_STD_STRING_VIEW
-template <>
-struct DefaultTreatAsString<std::string_view>
-    : std::true_type
-{
-};
-
-template <>
-struct IsSafeRValueType<std::string_view>
-    : std::true_type
-{
-};
-#endif
-
-#if FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
-template <>
-struct DefaultTreatAsString<std::experimental::string_view>
-    : std::true_type
-{
-};
-
-template <>
-struct IsSafeRValueType<std::experimental::string_view>
-    : std::true_type
-{
-};
-#endif
 
 FMTXX_API ErrorCode DoFormat(std::string& str, cxx::string_view format, Arg const* args, Types types);
 FMTXX_API ErrorCode DoPrintf(std::string& str, cxx::string_view format, Arg const* args, Types types);

@@ -21,6 +21,45 @@
 #ifndef CXX_STRING_VIEW_H
 #define CXX_STRING_VIEW_H 1
 
+#include <cstddef> // for _HAS_CXX17 etc...
+
+#ifndef CXX_HAS_INCLUDE
+#if defined(__has_include)
+#define CXX_HAS_INCLUDE(X) __has_include(X)
+#else
+#define CXX_HAS_INCLUDE(X) 0
+#endif
+#endif
+
+#ifndef CXX_HAS_STD_STRING_VIEW
+#if __cplusplus >= 201703 || (_MSC_VER >= 1910 && _HAS_CXX17)
+#define CXX_HAS_STD_STRING_VIEW 1
+#endif
+#endif
+
+#ifndef CXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
+#if CXX_HAS_INCLUDE(<experimental/string_view>) && __cplusplus > 201103
+#define CXX_HAS_STD_EXPERIMENTAL_STRING_VIEW 1
+#endif
+#endif
+
+#if CXX_HAS_STD_STRING_VIEW
+
+#include <string_view>
+namespace cxx { using std::string_view; }
+
+#elif CXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
+
+#include <experimental/string_view>
+namespace cxx { using std::experimental::string_view; }
+
+#else
+
+// Replacement for std::string_view.
+// Incomplete.
+// Does not support constexpr and /*noexcept*/!
+
+// Set to 1 to enable iterator debugging.
 #define CXX_STRING_VIEW_CHECKED_ITERATOR 0
 
 #include <cassert>
@@ -49,11 +88,11 @@ private:
     difference_type size_ = 0;
 
 public:
-    /*constexpr*/ string_view_iterator() noexcept = default;
-    /*constexpr*/ string_view_iterator(string_view_iterator const&) noexcept = default;
-    /*constexpr*/ string_view_iterator& operator=(string_view_iterator const&) noexcept = default;
+    /*constexpr*/ string_view_iterator() /*noexcept*/ = default;
+    /*constexpr*/ string_view_iterator(string_view_iterator const&) /*noexcept*/ = default;
+    /*constexpr*/ string_view_iterator& operator=(string_view_iterator const&) /*noexcept*/ = default;
 
-    /*constexpr*/ string_view_iterator(pointer ptr, difference_type size, difference_type pos = 0) noexcept
+    /*constexpr*/ string_view_iterator(pointer ptr, difference_type size, difference_type pos = 0) /*noexcept*/
         : ptr_(ptr)
         , pos_(pos)
         , size_(size)
@@ -64,49 +103,49 @@ public:
         assert(pos_ <= size_);
     }
 
-    /*constexpr*/ reference operator*() const noexcept
+    /*constexpr*/ reference operator*() const /*noexcept*/
     {
         assert(ptr_ != nullptr);
         assert(pos_ < size_);
         return ptr_[pos_];
     }
 
-    /*constexpr*/ pointer operator->() const noexcept
+    /*constexpr*/ pointer operator->() const /*noexcept*/
     {
         assert(ptr_ != nullptr);
         assert(pos_ < size_);
         return ptr_ + pos_;
     }
 
-    /*constexpr*/ string_view_iterator& operator++() noexcept
+    /*constexpr*/ string_view_iterator& operator++() /*noexcept*/
     {
         assert(pos_ < size_);
         ++pos_;
         return *this;
     }
 
-    /*constexpr*/ string_view_iterator operator++(int) noexcept
+    /*constexpr*/ string_view_iterator operator++(int) /*noexcept*/
     {
         auto t = *this;
         ++(*this);
         return t;
     }
 
-    /*constexpr*/ string_view_iterator& operator--() noexcept
+    /*constexpr*/ string_view_iterator& operator--() /*noexcept*/
     {
         assert(pos_ > 0);
         --pos_;
         return *this;
     }
 
-    /*constexpr*/ string_view_iterator operator--(int) noexcept
+    /*constexpr*/ string_view_iterator operator--(int) /*noexcept*/
     {
         auto t = *this;
         --(*this);
         return t;
     }
 
-    /*constexpr*/ string_view_iterator& operator+=(difference_type n) noexcept
+    /*constexpr*/ string_view_iterator& operator+=(difference_type n) /*noexcept*/
     {
         assert(pos_ + n >= 0);
         assert(pos_ + n <= size_);
@@ -114,19 +153,19 @@ public:
         return *this;
     }
 
-    /*constexpr*/ string_view_iterator operator+(difference_type n) const noexcept
+    /*constexpr*/ string_view_iterator operator+(difference_type n) const /*noexcept*/
     {
         auto t = *this;
         t += n;
         return t;
     }
 
-    /*constexpr*/ friend string_view_iterator operator+(difference_type n, string_view_iterator it) noexcept
+    /*constexpr*/ friend string_view_iterator operator+(difference_type n, string_view_iterator it) /*noexcept*/
     {
         return it + n;
     }
 
-    /*constexpr*/ string_view_iterator& operator-=(difference_type n) noexcept
+    /*constexpr*/ string_view_iterator& operator-=(difference_type n) /*noexcept*/
     {
         assert(pos_ - n >= 0);
         assert(pos_ - n <= size_);
@@ -134,20 +173,20 @@ public:
         return *this;
     }
 
-    /*constexpr*/ string_view_iterator operator-(difference_type n) const noexcept
+    /*constexpr*/ string_view_iterator operator-(difference_type n) const /*noexcept*/
     {
         auto t = *this;
         t -= n;
         return t;
     }
 
-    /*constexpr*/ difference_type operator-(string_view_iterator rhs) const noexcept
+    /*constexpr*/ difference_type operator-(string_view_iterator rhs) const /*noexcept*/
     {
         assert(ptr_ == rhs.ptr_);
         return pos_ - rhs.pos_;
     }
 
-    /*constexpr*/ reference operator[](difference_type index) const noexcept
+    /*constexpr*/ reference operator[](difference_type index) const /*noexcept*/
     {
         assert(ptr_ != nullptr);
         assert(pos_ + index >= 0);
@@ -155,34 +194,34 @@ public:
         return ptr_[pos_ + index];
     }
 
-    /*constexpr*/ friend bool operator==(string_view_iterator lhs, string_view_iterator rhs) noexcept
+    /*constexpr*/ friend bool operator==(string_view_iterator lhs, string_view_iterator rhs) /*noexcept*/
     {
         assert(lhs.ptr_ == rhs.ptr_);
         return lhs.pos_ == rhs.pos_;
     }
 
-    /*constexpr*/ friend bool operator!=(string_view_iterator lhs, string_view_iterator rhs) noexcept
+    /*constexpr*/ friend bool operator!=(string_view_iterator lhs, string_view_iterator rhs) /*noexcept*/
     {
         return !(lhs == rhs);
     }
 
-    /*constexpr*/ friend bool operator<(string_view_iterator lhs, string_view_iterator rhs) noexcept
+    /*constexpr*/ friend bool operator<(string_view_iterator lhs, string_view_iterator rhs) /*noexcept*/
     {
         assert(lhs.ptr_ == rhs.ptr_);
         return lhs.pos_ < rhs.pos_;
     }
 
-    /*constexpr*/ friend bool operator>(string_view_iterator lhs, string_view_iterator rhs) noexcept
+    /*constexpr*/ friend bool operator>(string_view_iterator lhs, string_view_iterator rhs) /*noexcept*/
     {
         return rhs < lhs;
     }
 
-    /*constexpr*/ friend bool operator<=(string_view_iterator lhs, string_view_iterator rhs) noexcept
+    /*constexpr*/ friend bool operator<=(string_view_iterator lhs, string_view_iterator rhs) /*noexcept*/
     {
         return !(rhs < lhs);
     }
 
-    /*constexpr*/ friend bool operator>=(string_view_iterator lhs, string_view_iterator rhs) noexcept
+    /*constexpr*/ friend bool operator>=(string_view_iterator lhs, string_view_iterator rhs) /*noexcept*/
     {
         return !(lhs < rhs);
     }
@@ -191,12 +230,12 @@ public:
     using _Checked_type = string_view_iterator;
     using _Unchecked_type = pointer;
 
-    /*constexpr*/ friend _Unchecked_type _Unchecked(_Checked_type it) noexcept
+    /*constexpr*/ friend _Unchecked_type _Unchecked(_Checked_type it) /*noexcept*/
     {
         return it.ptr_ + it.pos_;
     }
 
-    /*constexpr*/ friend _Checked_type& _Rechecked(_Checked_type& it, _Unchecked_type p) noexcept
+    /*constexpr*/ friend _Checked_type& _Rechecked(_Checked_type& it, _Unchecked_type p) /*noexcept*/
     {
         it.pos_ = p - it.ptr_;
         return it;
@@ -231,23 +270,24 @@ private:
     static size_t Min(size_t x, size_t y) { return y < x ? y : x; }
     static size_t Max(size_t x, size_t y) { return y < x ? x : y; }
 
-    static /*__forceinline*/ int Compare(char const* s1, char const* s2, size_t n) noexcept
+    static /*__forceinline*/ int Compare(char const* s1, char const* s2, size_t n) /*noexcept*/
     {
         return n == 0 ? 0 : ::memcmp(s1, s2, n);
     }
 
-    static /*__forceinline*/ char const* Find(char const* s, size_t n, char ch) noexcept
+    static /*__forceinline*/ char const* Find(char const* s, size_t n, char ch) /*noexcept*/
     {
+        assert(n != 0);
         return static_cast<char const*>( ::memchr(s, static_cast<unsigned char>(ch), n) );
     }
 
 public:
     static constexpr size_t npos = static_cast<size_t>(-1);
 
-    /*constexpr*/ string_view() noexcept = default;
-    /*constexpr*/ string_view(string_view const&) noexcept = default;
+    /*constexpr*/ string_view() /*noexcept*/ = default;
+    /*constexpr*/ string_view(string_view const&) /*noexcept*/ = default;
 
-    /*constexpr*/ string_view(const_pointer ptr, size_t len) noexcept
+    /*constexpr*/ string_view(const_pointer ptr, size_t len) /*noexcept*/
         : data_(ptr)
         , size_(len)
     {
@@ -255,7 +295,7 @@ public:
         assert(size_ == 0 || data_ != nullptr);
     }
 
-    string_view(const_pointer c_str) noexcept
+    string_view(const_pointer c_str) /*noexcept*/
         : data_(c_str)
         , size_(c_str ? ::strlen(c_str) : 0u)
     {
@@ -290,52 +330,37 @@ public:
         return T(begin(), end());
     }
 
-    /*constexpr*/ size_t max_size() const noexcept
+    /*constexpr*/ size_t max_size() const /*noexcept*/
     {
-//      return static_cast<size_t>( (std::numeric_limits<std::iterator_traits<iterator>::difference_type>::max)() ) / sizeof(char);
         return INTPTR_MAX / sizeof(char);
     }
 
     // Returns a pointer to the start of the string.
-    /*constexpr*/ const_pointer data() const noexcept
+    /*constexpr*/ const_pointer data() const /*noexcept*/
     {
         return data_;
     }
 
     // Returns the length of the string.
-    /*constexpr*/ size_t size() const noexcept
+    /*constexpr*/ size_t size() const /*noexcept*/
     {
         return size_;
     }
 
-    // XXX
     // Returns the length of the string.
-    /*constexpr*/ intptr_t ssize() const noexcept
-    {
-        return static_cast<intptr_t>(size_);
-    }
-
-    // Returns the length of the string.
-    /*constexpr*/ size_t length() const noexcept
+    /*constexpr*/ size_t length() const /*noexcept*/
     {
         return size();
     }
 
-    // XXX
-    // Returns the length of the string.
-    /*constexpr*/ intptr_t slength() const noexcept
-    {
-        return ssize();
-    }
-
     // Returns whether the string is empty.
-    /*constexpr*/ bool empty() const noexcept
+    /*constexpr*/ bool empty() const /*noexcept*/
     {
         return size_ == 0;
     }
 
     // Returns an iterator pointing to the start of the string.
-    /*constexpr*/ const_iterator begin() const noexcept
+    /*constexpr*/ const_iterator begin() const /*noexcept*/
     {
 #if CXX_STRING_VIEW_CHECKED_ITERATOR
         return const_iterator(data_, ssize(), 0);
@@ -345,7 +370,7 @@ public:
     }
 
     // Returns an iterator pointing past the end of the string.
-    /*constexpr*/ const_iterator end() const noexcept
+    /*constexpr*/ const_iterator end() const /*noexcept*/
     {
 #if CXX_STRING_VIEW_CHECKED_ITERATOR
         return const_iterator(data_, ssize(), ssize());
@@ -355,19 +380,19 @@ public:
     }
 
     // Returns a reference to the N-th character of the string.
-    /*constexpr*/ const_reference operator[](size_t n) const noexcept
+    /*constexpr*/ const_reference operator[](size_t n) const /*noexcept*/
     {
         assert(n < size_);
         return data_[n];
     }
 
-    bool _equal_to(string_view other) const noexcept
+    bool _cmp_eq(string_view other) const /*noexcept*/
     {
         return size() == other.size()
             && Compare(data(), other.data(), size()) == 0;
     }
 
-    bool _less_than(string_view other) const noexcept
+    bool _cmp_lt(string_view other) const /*noexcept*/
     {
         int const c = Compare(data(), other.data(), Min(size(), other.size()));
         return c < 0 || (c == 0 && size() < other.size());
@@ -387,7 +412,7 @@ public:
     }
 
     // Removes the first N characters from the string.
-    void remove_prefix(size_t n) noexcept
+    void remove_prefix(size_t n) /*noexcept*/
     {
         assert(n <= size_);
         data_ += n;
@@ -395,28 +420,28 @@ public:
     }
 
     // Removes the last N characters from the string.
-    void remove_suffix(size_t n) noexcept
+    void remove_suffix(size_t n) /*noexcept*/
     {
         assert(n <= size_);
         size_ -= n;
     }
 
     // Returns a reference to the first character of the string.
-    /*constexpr*/ const_reference front() const noexcept
+    /*constexpr*/ const_reference front() const /*noexcept*/
     {
         assert(size_ != 0);
         return data_[0];
     }
 
     // Returns a reference to the last character of the string.
-    /*constexpr*/ const_reference back() const noexcept
+    /*constexpr*/ const_reference back() const /*noexcept*/
     {
         assert(size_ != 0);
         return data_[size_ - 1];
     }
 
     // Returns the substring [first, +count)
-    /*constexpr*/ string_view substr(size_t first = 0) const noexcept
+    /*constexpr*/ string_view substr(size_t first = 0) const /*noexcept*/
     {
 #if 1 // std
         assert(first <= size_);
@@ -428,7 +453,7 @@ public:
     }
 
     // Returns the substring [first, +count)
-    /*constexpr*/ string_view substr(size_t first, size_t count) const noexcept
+    /*constexpr*/ string_view substr(size_t first, size_t count) const /*noexcept*/
     {
 #if 1 // std
         assert(first <= size_);
@@ -441,38 +466,38 @@ public:
     }
 
     // Search for the first character ch in the sub-string [from, end)
-    size_t find(char ch, size_t from = 0) const noexcept;
+    size_t find(char ch, size_t from = 0) const /*noexcept*/;
 
     // Search for the first substring str in the sub-string [from, end)
-    size_t find(string_view str, size_t from = 0) const noexcept;
+    size_t find(string_view str, size_t from = 0) const /*noexcept*/;
 
     // Search for the first character ch in the sub-string [from, end)
-    size_t find_first_of(char ch, size_t from = 0) const noexcept;
+    size_t find_first_of(char ch, size_t from = 0) const /*noexcept*/;
 
     // Search for the first character in the sub-string [from, end)
     // which matches any of the characters in chars.
-    size_t find_first_of(string_view chars, size_t from = 0) const noexcept;
+    size_t find_first_of(string_view chars, size_t from = 0) const /*noexcept*/;
 
     // Search for the first character in the sub-string [from, end)
     // which does not match any of the characters in chars.
-    size_t find_first_not_of(string_view chars, size_t from = 0) const noexcept;
+    size_t find_first_not_of(string_view chars, size_t from = 0) const /*noexcept*/;
 
     // Search for the last character ch in the sub-string [0, from)
-    size_t rfind(char ch, size_t from = npos) const noexcept;
+    size_t rfind(char ch, size_t from = npos) const /*noexcept*/;
 
     // Search for the last character ch in the sub-string [0, from)
-    size_t find_last_of(char ch, size_t from = npos) const noexcept;
+    size_t find_last_of(char ch, size_t from = npos) const /*noexcept*/;
 
     // Search for the last character in the sub-string [0, from)
     // which matches any of the characters in chars.
-    size_t find_last_of(string_view chars, size_t from = npos) const noexcept;
+    size_t find_last_of(string_view chars, size_t from = npos) const /*noexcept*/;
 
     // Search for the last character in the sub-string [0, from)
     // which does not match any of the characters in chars.
-    size_t find_last_not_of(string_view chars, size_t from = npos) const noexcept;
+    size_t find_last_not_of(string_view chars, size_t from = npos) const /*noexcept*/;
 };
 
-inline size_t string_view::find(char ch, size_t from) const noexcept
+inline size_t string_view::find(char ch, size_t from) const /*noexcept*/
 {
     if (from >= size())
         return npos;
@@ -483,7 +508,7 @@ inline size_t string_view::find(char ch, size_t from) const noexcept
     return npos;
 }
 
-inline size_t string_view::find(string_view str, size_t from) const noexcept
+inline size_t string_view::find(string_view str, size_t from) const /*noexcept*/
 {
     if (str.size() == 1)
         return find(str[0], from);
@@ -503,12 +528,12 @@ inline size_t string_view::find(string_view str, size_t from) const noexcept
     return npos;
 }
 
-inline size_t string_view::find_first_of(char ch, size_t from) const noexcept
+inline size_t string_view::find_first_of(char ch, size_t from) const /*noexcept*/
 {
     return find(ch, from);
 }
 
-inline size_t string_view::find_first_of(string_view chars, size_t from) const noexcept
+inline size_t string_view::find_first_of(string_view chars, size_t from) const /*noexcept*/
 {
     if (chars.size() == 1)
         return find(chars[0], from);
@@ -525,7 +550,7 @@ inline size_t string_view::find_first_of(string_view chars, size_t from) const n
     return npos;
 }
 
-inline size_t string_view::find_first_not_of(string_view chars, size_t from) const noexcept
+inline size_t string_view::find_first_not_of(string_view chars, size_t from) const /*noexcept*/
 {
     if (from >= size())
         return npos;
@@ -539,7 +564,7 @@ inline size_t string_view::find_first_not_of(string_view chars, size_t from) con
     return npos;
 }
 
-inline size_t string_view::rfind(char ch, size_t from) const noexcept
+inline size_t string_view::rfind(char ch, size_t from) const /*noexcept*/
 {
     if (from < size())
         ++from;
@@ -555,12 +580,12 @@ inline size_t string_view::rfind(char ch, size_t from) const noexcept
     return npos;
 }
 
-inline size_t string_view::find_last_of(char ch, size_t from) const noexcept
+inline size_t string_view::find_last_of(char ch, size_t from) const /*noexcept*/
 {
     return rfind(ch, from);
 }
 
-inline size_t string_view::find_last_of(string_view chars, size_t from) const noexcept
+inline size_t string_view::find_last_of(string_view chars, size_t from) const /*noexcept*/
 {
     if (chars.size() == 1)
         return rfind(chars[0], from);
@@ -582,7 +607,7 @@ inline size_t string_view::find_last_of(string_view chars, size_t from) const no
     return npos;
 }
 
-inline size_t string_view::find_last_not_of(string_view chars, size_t from) const noexcept
+inline size_t string_view::find_last_not_of(string_view chars, size_t from) const /*noexcept*/
 {
     if (from < size())
         ++from;
@@ -598,36 +623,38 @@ inline size_t string_view::find_last_not_of(string_view chars, size_t from) cons
     return npos;
 }
 
-inline bool operator==(string_view s1, string_view s2) noexcept
+inline bool operator==(string_view s1, string_view s2) /*noexcept*/
 {
-    return s1._equal_to(s2);
+    return s1._cmp_eq(s2);
 }
 
-inline bool operator!=(string_view s1, string_view s2) noexcept
+inline bool operator!=(string_view s1, string_view s2) /*noexcept*/
 {
     return !(s1 == s2);
 }
 
-inline bool operator<(string_view s1, string_view s2) noexcept
+inline bool operator<(string_view s1, string_view s2) /*noexcept*/
 {
-    return s1._less_than(s2);
+    return s1._cmp_lt(s2);
 }
 
-inline bool operator<=(string_view s1, string_view s2) noexcept
+inline bool operator<=(string_view s1, string_view s2) /*noexcept*/
 {
     return !(s2 < s1);
 }
 
-inline bool operator>(string_view s1, string_view s2) noexcept
+inline bool operator>(string_view s1, string_view s2) /*noexcept*/
 {
     return s2 < s1;
 }
 
-inline bool operator>=(string_view s1, string_view s2) noexcept
+inline bool operator>=(string_view s1, string_view s2) /*noexcept*/
 {
     return !(s1 < s2);
 }
 
 } // namespace cxx
+
+#endif
 
 #endif

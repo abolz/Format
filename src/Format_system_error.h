@@ -21,7 +21,7 @@
 #ifndef FMTXX_FORMAT_SYSTEM_ERROR_H
 #define FMTXX_FORMAT_SYSTEM_ERROR_H 1
 
-#include "Format_core.h"
+#include "Format.h"
 
 #include <system_error>
 

@@ -1,4 +1,5 @@
 #include "../src/Format.h"
+#include "../src/Format_pretty.h"
 
 #include <cmath>
 #include <map>

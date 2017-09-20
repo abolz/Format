@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include "Format_core.h"
+#include "Format.h"
 
 #ifndef FMTXX_DOUBLE_CONVERSION_EXTERNAL
 #include "__double_conversion.h"

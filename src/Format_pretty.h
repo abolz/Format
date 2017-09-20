@@ -21,7 +21,7 @@
 #ifndef FMTXX_FORMAT_PRETTY_H
 #define FMTXX_FORMAT_PRETTY_H 1
 
-#include "Format_core.h"
+#include "Format.h"
 
 #include <iterator> // begin, end
 #include <utility>  // declval, forward, get<pair>, tuple_size<pair>

@@ -1,4 +1,6 @@
 #include "../src/Format.h"
+#include "../src/Format_pretty.h"
+#include "../src/Format_ostream.h"
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"

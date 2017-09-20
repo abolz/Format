@@ -21,7 +21,7 @@
 #ifndef FMTXX_FORMAT_OSTREAM_H
 #define FMTXX_FORMAT_OSTREAM_H 1
 
-#include "Format_core.h"
+#include "Format.h"
 
 #include <ostream>
 #include <utility>

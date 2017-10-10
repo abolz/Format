@@ -1329,7 +1329,7 @@ TEST_CASE("FormatPretty_3")
 
     //static_assert(fmtxx::impl::IsTuple<decltype(tup)>::value, "Error!");
 
-    std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(tup)).str;
+    std::string s = fmtxx::string_format("  {}  ", fmtxx::pretty(std::move(tup))).str;
     CHECK(R"(  {123, 1.23, "123"}  )" == s);
 }
 

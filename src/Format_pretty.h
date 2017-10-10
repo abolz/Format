@@ -122,6 +122,8 @@ struct PP
             >::type
         >::type;
 
+    // Recursively calls FormatPretty<T>::operator().
+    // The default implementation of FormatPretty<T>::operator() then calls PP::Print(w, spec, val, PRINT_AS).
     template <typename T>
     static ErrorCode Print(Writer& w, FormatSpec const& spec, T const& val);
 
@@ -153,7 +155,7 @@ struct PP
         using std::begin; // using ADL!
         using std::end;   // using ADL!
 
-        auto const sep = spec.style.empty() ? ", " : spec.style;
+        cxx::string_view const sep = spec.style.empty() ? ", " : spec.style;
 
         if (Failed ec = w.put('['))
             return ec;
@@ -164,7 +166,7 @@ struct PP
         {
             for (;;)
             {
-                if (Failed ec = Print(w, spec, *I))
+                if (Failed ec = Print(w, spec, *I)) // Recursive!!!
                     return ec;
                 if (++I == E)
                     break;
@@ -190,7 +192,7 @@ struct PP
     {
         using std::get; // using ADL!
 
-        return Print(w, spec, get<std::tuple_size<T>::value - 1>(val));
+        return Print(w, spec, get<std::tuple_size<T>::value - 1>(val)); // Recursive!!!
     }
 
     template <typename T, size_t N>
@@ -198,9 +200,9 @@ struct PP
     {
         using std::get; // using ADL!
 
-        auto const sep = spec.style.empty() ? ", " : spec.style;
+        cxx::string_view const sep = spec.style.empty() ? ", " : spec.style;
 
-        if (Failed ec = Print(w, spec, get<std::tuple_size<T>::value - N>(val)))
+        if (Failed ec = Print(w, spec, get<std::tuple_size<T>::value - N>(val))) // Recursive!!!
             return ec;
         if (Failed ec = w.write(sep.data(), sep.size()))
             return ec;
@@ -226,31 +228,49 @@ struct PP
     template <typename T>
     static ErrorCode Print(Writer& w, FormatSpec const& spec, T const& val, AsOther)
     {
+        // T is not a string, nor a container/array, nor a tuple; and FormatPretty has not
+        // been specialized for T.
+        // Fall back to FormatValue and see what happens.
         return FormatValue<>{}(w, spec, val);
     }
 };
 
 } // namespace impl
 
-// Specialize this to customize pretty-printing for user-defined types.
-template <typename T, typename = void>
+// Specialize this to pretty-print custom types.
+template <typename T = void, typename /*Enable*/ = void>
 struct FormatPretty
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const
     {
-        return impl::PP::Print(w, spec, val, impl::PP::PrintAs<T>());
+        return impl::PP::Print(w, spec, val, impl::PP::PrintAs<T const&>());
     }
 };
 
-namespace impl {
-
-template <typename T>
-inline ErrorCode PP::Print(Writer& w, FormatSpec const& spec, T const& val)
+template <>
+struct FormatPretty<void>
 {
-    return FormatPretty<T>{}(w, spec, val);
-}
+    template <typename T>
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const
+    {
+        return FormatPretty<T>{}(w, spec, val);
+    }
+};
 
-} // namespace impl
+namespace impl
+{
+    template <typename T>
+    ErrorCode PP::Print(Writer& w, FormatSpec const& spec, T const& val)
+    {
+        // Call the custom pretty-printing method.
+        //
+        // If FormatPretty<T> is specialized for type T, this will call operator() of this
+        // specialization, and that's it.
+        // If FormatPretty<T> is not specialized, the default implementation just dispatches to
+        // impl::PP::Print (the 4 argument version, so there is no infinite recursion here).
+        return FormatPretty<T>{}(w, spec, val);
+    }
+}
 
 template <typename T>
 struct FormatValue<impl::PrettyPrinter<T>>
@@ -264,3 +284,4 @@ struct FormatValue<impl::PrettyPrinter<T>>
 } // namespace fmtxx
 
 #endif // FMTXX_FORMAT_PRETTY_H
+

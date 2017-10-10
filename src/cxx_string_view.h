@@ -361,7 +361,7 @@ public:
     }
 
     // Returns the length of the string.
-    /*constexpr*/ size_t slength() const /*noexcept*/
+    /*constexpr*/ intptr_t slength() const /*noexcept*/
     {
         return ssize();
     }

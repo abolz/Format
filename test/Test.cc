@@ -1333,6 +1333,55 @@ TEST_CASE("FormatPretty_3")
     CHECK(R"(  {123, 1.23, "123"}  )" == s);
 }
 
+template <typename T>
+struct MyVec {
+    std::vector<T> v;
+    MyVec(std::initializer_list<T> ilist) : v(ilist) {}
+};
+
+namespace fmtxx {
+    template <typename T>
+    struct FormatPretty<MyVec<T>>
+    {
+        ErrorCode operator()(Writer& w, FormatSpec const& spec, MyVec<T> const& val) const
+        {
+            if (Failed ec = w.put('|'))
+                return ec;
+
+            for (auto const& v : val.v)
+            {
+                if (Failed ec = FormatPretty<>{}(w, spec, v))
+                    return ec;
+                if (Failed ec = w.put('<'))
+                    return ec;
+            }
+
+            if (Failed ec = w.put('|'))
+                return ec;
+
+            return {};
+        }
+    };
+}
+
+TEST_CASE("FormatPretty_4")
+{
+    std::vector<std::vector<int>> vv1 = {{1,2,3}, {4,5,6}, {7,8,9}};
+
+    std::string s1 = fmtxx::string_format("{}", fmtxx::pretty(vv1)).str;
+    CHECK(R"([[1, 2, 3], [4, 5, 6], [7, 8, 9]])" == s1);
+
+    std::vector<MyVec<int>> vv2 = {{1,2,3}, {4,5,6}, {7,8,9}};
+
+    std::string s2 = fmtxx::string_format("{}", fmtxx::pretty(vv2)).str;
+    CHECK(R"([|1<2<3<|, |4<5<6<|, |7<8<9<|])" == s2);
+
+    MyVec<MyVec<int>> vv3 = {{1,2,3}, {4,5,6}, {7,8,9}};
+
+    std::string s3 = fmtxx::string_format("{}", fmtxx::pretty(vv3)).str;
+    CHECK(R"(||1<2<3<|<|4<5<6<|<|7<8<9<|<|)" == s3);
+}
+
 //------------------------------------------------------------------------------
 
 TEST_CASE("ArrayWriter_1")

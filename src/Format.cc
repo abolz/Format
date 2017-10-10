@@ -841,7 +841,7 @@ static void GenerateFixedDigits(double v, int requested_digits, char* buf, int b
     Double const d{v};
 
     assert(!d.IsSpecial());
-    assert(d.Abs() >= 0);
+    assert(!d.IsNegative());
     assert(requested_digits >= 0);
 
     if (d.IsZero())
@@ -956,7 +956,7 @@ static void GeneratePrecisionDigits(double v, int requested_digits, char* buf, i
     Double const d{v};
 
     assert(!d.IsSpecial());
-    assert(d.Abs() >= 0);
+    assert(!d.IsNegative());
 
     if (requested_digits == 0)
     {
@@ -1063,7 +1063,7 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
     Double const d{v};
 
     assert(!d.IsSpecial()); // NaN or infinity?
-    assert(d.Abs() >= 0);
+    assert(!d.IsNegative());
 
     if (d.IsZero())
     {
@@ -1162,7 +1162,7 @@ static void GenerateShortestDigits(double v, char* buf, int bufsize, int* num_di
     Double const d{v};
 
     assert(!d.IsSpecial());
-    assert(d.Abs() >= 0);
+    assert(!d.IsNegative());
 
     if (d.IsZero())
     {

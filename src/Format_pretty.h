@@ -243,6 +243,8 @@ struct FormatPretty
 {
     ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const
     {
+        // Note:
+        // The "T const&" is important here, so that the IsContainer works correctly for built-in arrays.
         return impl::PP::Print(w, spec, val, impl::PP::PrintAs<T const&>());
     }
 };
@@ -284,4 +286,3 @@ struct FormatValue<impl::PrettyPrinter<T>>
 } // namespace fmtxx
 
 #endif // FMTXX_FORMAT_PRETTY_H
-

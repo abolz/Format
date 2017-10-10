@@ -57,7 +57,7 @@ namespace cxx { using std::experimental::string_view; }
 
 // Replacement for std::string_view.
 // Incomplete.
-// Does not support constexpr and /*noexcept*/!
+// Does not support constexpr and noexcept!
 
 // Set to 1 to enable iterator debugging.
 #define CXX_STRING_VIEW_CHECKED_ITERATOR 0
@@ -73,6 +73,7 @@ namespace cxx { using std::experimental::string_view; }
 namespace cxx {
 
 #if CXX_STRING_VIEW_CHECKED_ITERATOR
+
 class string_view_iterator
 {
 public:
@@ -90,7 +91,6 @@ private:
 public:
     /*constexpr*/ string_view_iterator() /*noexcept*/ = default;
     /*constexpr*/ string_view_iterator(string_view_iterator const&) /*noexcept*/ = default;
-    /*constexpr*/ string_view_iterator& operator=(string_view_iterator const&) /*noexcept*/ = default;
 
     /*constexpr*/ string_view_iterator(pointer ptr, difference_type size, difference_type pos = 0) /*noexcept*/
         : ptr_(ptr)
@@ -242,7 +242,8 @@ public:
     }
 #endif
 };
-#endif
+
+#endif // CXX_STRING_VIEW_CHECKED_ITERATOR
 
 class string_view // A minimal std::string_view replacement
 {
@@ -260,7 +261,6 @@ public:
     using const_iterator    = char const*;
 #endif
     using size_type         = size_t;
-    //using difference_type   = intptr_t;
 
 private:
     const_pointer data_ = nullptr;
@@ -295,7 +295,7 @@ public:
         assert(size_ == 0 || data_ != nullptr);
     }
 
-    string_view(const_pointer c_str) /*noexcept*/
+    /*constexpr*/ string_view(const_pointer c_str) /*noexcept*/
         : data_(c_str)
         , size_(c_str ? ::strlen(c_str) : 0u)
     {
@@ -332,7 +332,7 @@ public:
 
     /*constexpr*/ size_t max_size() const /*noexcept*/
     {
-        return INTPTR_MAX / sizeof(char);
+        return INTPTR_MAX;
     }
 
     // Returns a pointer to the start of the string.
@@ -348,9 +348,22 @@ public:
     }
 
     // Returns the length of the string.
+    /*constexpr*/ intptr_t ssize() const /*noexcept*/
+    {
+        assert(size_ <= max_size());
+        return static_cast<intptr_t>(size_);
+    }
+
+    // Returns the length of the string.
     /*constexpr*/ size_t length() const /*noexcept*/
     {
         return size();
+    }
+
+    // Returns the length of the string.
+    /*constexpr*/ size_t slength() const /*noexcept*/
+    {
+        return ssize();
     }
 
     // Returns whether the string is empty.
@@ -443,26 +456,15 @@ public:
     // Returns the substring [first, +count)
     /*constexpr*/ string_view substr(size_t first = 0) const /*noexcept*/
     {
-#if 1 // std
         assert(first <= size_);
-        return { data_ + first, size_ - first };
-#else
-        size_t f = Min(first, size_);
-        return { data_ + f, size_ - f };
-#endif
+        return string_view(data_ + first, size_ - first);
     }
 
     // Returns the substring [first, +count)
     /*constexpr*/ string_view substr(size_t first, size_t count) const /*noexcept*/
     {
-#if 1 // std
         assert(first <= size_);
-        return { data_ + first, Min(count, size_ - first) };
-#else
-        size_t f = Min(first, size_);
-        size_t n = Min(count, size_ - f);
-        return { data_ + f, n };
-#endif
+        return string_view(data_ + first, Min(count, size_ - first));
     }
 
     // Search for the first character ch in the sub-string [from, end)

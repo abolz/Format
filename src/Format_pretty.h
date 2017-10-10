@@ -32,19 +32,22 @@ namespace fmtxx {
 //
 //------------------------------------------------------------------------------
 
-template <typename T>
-struct PrettyPrinter
+namespace impl
 {
-    T object;
-};
+    template <typename T>
+    struct PrettyPrinter
+    {
+        T object;
+    };
+}
 
 template <typename T>
-inline PrettyPrinter<T> pretty(T&& object)
+inline impl::PrettyPrinter<T> pretty(T&& object)
 {
     // NB:
     // Forward lvalue-references, copy rvalue-references.
 
-    return PrettyPrinter<T>{std::forward<T>(object)};
+    return impl::PrettyPrinter<T>{std::forward<T>(object)};
 }
 
 //------------------------------------------------------------------------------
@@ -101,7 +104,7 @@ struct PP
     //      (includes C-strings)
     //  2. Is a container?  => Recursively print as array "[x, y, z]"
     //  3. Is a tuple?      => Recursively print as tuple "{x, y, z}"
-    //  4. Otherwise:       => Use FormatValue<T>
+    //  4. Otherwise:       => Use FormatPretty<T>
     //
     template <typename T>
     using PrintAs =
@@ -118,6 +121,19 @@ struct PP
                 >::type
             >::type
         >::type;
+
+    template <typename T>
+    static ErrorCode Print(Writer& w, FormatSpec const& spec, T const& val);
+
+    static ErrorCode Print(Writer& w, FormatSpec const& spec, char const* const& val)
+    {
+        return Print(w, spec, val != nullptr ? val : "(null)", AsString());
+    }
+
+    static ErrorCode Print(Writer& w, FormatSpec const& spec, char* const& val)
+    {
+        return Print(w, spec, val != nullptr ? val : "(null)", AsString());
+    }
 
     static ErrorCode Print(Writer& w, FormatSpec const& /*spec*/, cxx::string_view val, AsString)
     {
@@ -148,7 +164,7 @@ struct PP
         {
             for (;;)
             {
-                if (Failed ec = PrettyPrint(w, spec, *I))
+                if (Failed ec = Print(w, spec, *I))
                     return ec;
                 if (++I == E)
                     break;
@@ -174,7 +190,7 @@ struct PP
     {
         using std::get; // using ADL!
 
-        return PrettyPrint(w, spec, get<std::tuple_size<T>::value - 1>(val));
+        return Print(w, spec, get<std::tuple_size<T>::value - 1>(val));
     }
 
     template <typename T, size_t N>
@@ -184,7 +200,7 @@ struct PP
 
         auto const sep = spec.style.empty() ? ", " : spec.style;
 
-        if (Failed ec = PrettyPrint(w, spec, get<std::tuple_size<T>::value - N>(val)))
+        if (Failed ec = Print(w, spec, get<std::tuple_size<T>::value - N>(val)))
             return ec;
         if (Failed ec = w.write(sep.data(), sep.size()))
             return ec;
@@ -212,32 +228,36 @@ struct PP
     {
         return FormatValue<>{}(w, spec, val);
     }
+};
 
-    template <typename T>
-    static ErrorCode PrettyPrint(Writer& w, FormatSpec const& spec, T const& val)
-    {
-        return Print(w, spec, val, PrintAs<T const&>{}); // NOTE: T const&, the reference is important for begin/end!
-    }
+} // namespace impl
 
-    static ErrorCode PrettyPrint(Writer& w, FormatSpec const& spec, char const* const& val)
+// Specialize this to customize pretty-printing for user-defined types.
+template <typename T, typename = void>
+struct FormatPretty
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, T const& val) const
     {
-        return Print(w, spec, val != nullptr ? val : "(null)", AsString{});
-    }
-
-    static ErrorCode PrettyPrint(Writer& w, FormatSpec const& spec, char* const& val)
-    {
-        return Print(w, spec, val != nullptr ? val : "(null)", AsString{});
+        return impl::PP::Print(w, spec, val, impl::PP::PrintAs<T>());
     }
 };
 
-} // namespace fmtxx::impl
+namespace impl {
 
 template <typename T>
-struct FormatValue<PrettyPrinter<T>>
+inline ErrorCode PP::Print(Writer& w, FormatSpec const& spec, T const& val)
 {
-    ErrorCode operator()(Writer& w, FormatSpec const& spec, PrettyPrinter<T> const& value) const
+    return FormatPretty<T>{}(w, spec, val);
+}
+
+} // namespace impl
+
+template <typename T>
+struct FormatValue<impl::PrettyPrinter<T>>
+{
+    ErrorCode operator()(Writer& w, FormatSpec const& spec, impl::PrettyPrinter<T> const& value) const
     {
-        return ::fmtxx::impl::PP::PrettyPrint(w, spec, value.object);
+        return impl::PP::Print(w, spec, value.object);
     }
 };
 

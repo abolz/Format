@@ -76,7 +76,6 @@ static constexpr char const* kLowerDigits = "0123456789abcdef";
 
 // EXPECT and EXPECT_NOT must evaluate their arguments X exactly once!
 #if 0
-
 static /*[[noreturn]]*/ void AssertionFailed(char const* file, unsigned line, char const* what)
 {
     std::fprintf(stderr, "%s(%d) : Assertion failed: %s\n", file, line, what);
@@ -85,12 +84,9 @@ static /*[[noreturn]]*/ void AssertionFailed(char const* file, unsigned line, ch
 
 #define EXPECT(X)     ((X) ? (true) : (AssertionFailed(__FILE__, __LINE__, "Expected: '" #X "'"), false))
 #define EXPECT_NOT(X) ((X) ? (AssertionFailed(__FILE__, __LINE__, "Not expected: '" #X "'"), true) : (false))
-
 #else
-
 #define EXPECT(X)     (X)
 #define EXPECT_NOT(X) (X)
-
 #endif
 
 template <typename T>
@@ -99,21 +95,17 @@ static void MaybeUnused(T&&)
 }
 
 #if defined(_MSC_VER) && (_ITERATOR_DEBUG_LEVEL > 0 && _SECURE_SCL_DEPRECATE)
-
 template <typename RanIt>
 static stdext::checked_array_iterator<RanIt> MakeArrayIterator(RanIt buffer, intptr_t buffer_size, intptr_t position = 0)
 {
     return stdext::make_checked_array_iterator(buffer, buffer_size, position);
 }
-
 #else
-
 template <typename RanIt>
 static RanIt MakeArrayIterator(RanIt buffer, intptr_t /*buffer_size*/, intptr_t position = 0)
 {
     return buffer + position;
 }
-
 #endif
 
 //------------------------------------------------------------------------------
@@ -2216,9 +2208,9 @@ public:
     explicit StringWriter(std::string& s) : str(s) {}
 
 private:
-    FMTXX_API ErrorCode Put(char c) override;
-    FMTXX_API ErrorCode Write(char const* ptr, size_t len) override;
-    FMTXX_API ErrorCode Pad(char c, size_t count) override;
+    ErrorCode Put(char c) override;
+    ErrorCode Write(char const* ptr, size_t len) override;
+    ErrorCode Pad(char c, size_t count) override;
 };
 
 inline ErrorCode StringWriter::Put(char c)

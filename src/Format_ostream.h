@@ -30,7 +30,7 @@ namespace fmtxx {
 
 namespace impl {
 
-class StreamBuf : public std::streambuf
+class StreamBuf final : public std::streambuf
 {
     Writer& w_;
 

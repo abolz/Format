@@ -62,7 +62,7 @@ std::streamsize fmtxx::impl::StreamBuf::xsputn(char const* str, std::streamsize 
 
 namespace {
 
-class StreamWriter : public Writer
+class StreamWriter final : public Writer
 {
 public:
     std::ostream& os;

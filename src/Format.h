@@ -158,9 +158,9 @@ public:
     size_t size() const { return size_; }
 
 private:
-    FMTXX_API ErrorCode Put(char c) noexcept override;
-    FMTXX_API ErrorCode Write(char const* ptr, size_t len) noexcept override;
-    FMTXX_API ErrorCode Pad(char c, size_t count) noexcept override;
+    FMTXX_API ErrorCode Put(char c) override;
+    FMTXX_API ErrorCode Write(char const* ptr, size_t len) override;
+    FMTXX_API ErrorCode Pad(char c, size_t count) override;
 };
 
 // Write to a user allocated buffer.
@@ -206,9 +206,9 @@ public:
     FMTXX_API size_t finish() noexcept;
 
 private:
-    FMTXX_API ErrorCode Put(char c) noexcept override;
-    FMTXX_API ErrorCode Write(char const* ptr, size_t len) noexcept override;
-    FMTXX_API ErrorCode Pad(char c, size_t count) noexcept override;
+    FMTXX_API ErrorCode Put(char c) override;
+    FMTXX_API ErrorCode Write(char const* ptr, size_t len) override;
+    FMTXX_API ErrorCode Pad(char c, size_t count) override;
 };
 
 // Returned by the format_to_chars/printf_to_chars function (below).

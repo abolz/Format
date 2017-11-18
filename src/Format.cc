@@ -116,7 +116,7 @@ fmtxx::Writer::~Writer() noexcept
 {
 }
 
-ErrorCode fmtxx::FILEWriter::Put(char c) noexcept
+ErrorCode fmtxx::FILEWriter::Put(char c)
 {
     if (EOF == std::fputc(c, file_))
         return ErrorCode::io_error;
@@ -125,7 +125,7 @@ ErrorCode fmtxx::FILEWriter::Put(char c) noexcept
     return {};
 }
 
-ErrorCode fmtxx::FILEWriter::Write(char const* ptr, size_t len) noexcept
+ErrorCode fmtxx::FILEWriter::Write(char const* ptr, size_t len)
 {
     size_t n = std::fwrite(ptr, 1, len, file_);
 
@@ -136,7 +136,7 @@ ErrorCode fmtxx::FILEWriter::Write(char const* ptr, size_t len) noexcept
     return n == len ? ErrorCode{} : ErrorCode::io_error;
 }
 
-ErrorCode fmtxx::FILEWriter::Pad(char c, size_t count) noexcept
+ErrorCode fmtxx::FILEWriter::Pad(char c, size_t count)
 {
     size_t const kBlockSize = 32;
 
@@ -164,7 +164,7 @@ size_t fmtxx::ArrayWriter::finish() noexcept
     return size_;
 }
 
-ErrorCode fmtxx::ArrayWriter::Put(char c) noexcept
+ErrorCode fmtxx::ArrayWriter::Put(char c)
 {
     if (size_ < bufsize_)
         buf_[size_] = c;
@@ -173,7 +173,7 @@ ErrorCode fmtxx::ArrayWriter::Put(char c) noexcept
     return {};
 }
 
-ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
+ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len)
 {
     if (size_ < bufsize_)
     {
@@ -185,7 +185,7 @@ ErrorCode fmtxx::ArrayWriter::Write(char const* ptr, size_t len) noexcept
     return {};
 }
 
-ErrorCode fmtxx::ArrayWriter::Pad(char c, size_t count) noexcept
+ErrorCode fmtxx::ArrayWriter::Pad(char c, size_t count)
 {
     if (size_ < bufsize_)
     {
@@ -2200,7 +2200,7 @@ ErrorCode fmtxx::impl::DoPrintf(std::FILE* file, cxx::string_view format, Arg co
 
 namespace {
 
-class StringWriter : public Writer
+class StringWriter final : public Writer
 {
 public:
     std::string& str;
@@ -2247,7 +2247,7 @@ ErrorCode fmtxx::impl::DoPrintf(std::string& str, cxx::string_view format, Arg c
 
 namespace {
 
-class ToCharsWriter : public Writer
+class ToCharsWriter final : public Writer
 {
 public:
     char*       next = nullptr;

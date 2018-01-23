@@ -18,8 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef FMTXX_FORMAT_CORE_H
-#define FMTXX_FORMAT_CORE_H 1
+#ifndef FMTXX_FORMAT_H
+#define FMTXX_FORMAT_H 1
 
 #include <cassert>
 #include <climits>
@@ -1029,4 +1029,4 @@ int snprintf(char (&buf)[N], string_view format, Args const&... args)
 
 } // namespace fmtxx
 
-#endif // FMTXX_FORMAT_CORE_H
+#endif // FMTXX_FORMAT_H

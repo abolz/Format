@@ -1112,6 +1112,11 @@ static void GenerateHexDigits(double v, int precision, bool normalize, bool uppe
 
         assert(!normalize || (sig & Double::kHiddenBit) == 0);
 
+        //
+        // FIXME:
+        // Use round-to-nearest-even!
+        //
+
         if (digit & 0x8) // Digit >= 8
         {
             sig += r; // Round...

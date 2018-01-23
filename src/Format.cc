@@ -348,6 +348,91 @@ static ErrorCode ForEachEscaped(char const* str, size_t len, F func)
     for (size_t i = 0; i < len; ++i)
     {
         char const ch = str[i];
+#if 0
+        switch (ch)
+        {
+        case '\a':
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('a'))
+                return ec;
+            break;
+        case '\b':
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('b'))
+                return ec;
+            break;
+        case '\f':
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('f'))
+                return ec;
+            break;
+        case '\n':
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('n'))
+                return ec;
+            break;
+        case '\r':
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('r'))
+                return ec;
+            break;
+        case '\t':
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('t'))
+                return ec;
+            break;
+        case '\v':
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('v'))
+                return ec;
+            break;
+        case '\\':
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('\\'))
+                return ec;
+            break;
+        case '\'':
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('\''))
+                return ec;
+            break;
+        case '"':
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('"'))
+                return ec;
+            break;
+        default:
+            if (IsASCIIPrintable(ch))
+            {
+                if (Failed ec = func(ch))
+                    return ec;
+            }
+            else
+            {
+                unsigned char uch = static_cast<unsigned char>(ch);
+
+                if (Failed ec = func('\\'))
+                    return ec;
+                if (Failed ec = func(kUpperDigits[(uch >> 6)      ]))
+                    return ec;
+                if (Failed ec = func(kUpperDigits[(uch >> 3) & 0x7]))
+                    return ec;
+                if (Failed ec = func(kUpperDigits[(uch >> 0) & 0x7]))
+                    return ec;
+            }
+            break;
+        }
+#else
         if (IsASCIIPrintable(ch))
         {
             if (Failed ec = func(ch))
@@ -359,13 +444,14 @@ static ErrorCode ForEachEscaped(char const* str, size_t len, F func)
 
             if (Failed ec = func('\\'))
                 return ec;
-            if (Failed ec = func('x'))
+            if (Failed ec = func(kUpperDigits[(uch >> 6)      ]))
                 return ec;
-            if (Failed ec = func(kUpperDigits[(uch >> 4) & 0xF]))
+            if (Failed ec = func(kUpperDigits[(uch >> 3) & 0x7]))
                 return ec;
-            if (Failed ec = func(kUpperDigits[(uch >> 0) & 0xF]))
+            if (Failed ec = func(kUpperDigits[(uch >> 0) & 0x7]))
                 return ec;
         }
+#endif
     }
 
     return {};

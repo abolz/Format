@@ -429,12 +429,12 @@ TEST_CASE("Strings quoted")
     CHECK("hello" == FormatArgs("{}", arr1));
 }
 
-TEST_CASE("Strings hex escaped")
+TEST_CASE("Strings escaped")
 {
     // U+1F60D  SMILING FACE WITH HEART-SHAPED EYES
 
     CHECK(u8"😍" == FormatArgs("{}", u8"😍"));
-    CHECK(R"(hello \xF0\x9F\x98\x8D)" == FormatArgs("{:x}", u8"hello 😍"));
+    CHECK(R"(hello \360\237\230\215a)" == FormatArgs("{:x}", u8"hello 😍a"));
 }
 
 TEST_CASE("Ints")

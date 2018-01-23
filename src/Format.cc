@@ -287,11 +287,14 @@ static ErrorCode ForEachQuoted(char const* str, size_t len, F func)
         {
         case '"':
         case '\\':
-            if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func(ch)) return ec;
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func(ch))
+                return ec;
             break;
         default:
-            if (Failed ec = func(ch)) return ec;
+            if (Failed ec = func(ch))
+                return ec;
             break;
         }
     }
@@ -347,16 +350,21 @@ static ErrorCode ForEachEscaped(char const* str, size_t len, F func)
         char const ch = str[i];
         if (IsASCIIPrintable(ch))
         {
-            if (Failed ec = func(ch)) return ec;
+            if (Failed ec = func(ch))
+                return ec;
         }
         else
         {
             unsigned char uch = static_cast<unsigned char>(ch);
 
-            if (Failed ec = func('\\')) return ec;
-            if (Failed ec = func('x')) return ec;
-            if (Failed ec = func(kUpperDigits[(uch >> 4) & 0xF])) return ec;
-            if (Failed ec = func(kUpperDigits[(uch >> 0) & 0xF])) return ec;
+            if (Failed ec = func('\\'))
+                return ec;
+            if (Failed ec = func('x'))
+                return ec;
+            if (Failed ec = func(kUpperDigits[(uch >> 4) & 0xF]))
+                return ec;
+            if (Failed ec = func(kUpperDigits[(uch >> 0) & 0xF]))
+                return ec;
         }
     }
 

@@ -137,7 +137,7 @@ struct PP
         return Print(w, spec, val != nullptr ? val : "(null)", AsString());
     }
 
-    static ErrorCode Print(Writer& w, FormatSpec const& /*spec*/, cxx::string_view val, AsString)
+    static ErrorCode Print(Writer& w, FormatSpec const& /*spec*/, string_view val, AsString)
     {
         if (Failed ec = w.put('"'))
             return ec;
@@ -155,7 +155,7 @@ struct PP
         using std::begin; // using ADL!
         using std::end;   // using ADL!
 
-        cxx::string_view const sep = spec.style.empty() ? ", " : spec.style;
+        string_view const sep = spec.style.empty() ? ", " : spec.style;
 
         if (Failed ec = w.put('['))
             return ec;
@@ -200,7 +200,7 @@ struct PP
     {
         using std::get; // using ADL!
 
-        cxx::string_view const sep = spec.style.empty() ? ", " : spec.style;
+        string_view const sep = spec.style.empty() ? ", " : spec.style;
 
         if (Failed ec = Print(w, spec, get<std::tuple_size<T>::value - N>(val))) // Recursive!!!
             return ec;

@@ -416,10 +416,6 @@ struct TreatAsString
 {
 };
 
-// Helper class which holds formatting arguments.
-template <typename ...>
-class ArgPack;
-
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
@@ -440,18 +436,6 @@ struct AlwaysVoid
 
 template <typename ...Ts>
 using Void_t = typename AlwaysVoid<Ts...>::type;
-
-template <typename T>
-struct IsArgPack
-    : std::false_type
-{
-};
-
-template <typename ...Args>
-struct IsArgPack<ArgPack<Args...>>
-    : std::true_type
-{
-};
 
 enum struct Type : int {
     none,
@@ -527,11 +511,6 @@ struct SelectType_checked<T, Type::other> : Type_t<Type::other>
     static_assert(
         !std::is_member_pointer<T>::value,
         "Formatting member pointer types is not supported.");   // ostream: as bool...
-
-    static_assert(
-        !IsArgPack<T>::value,
-        "Using ArgPack in combination with other arguments is not supported. "
-        "The only valid syntax for ArgPack is as a single argument to the formatting functions.");
 };
 
 // Test if a specialization TreatAsString<T> is valid.
@@ -739,6 +718,9 @@ struct Arg
     }
 };
 
+template <typename ...Args>
+using ArgArray = typename std::conditional< sizeof...(Args) == 0, impl::Arg const*, impl::Arg const [sizeof...(Args)] >::type;
+
 struct Types
 {
     using value_type = uint64_t;
@@ -781,6 +763,8 @@ struct MakeTypes<>
 template <typename T, typename ...Ts>
 struct MakeTypes<T, Ts...>
 {
+    static_assert(1 + sizeof...(Ts) <= Types::kMaxArgs, "Too many arguments");
+
     static constexpr const Types::value_type value
         = static_cast<Types::value_type>(TypeFor<T>::value) | (MakeTypes<Ts...>::value << Types::kBitsPerArg);
 };
@@ -810,139 +794,52 @@ int DoArrayPrintf(char* buf, size_t bufsize, string_view format, Arg const* args
 //------------------------------------------------------------------------------
 
 template <typename ...Args>
-class ArgPack
-{
-    static constexpr const int kMaxArgs = impl::Types::kMaxArgs;
-    static constexpr const int kArgs = sizeof...(Args);
-    static_assert(kArgs <= kMaxArgs, "too many arguments");
-
-    using Array = typename std::conditional< kArgs == 0, impl::Arg const*, impl::Arg const [kArgs] >::type;
-    Array args_;
-
-public:
-    explicit ArgPack(Args const&... args) : args_{args...} {}
-
-    impl::Arg const* array() const { return args_; }
-    impl::Types      types() const { return impl::MakeTypes<Args...>::value; }
-};
-
-template <typename ...Args>
-ErrorCode format(Writer& w, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoFormat(w, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-ErrorCode printf(Writer& w, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoPrintf(w, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-ErrorCode format(std::FILE* file, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoFormat(file, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-ErrorCode printf(std::FILE* file, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoPrintf(file, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-ErrorCode format(std::string& str, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoFormat(str, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-ErrorCode printf(std::string& str, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoPrintf(str, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-ToCharsResult format_to_chars(char* first, char* last, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoFormatToChars(first, last, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-ToCharsResult printf_to_chars(char* first, char* last, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoPrintfToChars(first, last, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-int fformat(std::FILE* file, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoFileFormat(file, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-int fprintf(std::FILE* file, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoFilePrintf(file, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-int snformat(char* buf, size_t bufsize, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoArrayFormat(buf, bufsize, format, args.array(), args.types());
-}
-
-template <typename ...Args>
-int snprintf(char* buf, size_t bufsize, string_view format, ArgPack<Args...> const& args)
-{
-    return ::fmtxx::impl::DoArrayPrintf(buf, bufsize, format, args.array(), args.types());
-}
-
-//------------------------------------------------------------------------------
-//
-//------------------------------------------------------------------------------
-
-template <typename ...Args>
 ErrorCode format(Writer& w, string_view format, Args const&... args)
 {
-    return ::fmtxx::format(w, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFormat(w, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 ErrorCode printf(Writer& w, string_view format, Args const&... args)
 {
-    return ::fmtxx::printf(w, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoPrintf(w, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 ErrorCode format(std::FILE* file, string_view format, Args const&... args)
 {
-    return ::fmtxx::format(file, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFormat(file, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 ErrorCode printf(std::FILE* file, string_view format, Args const&... args)
 {
-    return ::fmtxx::printf(file, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoPrintf(file, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 ErrorCode format(std::string& str, string_view format, Args const&... args)
 {
-    return ::fmtxx::format(str, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFormat(str, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 ErrorCode printf(std::string& str, string_view format, Args const&... args)
 {
-    return ::fmtxx::printf(str, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoPrintf(str, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 StringFormatResult string_format(string_view format, Args const&... args)
 {
     StringFormatResult r;
-    r.ec = ::fmtxx::format(r.str, format, args...);
+    r.ec = fmtxx::format(r.str, format, args...);
     return r;
 }
 
@@ -950,56 +847,62 @@ template <typename ...Args>
 StringFormatResult string_printf(string_view format, Args const&... args)
 {
     StringFormatResult r;
-    r.ec = ::fmtxx::printf(r.str, format, args...);
+    r.ec = fmtxx::printf(r.str, format, args...);
     return r;
 }
 
 template <typename ...Args>
 ToCharsResult format_to_chars(char* first, char* last, string_view format, Args const&... args)
 {
-    return ::fmtxx::format_to_chars(first, last, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFormatToChars(first, last, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 ToCharsResult printf_to_chars(char* first, char* last, string_view format, Args const&... args)
 {
-    return ::fmtxx::printf_to_chars(first, last, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoPrintfToChars(first, last, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 int fformat(std::FILE* file, string_view format, Args const&... args)
 {
-    return ::fmtxx::fformat(file, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFileFormat(file, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 int fprintf(std::FILE* file, string_view format, Args const&... args)
 {
-    return ::fmtxx::fprintf(file, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoFilePrintf(file, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 int snformat(char* buf, size_t bufsize, string_view format, Args const&... args)
 {
-    return ::fmtxx::snformat(buf, bufsize, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoArrayFormat(buf, bufsize, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <typename ...Args>
 int snprintf(char* buf, size_t bufsize, string_view format, Args const&... args)
 {
-    return ::fmtxx::snprintf(buf, bufsize, format, ArgPack<Args...>(args...));
+    fmtxx::impl::ArgArray<Args...> arr = {args...};
+    return fmtxx::impl::DoArrayPrintf(buf, bufsize, format, arr, fmtxx::impl::MakeTypes<Args...>::value);
 }
 
 template <size_t N, typename ...Args>
 int snformat(char (&buf)[N], string_view format, Args const&... args)
 {
-    return ::fmtxx::snformat(&buf[0], N, format, args...);
+    return fmtxx::snformat(&buf[0], N, format, args...);
 }
 
 template <size_t N, typename ...Args>
 int snprintf(char (&buf)[N], string_view format, Args const&... args)
 {
-    return ::fmtxx::snprintf(&buf[0], N, format, args...);
+    return fmtxx::snprintf(&buf[0], N, format, args...);
 }
 
 } // namespace fmtxx

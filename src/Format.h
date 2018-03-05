@@ -36,15 +36,14 @@
 #define FMTXX_HAS_INCLUDE(X) 0
 #endif
 
-#if __cplusplus >= 201703 || (_MSC_VER >= 1910 && _HAS_CXX17)
-#define FMTXX_HAS_STD_STRING_VIEW 1
-#include <string_view>
-#endif
-
-#if FMTXX_HAS_INCLUDE(<experimental/string_view>) && __cplusplus > 201103
-#define FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW 1
-#include <experimental/string_view>
-#endif
+// #if __cplusplus >= 201703 || (_MSC_VER >= 1910 && _HAS_CXX17)
+// #define FMTXX_HAS_STD_STRING_VIEW 1
+// #include <string_view>
+// #endif
+// #if FMTXX_HAS_INCLUDE(<experimental/string_view>) && __cplusplus > 201103
+// #define FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW 1
+// #include <experimental/string_view>
+// #endif
 
 #ifdef _MSC_VER
 #  define FMTXX_VISIBILITY_DEFAULT

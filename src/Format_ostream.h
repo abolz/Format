@@ -35,12 +35,12 @@ class StreamBuf final : public std::streambuf
     Writer& w_;
 
 public:
-    FMTXX_API explicit StreamBuf(Writer& w);
-    FMTXX_API ~StreamBuf();
+    explicit StreamBuf(Writer& w);
+    ~StreamBuf();
 
 protected:
-    FMTXX_API int_type overflow(int_type ch = traits_type::eof()) override;
-    FMTXX_API std::streamsize xsputn(char const* str, std::streamsize len) override;
+    int_type overflow(int_type ch = traits_type::eof()) override;
+    std::streamsize xsputn(char const* str, std::streamsize len) override;
 };
 
 namespace type_traits {
@@ -83,8 +83,8 @@ struct DefaultFormatValue<T, Type::other>
     }
 };
 
-FMTXX_API ErrorCode DoFormat(std::ostream& os, string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(std::ostream& os, string_view format, Arg const* args, Types types);
+ErrorCode DoFormat(std::ostream& os, string_view format, Arg const* args, Types types);
+ErrorCode DoPrintf(std::ostream& os, string_view format, Arg const* args, Types types);
 
 } // namespace fmtxx::impl
 

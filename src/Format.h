@@ -45,30 +45,6 @@
 // #include <experimental/string_view>
 // #endif
 
-#ifdef _MSC_VER
-#  define FMTXX_VISIBILITY_DEFAULT
-#else
-#  define FMTXX_VISIBILITY_DEFAULT __attribute__((visibility("default")))
-#endif
-
-#ifdef FMTXX_SHARED
-#  ifdef _MSC_VER
-#    ifdef FMTXX_EXPORT
-#      define FMTXX_API __declspec(dllexport)
-#    else
-#      define FMTXX_API __declspec(dllimport)
-#    endif
-#  else
-#    ifdef FMTXX_EXPORT
-#      define FMTXX_API FMTXX_VISIBILITY_DEFAULT
-#    else
-#      define FMTXX_API
-#    endif
-#  endif
-#else
-#  define FMTXX_API
-#endif
-
 namespace fmtxx {
 
 //------------------------------------------------------------------------------
@@ -222,7 +198,7 @@ enum struct Sign : unsigned char {
     space,       // => '-' if negative, fill-char otherwise
 };
 
-struct FMTXX_VISIBILITY_DEFAULT FormatSpec
+struct FormatSpec
 {
     string_view style; // XXX: Points into the format string. Only valid while formatting arguments...
     int   width = 0;
@@ -237,10 +213,10 @@ struct FMTXX_VISIBILITY_DEFAULT FormatSpec
 };
 
 // The base class for output streams.
-class FMTXX_VISIBILITY_DEFAULT Writer
+class Writer
 {
 public:
-    FMTXX_API virtual ~Writer() noexcept;
+    virtual ~Writer() noexcept;
 
     // Write a character to the output stream.
     ErrorCode put(char c) { return Put(c); }
@@ -261,7 +237,7 @@ private:
 };
 
 // Write to std::FILE's, keeping track of the number of characters (successfully) transmitted.
-class FMTXX_VISIBILITY_DEFAULT FILEWriter : public Writer
+class FILEWriter : public Writer
 {
     std::FILE* const file_;
     size_t           size_ = 0;
@@ -278,16 +254,16 @@ public:
     size_t size() const { return size_; }
 
 private:
-    FMTXX_API ErrorCode Put(char c) override;
-    FMTXX_API ErrorCode Write(char const* ptr, size_t len) override;
-    FMTXX_API ErrorCode Pad(char c, size_t count) override;
+    ErrorCode Put(char c) override;
+    ErrorCode Write(char const* ptr, size_t len) override;
+    ErrorCode Pad(char c, size_t count) override;
 };
 
 // Write to a user allocated buffer.
 // If the buffer overflows, keep track of the number of characters that would
 // have been written if the buffer were large enough. This is for compatibility
 // with snprintf.
-class FMTXX_VISIBILITY_DEFAULT ArrayWriter : public Writer
+class ArrayWriter : public Writer
 {
     char*  const buf_     = nullptr;
     size_t const bufsize_ = 0;
@@ -323,12 +299,12 @@ public:
 
     // Null-terminate the buffer.
     // Returns the length of the string not including the null-character.
-    FMTXX_API size_t finish() noexcept;
+    size_t finish() noexcept;
 
 private:
-    FMTXX_API ErrorCode Put(char c) override;
-    FMTXX_API ErrorCode Write(char const* ptr, size_t len) override;
-    FMTXX_API ErrorCode Pad(char c, size_t count) override;
+    ErrorCode Put(char c) override;
+    ErrorCode Write(char const* ptr, size_t len) override;
+    ErrorCode Pad(char c, size_t count) override;
 };
 
 // Returned by the format_to_chars/printf_to_chars function (below).
@@ -362,16 +338,16 @@ struct Util
 {
     // Note:
     // This function prints len characters, including '\0's.
-    static FMTXX_API ErrorCode format_string      (Writer& w, FormatSpec const& spec, char const* str, size_t len);
+    static ErrorCode format_string      (Writer& w, FormatSpec const& spec, char const* str, size_t len);
     // Note:
     // This is different from just calling format_string(str, strlen(str)):
     // This function handles nullptr's and if a precision is specified uses strnlen instead of strlen.
-    static FMTXX_API ErrorCode format_char_pointer(Writer& w, FormatSpec const& spec, char const* str);
-    static FMTXX_API ErrorCode format_int         (Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext);
-    static FMTXX_API ErrorCode format_bool        (Writer& w, FormatSpec const& spec, bool val);
-    static FMTXX_API ErrorCode format_char        (Writer& w, FormatSpec const& spec, char ch);
-    static FMTXX_API ErrorCode format_pointer     (Writer& w, FormatSpec const& spec, void const* pointer);
-    static FMTXX_API ErrorCode format_double      (Writer& w, FormatSpec const& spec, double x);
+    static ErrorCode format_char_pointer(Writer& w, FormatSpec const& spec, char const* str);
+    static ErrorCode format_int         (Writer& w, FormatSpec const& spec, int64_t sext, uint64_t zext);
+    static ErrorCode format_bool        (Writer& w, FormatSpec const& spec, bool val);
+    static ErrorCode format_char        (Writer& w, FormatSpec const& spec, char ch);
+    static ErrorCode format_pointer     (Writer& w, FormatSpec const& spec, void const* pointer);
+    static ErrorCode format_double      (Writer& w, FormatSpec const& spec, double x);
 
     template <typename T>
     static ErrorCode format_string(Writer& w, FormatSpec const& spec, T const& value)
@@ -809,23 +785,23 @@ struct MakeTypes<T, Ts...>
         = static_cast<Types::value_type>(TypeFor<T>::value) | (MakeTypes<Ts...>::value << Types::kBitsPerArg);
 };
 
-FMTXX_API ErrorCode DoFormat(Writer&      w,    string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(Writer&      w,    string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoFormat(std::FILE*   file, string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(std::FILE*   file, string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoFormat(std::string& str,  string_view format, Arg const* args, Types types);
-FMTXX_API ErrorCode DoPrintf(std::string& str,  string_view format, Arg const* args, Types types);
+ErrorCode DoFormat(Writer&      w,    string_view format, Arg const* args, Types types);
+ErrorCode DoPrintf(Writer&      w,    string_view format, Arg const* args, Types types);
+ErrorCode DoFormat(std::FILE*   file, string_view format, Arg const* args, Types types);
+ErrorCode DoPrintf(std::FILE*   file, string_view format, Arg const* args, Types types);
+ErrorCode DoFormat(std::string& str,  string_view format, Arg const* args, Types types);
+ErrorCode DoPrintf(std::string& str,  string_view format, Arg const* args, Types types);
 
-FMTXX_API ToCharsResult DoFormatToChars(char* first, char* last, string_view format, Arg const* args, Types types);
-FMTXX_API ToCharsResult DoPrintfToChars(char* first, char* last, string_view format, Arg const* args, Types types);
+ToCharsResult DoFormatToChars(char* first, char* last, string_view format, Arg const* args, Types types);
+ToCharsResult DoPrintfToChars(char* first, char* last, string_view format, Arg const* args, Types types);
 
 // fprintf compatible formatting functions.
-FMTXX_API int DoFileFormat(std::FILE* file, string_view format, Arg const* args, Types types);
-FMTXX_API int DoFilePrintf(std::FILE* file, string_view format, Arg const* args, Types types);
+int DoFileFormat(std::FILE* file, string_view format, Arg const* args, Types types);
+int DoFilePrintf(std::FILE* file, string_view format, Arg const* args, Types types);
 
 // snprintf compatible formatting functions.
-FMTXX_API int DoArrayFormat(char* buf, size_t bufsize, string_view format, Arg const* args, Types types);
-FMTXX_API int DoArrayPrintf(char* buf, size_t bufsize, string_view format, Arg const* args, Types types);
+int DoArrayFormat(char* buf, size_t bufsize, string_view format, Arg const* args, Types types);
+int DoArrayPrintf(char* buf, size_t bufsize, string_view format, Arg const* args, Types types);
 
 } // namespace fmtxx::impl
 

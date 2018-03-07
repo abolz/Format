@@ -124,24 +124,44 @@ inline ErrorCode StreamWriter::Pad(char c, size_t count)
 
 ErrorCode fmtxx::impl::DoFormat(std::ostream& os, string_view format, Arg const* args, Types types)
 {
+    auto ec = ErrorCode::success;
+
     std::ostream::sentry const ok(os);
     if (ok)
     {
         StreamWriter w{os};
-        return ::fmtxx::impl::DoFormat(w, format, args, types);
+        ec = fmtxx::impl::DoFormat(w, format, args, types);
+    }
+    else
+    {
+        ec = ErrorCode::io_error;
     }
 
-    return ErrorCode::io_error;
+    if (ec != ErrorCode::success) {
+        os.setstate(std::ios_base::failbit);
+    }
+
+    return ec;
 }
 
 ErrorCode fmtxx::impl::DoPrintf(std::ostream& os, string_view format, Arg const* args, Types types)
 {
+    auto ec = ErrorCode::success;
+
     std::ostream::sentry const ok(os);
     if (ok)
     {
         StreamWriter w{os};
-        return ::fmtxx::impl::DoPrintf(w, format, args, types);
+        ec = fmtxx::impl::DoPrintf(w, format, args, types);
+    }
+    else
+    {
+        ec = ErrorCode::io_error;
     }
 
-    return ErrorCode::io_error;
+    if (ec != ErrorCode::success) {
+        os.setstate(std::ios_base::failbit);
+    }
+
+    return ec;
 }

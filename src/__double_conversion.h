@@ -879,15 +879,6 @@ class PowersOfTenCache {
                                                    int max_exponent,
                                                    DiyFp* power,
                                                    int* decimal_exponent);
-
-  // Returns a cached power of ten x ~= 10^k such that
-  //   k <= decimal_exponent < k + kCachedPowersDecimalDistance.
-  // The given decimal_exponent must satisfy
-  //   kMinDecimalExponent <= requested_exponent, and
-  //   requested_exponent < kMaxDecimalExponent + kDecimalExponentDistance.
-  static void GetCachedPowerForDecimalExponent(int requested_exponent,
-                                               DiyFp* power,
-                                               int* found_exponent);
 };
 
 struct CachedPower {
@@ -1014,20 +1005,6 @@ inline void PowersOfTenCache::GetCachedPowerForBinaryExponentRange(
   *power = DiyFp(cached_power.significand, cached_power.binary_exponent);
 }
 
-
-inline void PowersOfTenCache::GetCachedPowerForDecimalExponent(int requested_exponent,
-                                                        DiyFp* power,
-                                                        int* found_exponent) {
-  DOUBLE_CONVERSION_ASSERT(kMinDecimalExponent <= requested_exponent);
-  DOUBLE_CONVERSION_ASSERT(requested_exponent < kMaxDecimalExponent + kDecimalExponentDistance);
-  int index =
-      (requested_exponent + kCachedPowersOffset) / kDecimalExponentDistance;
-  CachedPower cached_power = kCachedPowers[index];
-  *power = DiyFp(cached_power.significand, cached_power.binary_exponent);
-  *found_exponent = cached_power.decimal_exponent;
-  DOUBLE_CONVERSION_ASSERT(*found_exponent <= requested_exponent);
-  DOUBLE_CONVERSION_ASSERT(requested_exponent < *found_exponent + kDecimalExponentDistance);
-}
 
 } // namespace impl
 } // namespace double_conversion

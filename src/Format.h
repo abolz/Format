@@ -30,32 +30,12 @@
 #include <string>
 #include <type_traits>
 
-#if defined(__has_include)
-#define FMTXX_HAS_INCLUDE(X) __has_include(X)
-#else
-#define FMTXX_HAS_INCLUDE(X) 0
-#endif
-
-// #if __cplusplus >= 201703 || (_MSC_VER >= 1910 && _HAS_CXX17)
-// #define FMTXX_HAS_STD_STRING_VIEW 1
-// #include <string_view>
-// #endif
-// #if FMTXX_HAS_INCLUDE(<experimental/string_view>) && __cplusplus > 201103
-// #define FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW 1
-// #include <experimental/string_view>
-// #endif
-
 namespace fmtxx {
 
 //------------------------------------------------------------------------------
 //
 //------------------------------------------------------------------------------
 
-#if FMTXX_HAS_STD_STRING_VIEW
-using std::string_view;
-#elif FMTXX_HAS_STD_EXPERIMENTAL_STRING_VIEW
-using std::experimental::string_view;
-#else
 class string_view // A minimal std::string_view replacement
 {
 public:
@@ -151,7 +131,6 @@ public:
         return data_[n];
     }
 };
-#endif
 
 //------------------------------------------------------------------------------
 //

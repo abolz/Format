@@ -1693,11 +1693,6 @@ class Bignum {
   //  this = this % other;
   // In the worst case this function is in O(this/other).
   uint16_t DivideModuloIntBignum(const Bignum& other);
-  // Pseudocode:
-  //  int result = this / other;
-  //  this = this % other;
-  // Returns the least significant 64-bits of the quotient.
-  uint64_t Mod(const Bignum& other);
 
   // Returns
   //  -1 if a < b,
@@ -1758,8 +1753,6 @@ class Bignum {
   int BigitLength() const { return used_digits_ + exponent_; }
   Chunk BigitAt(int index) const;
   void SubtractTimes(const Bignum& other, int factor);
-
-  uint64_t LongDiv(Bignum& u, const Bignum& v);
 
   Chunk bigits_buffer_[kBigitCapacity];
   // A vector backed by bigits_buffer_. This way accesses to the array are
@@ -2125,23 +2118,6 @@ inline uint16_t Bignum::DivideModuloIntBignum(const Bignum& other) {
 }
 
 
-inline uint64_t Bignum::Mod(const Bignum& other) {
-  DOUBLE_CONVERSION_ASSERT(IsClamped());
-  DOUBLE_CONVERSION_ASSERT(other.IsClamped());
-  DOUBLE_CONVERSION_ASSERT(other.used_digits_ > 0);
-
-  // Easy case: if we have less digits than the divisor than the result is 0.
-  // Note: this handles the case where this == 0, too.
-  if (BigitLength() < other.BigitLength()) {
-    return 0;
-  }
-
-  Align(other);
-
-  return LongDiv(*this, other);
-}
-
-
 inline Bignum::Chunk Bignum::BigitAt(int index) const {
   if (index >= BigitLength()) return 0;
   if (index < exponent_) return 0;
@@ -2296,299 +2272,6 @@ inline void Bignum::SubtractTimes(const Bignum& other, int factor) {
   Clamp();
 }
 
-
-static int CountLeadingZeros32(uint32_t n) {
-  DOUBLE_CONVERSION_ASSERT(n != 0);
-  int z = 0;
-  while ((n & (uint32_t{1} << 31)) == 0) {
-    ++z;
-    n <<= 1;
-  }
-  return z;
-}
-
-
-//
-// Algorithm D (Division of nonnegative integers).
-//
-// Given nonnegative integers
-//    u = (u[0] u[1] ... u[m-1])_b = u[0] + u[1] * b + ... + u[m-1] * b^(m-1)
-//    v = (v[0] v[1] ... v[n-1])_b,
-// where m > 0, u[m-1] != 0, n > 0 and v[n-1], this algorithm computes their
-// radix-b quotient q and remainder r
-//    q = (q[0] q[1] ... q[m-n])_b = u / v
-//    r = (r[0] r[1] ... r[n-1])_b = u % v
-//
-// The method overwrites 'u' with the remainder 'r' and does not store the
-// quotient 'q'. The return value contains the least significant digits of the
-// quotient.
-//
-inline uint64_t Bignum::LongDiv(Bignum& u, const Bignum& v) {
-  DOUBLE_CONVERSION_ASSERT(u.BigitLength() >= v.BigitLength());
-  DOUBLE_CONVERSION_ASSERT(u.used_digits_ > 0);
-  DOUBLE_CONVERSION_ASSERT(v.used_digits_ > 0);
-  DOUBLE_CONVERSION_ASSERT(v.bigits_[v.used_digits_ - 1] != 0);
-  DOUBLE_CONVERSION_ASSERT(u.exponent_ <= v.exponent_);
-
-  // We know (X denotes a 0-digit encoded by an exponent) that u and v are of
-  // the form
-  //    u = uuuuuuXX
-  //    v =  vvvXXXX
-  // So _implicitly_ shift v (i.e. v.Align(u)) such that
-  //    u = uuuuuuXX
-  //    v =  vvv00XX
-  // Both exponents can now be considered equal and can be ignored in the
-  // algorithm below (since they cancel each other). In the multiply-subtract
-  // and add-back steps below, the implicit 0-digits can be ignored. We just
-  // need to be careful when indexing into the v.bigits_ array.
-  const int num_zeros_v = v.exponent_ - u.exponent_;
-  const int m = u.used_digits_;
-  const int n = v.used_digits_ + num_zeros_v;
-  DOUBLE_CONVERSION_ASSERT(m >= n);
-  DOUBLE_CONVERSION_ASSERT(n >= 1);
-
-  //----------------------------------------------------------------------------
-  // D0.
-  //
-  // Handle the case of a single digit division first.
-  // Note that this step is not only here for performance reasons. The
-  // algorithm described below requires at least two digits in the
-  // denominator. (The less significant digit may be a hidden 0-digit, encoded
-  // by the exponent.)
-  if (n == 1) {
-    DOUBLE_CONVERSION_ASSERT(num_zeros_v == 0);
-    const uint32_t den = v.bigits_[0];
-
-    // Perform short division for a denominator consisting only of a single
-    // digit.
-    uint64_t q = 0;
-    uint64_t r = 0;
-    for (int i = m - 1; i >= 0; --i) {
-      const uint64_t t = (r << kBigitSize) + u.bigits_[i];
-      q                = (q << kBigitSize) + static_cast<uint32_t>(t / den);
-      r                = static_cast<uint32_t>(t % den);
-    }
-    u.AssignUInt64(r);
-    return q;
-  }
-
-  DOUBLE_CONVERSION_ASSERT(n >= 2);
-
-  u.EnsureCapacity(m + 1);
-  u.bigits_[m] = 0;
-
-  //----------------------------------------------------------------------------
-  // D1. [Normalize.]
-  //
-  // Set d := b / (v[n-1] + 1). Then set
-  //    u' := (u[0] u[1] ... u[m-1] u[m])_b = d * (u[0] u[1] ... u[m-1])_b,
-  //    v' := (v[0] v[1] ... v[n-1]     )_b = d * (v[0] v[1] ... v[n-1])_b.
-  //
-  // Note the introduction of a new digit position u[m] at the right of
-  // u[m-1]; if d = 1, all we need to do in this step is set u[m] := 0.
-  //
-  // On a binary computer it may be preferable to choose d to be a power of 2
-  // instead of using the value suggested here; any value of d that results in
-  // v[n-1] >= b/2 will suffice.
-  //
-
-  // This normalization step is required only to efficiently estimate the
-  // quotient q' (see below). Is is not necessary for the other steps of the
-  // algorithm.
-  // Instead of shifting both u and v into u' and v' resp., the required
-  // digits of u' and v' are computed when they are needed.
-  //
-  // The variables vK here denote v'[n - K], where K = 1, 2, and v' denotes
-  // the normalized value d * v.
-
-  uint32_t v1 = v.bigits_[n - 1 - num_zeros_v];
-  uint32_t v2;
-  if (n - 2 - num_zeros_v >= 0)
-    v2 = v.bigits_[n - 2 - num_zeros_v];
-  else
-    v2 = 0; // This is an implicit zero digit, encoded by the exponent.
-
-  const int shift = CountLeadingZeros32(v1) - (32 - kBigitSize);
-  DOUBLE_CONVERSION_ASSERT(shift >= 0);
-  DOUBLE_CONVERSION_ASSERT(shift < kBigitSize); // since v1 != 0
-  if (shift > 0) {
-    uint32_t v3;
-    if (n - 3 - num_zeros_v >= 0)
-      v3 = v.bigits_[n - 3 - num_zeros_v];
-    else
-      v3 = 0; // Shift in zeros.
-
-    v1 = (v1 << shift | v2 >> (kBigitSize - shift)) & kBigitMask;
-    v2 = (v2 << shift | v3 >> (kBigitSize - shift)) & kBigitMask;
-  }
-
-  // v1 and v2 now contain the leading digits of v'.
-
-  //----------------------------------------------------------------------------
-  // D2. [Initialize.]
-  //
-  // Set j := m - n.
-  //
-  // The loop on j, steps D2 through D7, will be essentially a division of
-  // (u[j] u[j+1] ... u[j+n])_b by (v[0] v[1] ... v[n-1])_b to get a single
-  // quotient digit.
-  //
-
-  // Stores the least significant digits of the quotient.
-  uint64_t quotient_lower = 0;
-
-  for (int j = m - n; j >= 0; --j) {
-    //--------------------------------------------------------------------------
-    // D3. [Calculate q'.]
-    //
-    // If u[j+n] = v[n-1], set
-    //    q' := b - 1;
-    // otherwise set
-    //    q' := (u[j+n] * b + u[j+n-1]) / v[n-1].
-    // Now test if
-    //    q' * v[n-2] > (u[j+n] * b + u[j+n-1] - q' * v[n-1]) * b + u[j+n-2];
-    // if so, decrease q' by 1 and repeat this test.
-    //
-    // The latter test determines at high speed most of the cases in which
-    // the trial value q' is one too large, and it eliminates all cases
-    // where q' is two too large.
-    //
-
-    // The variable uK here denotes u'[j + n - K], where K = 0, 1, 2, and u'
-    // denotes the scaled value d * u.
-
-    uint32_t u0 = u.bigits_[j + n];
-    uint32_t u1 = u.bigits_[j + n - 1];
-    uint32_t u2 = u.bigits_[j + n - 2];
-    if (shift > 0) {
-      uint32_t u3;
-      if (j + n - 3 >= 0)
-        u3 = u.bigits_[j + n - 3];
-      else
-        u3 = 0; // Shift in zeros
-
-      u0 = (u0 << shift | u1 >> (kBigitSize - shift)) & kBigitMask;
-      u1 = (u1 << shift | u2 >> (kBigitSize - shift)) & kBigitMask;
-      u2 = (u2 << shift | u3 >> (kBigitSize - shift)) & kBigitMask;
-    }
-
-    // u0, u1 and u2 now contain the leading digits of u'.
-
-    const uint64_t kBase = (uint64_t{1} << kBigitSize) - 1;
-
-    const uint64_t num = (uint64_t{u0} << kBigitSize) + u1;
-    uint64_t qp;
-    if (u0 == v1)
-      qp = kBase - 1;
-    else
-      qp = num / v1;
-
-    if (qp * v2 > ((num - qp * v1) << kBigitSize) + u2) {
-      --qp;
-      if (qp * v2 > ((num - qp * v1) << kBigitSize) + u2) {
-        --qp;
-      }
-    }
-
-    DOUBLE_CONVERSION_ASSERT(qp < kBase);
-
-    if (qp > 0) {
-      //------------------------------------------------------------------------
-      // D4. [Multiply and subtract.]
-      //
-      // Replace
-      //    (u[j] u[j+1] ... u[j+n])_b
-      //      := (u[j] u[j+1] ... u[j+n])_b - q' * (v[0] v[1] ... v[n-1] 0)
-      //
-      // This step consists of a simple multiplication by a one-place
-      // number, combined with subtraction. The digits (u[j] ... u[j+n])_b
-      // should be kept positive; if the result of this step is actually
-      // negative, (u[j] ... u[j+n])_b should be left as the true value
-      // plus b^(n+1), i.e., as the b's complement of the true value, and
-      // a "borrow" to the right should be remembered.
-      //
-
-      uint32_t borrow = 0;
-      // The lower digits v[0], ..., v[num_zeros_v - 1] are all 0-digits
-      // and can be skipped in this loop.
-      for (int i = num_zeros_v; i < n; ++i) {
-        const uint32_t ui = u.bigits_[j + i];
-        const uint64_t vi = v.bigits_[i - num_zeros_v];
-        const uint64_t p  = qp * vi + borrow;
-        const uint32_t r  = static_cast<uint32_t>(p & kBigitMask);
-        borrow            = static_cast<uint32_t>((p >> kBigitSize) + (ui < r));
-        u.bigits_[j + i]  = static_cast<uint32_t>((ui - r) & kBigitMask);
-      }
-      // vn = 0:
-      const bool was_negative = (u.bigits_[j + n] < borrow);
-      u.bigits_[j + n] = static_cast<uint32_t>((u.bigits_[j + n] - borrow) & kBigitMask);
-
-      //------------------------------------------------------------------------
-      // D5. [Test remainder.]
-      //
-      // Set q[j] := q'. If the result of step D4 was negative, go to step
-      // D6; otherwise go on to step D7.
-      //
-
-      if (was_negative) {
-        //----------------------------------------------------------------------
-        // D6. [Add back.]
-        //
-        // Decrease q[j] by 1, and add (v[0] v[1] ... v[n-1] 0)_b to
-        // (u[j] u[j+1] ... u[j+n])_b. (A carry will occur to the right
-        // of u[j+n], and it should be ignored since it cancels with the
-        // "borrow" that occurred in D4.)
-        //
-        // The probability that this step is necessary is very small, on
-        // the order of only 2/b; test data that activates this step
-        // should therefore be specifically contrived when debugging.
-        //
-
-        --qp;
-
-        uint32_t carry = 0;
-        // The lower digits v[0], ..., v[num_zeros_v - 1] are all
-        // 0-digits and can be skipped in this loop.
-        for (int i = num_zeros_v; i < n; ++i) {
-          const uint64_t ui = u.bigits_[j + i];
-          const uint64_t vi = v.bigits_[i - num_zeros_v];
-          const uint64_t s  = ui + vi + carry;
-          u.bigits_[j + i]  = static_cast<uint32_t>(s & kBigitMask);
-          carry             = static_cast<uint32_t>(s >> kBigitSize);
-        }
-        // vn = 0:
-        const uint64_t un = u.bigits_[j + n];
-        u.bigits_[j + n] = static_cast<uint32_t>(un + carry) & kBigitMask;
-
-        DOUBLE_CONVERSION_ASSERT(((un + carry) >> kBigitSize) != 0);
-      }
-    }
-
-    DOUBLE_CONVERSION_ASSERT(qp < kBase);
-    quotient_lower = (quotient_lower << kBigitSize) + qp;
-
-    //--------------------------------------------------------------------------
-    // D7. [Loop on j.]
-    //
-    // Decrease j by one. Now if j >= 0, go back to D3.
-    //
-  }
-
-  //----------------------------------------------------------------------------
-  // D8. [Unnormalize.]
-  //
-  // Now (q[0] q[1] ... q[m-n])_b is the desired quotient, and the desired
-  // remainder may be obtained by dividing (u[0] u[1] ... u[n-1])_b by d.
-  //
-
-  // We didn't multiply in the first place, so we don't need to divide here.
-
-  // Still need to clamp the remainder.
-  u.used_digits_ = n;
-  u.Clamp();
-
-  return quotient_lower;
-}
 
 } // namespace impl
 } // namespace double_conversion
@@ -2858,63 +2541,6 @@ static void GenerateCountedDigits(int count, int* decimal_point,
                                   Bignum* numerator, Bignum* denominator,
                                   Vector<char> buffer, int* length) {
   DOUBLE_CONVERSION_ASSERT(count >= 0);
-#if 1
-  static const uint32_t kPow10Table[] = {
-    1, // 10^0 (unused)
-    10, // 10^1
-    100, // 10^2
-    1000, // 10^3
-    10000, // 10^4
-    100000, // 10^5
-    1000000, // 10^6
-    10000000, // 10^7
-    100000000, // 10^8
-  };
-
-  // Generate all but the last digit.
-  if (0 < count - 1) {
-    int i = 0;
-
-    // Generate the first digit
-    const uint16_t digit = numerator->DivideModuloIntBignum(*denominator);
-    DOUBLE_CONVERSION_ASSERT(digit <= 9);
-    buffer[i] = static_cast<char>('0' + digit);
-    ++i;
-
-    // Generate digits in groups of digits_per_step.
-    auto gen_digits = [&](int digits_per_step, uint32_t multiplier) {
-      for (; i + digits_per_step <= count - 1; i += digits_per_step) {
-        // numerator->MultiplyByPowerOfTen(digits_per_step);
-        numerator->MultiplyByUInt32(multiplier);
-
-        uint64_t q = numerator->Mod(*denominator);
-        DOUBLE_CONVERSION_ASSERT(q < multiplier);
-
-        // Write the digits into the buffer (in reverse order)
-        for (int k = digits_per_step - 1; k >= 0; --k) {
-          const uint64_t r = q % 10;
-          q /= 10;
-          buffer[i + k] = static_cast<char>('0' + r);
-        }
-      }
-    };
-
-    const int kBlockSize = 8;
-    static_assert(kBlockSize >= 1, "invalid parameter");
-    static_assert(kBlockSize <= 8, "invalid parameter");
-
-    gen_digits(kBlockSize, kPow10Table[kBlockSize]);
-
-    const int remaining_digits = count - 1 - i;
-    if (remaining_digits > 0) {
-      DOUBLE_CONVERSION_ASSERT(remaining_digits <= kBlockSize);
-      gen_digits(remaining_digits, kPow10Table[remaining_digits]);
-    }
-
-    // Prepare for next iteration. (The last digit below.)
-    numerator->Times10();
-  }
-#else
   // Generate all but the last digit.
   for (int i = 0; i < count - 1; ++i) {
     uint16_t digit;
@@ -2926,7 +2552,6 @@ static void GenerateCountedDigits(int count, int* decimal_point,
     // Prepare for next iteration.
     numerator->Times10();
   }
-#endif
   // Generate the last digit.
   uint16_t digit;
   digit = numerator->DivideModuloIntBignum(*denominator);
